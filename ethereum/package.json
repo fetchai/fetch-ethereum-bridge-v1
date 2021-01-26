@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "truffle": "^5.1.62",
+    "@truffle/hdwallet-provider": "^1.2.1",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.10",
+    "@openzeppelin/test-environment": "^0.1.9",
+    "ganache-cli": "^6.12.2"
+  }
+}
