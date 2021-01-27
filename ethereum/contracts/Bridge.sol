@@ -19,10 +19,10 @@
 
 pragma solidity ^0.6.0 || ^0.7.0;
 
-import "../openzeppelin/contracts/token/ERC20/IERC20.sol";
+//import "../openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../openzeppelin/contracts/access/AccessControl.sol";
 import "../openzeppelin/contracts/math/SafeMath.sol";
-
+import "./IERC20Token.sol";
 
 contract Bridge is AccessControl {
     using SafeMath for uint256;
@@ -36,29 +36,36 @@ contract Bridge is AccessControl {
     // *******    ADMIN-LEVEL EVENTS    ********
     event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
     event CapUpdate(uint256 amount);
-    event Inflate(uint256 amount);
-    event Deflate(uint256 amount);
+    event NewRelayEon(uint64 eon);
     event FeesWithdrawal(address targetAddress, uint256 amount);
     event ExcessFundsWithdrawal(address targetAddress, uint256 amount);
     event DeleteContract(address payoutAddress);
+    // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
+    //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
+    //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can
+    //  identify events for mint, resp. burn, calls by filtering ERC20 Transfer events with `from == ZERO_ADDR  &&
+    //  to == Bridge.address` for MINT operation, resp `from == Bridge.address` and `to == ZERO_ADDR` for BURN operation.
+    //event Mint(uint256 amount);
+    //event Burn(uint256 amount);
 
     bytes32 public constant DELEGATE_ROLE = keccak256("DELEGATE_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
-
-    // *******    STATE    ********
-    IERC20 public token;
+    // *******    IMMUTABLE STATE    ********
+    IERC20Token public immutable token;
+    uint256 public immutable earliestDelete;
+    // *******    MUTABLE STATE    ********
     uint256 public effectiveAmountAccrued;
-    uint256 public inflationAmount;
     uint256 public feesAccrued;
-    uint256 public nextSwapId;
-    //uint256 public nextReverseSwapId;
-    mapping(uint256 => uint256) refunds; // swapId -> effectiveAmount
+    uint64 public  nextSwapId;
+    uint64 public  relayEon;
+    mapping(uint64 => uint256) public refunds; // swapId -> effectiveAmount
     uint256 public upperSwapLimit;
     uint256 public lowerSwapLimit;
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
-    uint256 public immutable earliestDelete;
+
 
 
     /* Only callable by owner */
@@ -69,12 +76,22 @@ contract Bridge is AccessControl {
 
     /* Only callable by owner or delegate */
     modifier onlyDelegate() {
-        require(_isOwner() || hasRole(DELEGATE_ROLE, msg.sender), "Caller must be owner or delegate");
+        require(hasRole(DELEGATE_ROLE, msg.sender) || _isOwner(), "Caller must be owner or delegate");
         _;
     }
 
-    modifier verifyTxExpiration(uint256 expirationBlock) {
-        require(_getBlockNumber() <= expirationBlock, "Transaction expired");
+    modifier onlyRelayer() {
+        require(hasRole(RELAYER_ROLE, msg.sender), "Caller must be relayer");
+        _;
+    }
+
+    modifier canPause() {
+        require(hasRole(RELAYER_ROLE, msg.sender) || _isOwner() || hasRole(DELEGATE_ROLE, msg.sender), "Only relayer, admin or delegate");
+        _;
+    }
+
+    modifier verifyTxRelayEon(uint64 relayEon_) {
+        require(relayEon == relayEon_, "Tx doesn't belong to current relayEon");
         _;
     }
 
@@ -90,8 +107,9 @@ contract Bridge is AccessControl {
         _;
     }
 
-    modifier verifySwapId(uint256 id) {
+    modifier verifyRefundSwapId(uint64 id) {
         require(id < nextSwapId, "Invalid swap id");
+        require(refunds[id] == 0, "Refund was already processed");
         _;
     }
 
@@ -118,14 +136,16 @@ contract Bridge is AccessControl {
         , uint256 deleteProtectionPeriod_)
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        token = IERC20(ERC20Address);
+        token = IERC20Token(ERC20Address);
         earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
 
         // NOTE(pb): Unnecessary initialisations, done implicitly by VM
         //effectiveAmountAccrued = 0;
         //feesAccrued = 0;
         //nextSwapId = 0;
-        //inflationAmount = 0;
+
+        // NOTE(pb): Initial value is by design set to MAX_LIMIT<uint64>, so that its NEXT increment(+1) will overflow to 0.
+        relayEon = ~uint64(0);
 
         _setCap(cap_);
         _setLimits(upperSwapLimit_, lowerSwapLimit_, swapFee_);
@@ -165,21 +185,35 @@ contract Bridge is AccessControl {
 
 
     // **********************************************************
-    // ***********    DELEGATE-LEVEL ACCESS METHODS    **********
+    // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
+
+
+    function newRelayEon()
+        public
+        onlyRelayer
+    {
+        // NOTE(pb): No need for safe math for this increment, since the MAX_LIMIT<uint64> is huge number (~10^19),
+        //  there is no way that +1 incrementing from initial 0 value can possibly cause overflow in real world - that
+        //  would require to send more than 10^19 transactions to reach that point.
+        //  The only case, where this increment operation will lead to overflow, by-design, is the **VERY 1st**
+        //  increment = very 1st call of this contract method, when the `relayEon` is by-design & intentionally
+        //  initialised to MAX_LIMIT<uint64> value, so the resulting value of the `relayEon` after increment will be `0`
+        relayEon += 1;
+        emit NewRelayEon(relayEon);
+    }
 
 
     function refund(
-        uint256 id,
+        uint64 id,
         address to,
         uint256 effectiveAmount, // This is WITHOUT fee = original amount - fee
-        uint256 txExpirationBlock
+        uint64 relayEon_
         )
         public
-        onlyDelegate
-        verifySwapId(id)
-        verifyTxExpiration(txExpirationBlock)
+        verifyTxRelayEon(relayEon_)
+        onlyRelayer
+        verifyRefundSwapId(id)
     {
-        require(refunds[id] == 0, "Refund was already processed");
         require(token.transfer(to, effectiveAmount), "Transfer failed");
         refunds[id] = effectiveAmount;
         effectiveAmountAccrued = effectiveAmountAccrued.sub(effectiveAmount);
@@ -188,16 +222,16 @@ contract Bridge is AccessControl {
 
     // NOTE(pb):  Fee is *NOT* refunded back to the user (this is by design)
     function reverseSwap(
-        uint256 rid, // Reverse swp id (from counterpart contract on other blockchain)
+        uint64 rid, // Reverse swp id (from counterpart contract on other blockchain)
         address to,
         string calldata from,
         bytes32 originTxHash,
         uint256 effectiveAmount, // This shall be effectiveAmount (WITHOUT fee) = originalAmount - fee
-        uint256 txExpirationBlock
+        uint64 relayEon_
         )
         public
-        onlyDelegate
-        verifyTxExpiration(txExpirationBlock)
+        verifyTxRelayEon(relayEon_)
+        onlyRelayer
     {
         require(token.transfer(to, effectiveAmount), "Transfer failed");
         effectiveAmountAccrued = effectiveAmountAccrued.sub(effectiveAmount);
@@ -205,15 +239,18 @@ contract Bridge is AccessControl {
     }
 
 
+    // **********************************************************
+    // ****   RELAYER/DELEGATE/ADMIN-LEVEL ACCESS METHODS   *****
+
+
     /**
      * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number 
      * @param blockNumber block number since which non-admin interaction will be paused (for all _getBlockNumber() >= blockNumber)
      * @dev Delegate only
      */
-    function pauseSince(uint256 blockNumber, uint256 txExpirationBlock)
+    function pauseSince(uint256 blockNumber)
         public
-        verifyTxExpiration(txExpirationBlock)
-        onlyDelegate
+        canPause
     {
         _pauseSince(blockNumber);
     }
@@ -223,42 +260,29 @@ contract Bridge is AccessControl {
     // ************    ADMIN-LEVEL ACCESS METHODS   *************
 
 
-    function inflate(uint256 amount)
+    function mint(uint256 amount)
         public
         onlyOwner
     {
-        inflationAmount = inflationAmount.add(amount);
-
-        // NOTE(pb): This needs to be done, so inflationary amount of tokens from counterpart blockchain corresponding
-        //  to `effectiveAmountAccrued` *ORIGINALLY* transferred in to that blockchain (= before inflation) can be
-        //  transferred back to the *source*(=Ethereum) blockchain.
-        //  Please keep in mind that this action **SHALL** be preceded with **MINTING** of the `amount`
-        //  of ERC20 FET tokens.
-         effectiveAmountAccrued = effectiveAmountAccrued.add(amount);
-        emit Inflate(amount);
+        // NOTE(pb): The `effectiveAmountAccrued` shall be adjusted by deflation amount.
+        effectiveAmountAccrued = effectiveAmountAccrued.add(amount);
+        token.mint(address(this), amount);
 
         // NOTE(pb): We should think if alignment of cap is actually right thing to do here.
         _setCap(cap.add(amount));
     }
 
 
-    function deflate(uint256 amount)
+    function burn(uint256 amount)
         public
         onlyOwner
     {
         // NOTE(pb): any of following subtractions will fail should there be insufficient value
         //  on any of state variables bellow.
 
-        inflationAmount = inflationAmount.sub(amount);
-        // NOTE(pb): The `effectiveAmountAccrued` shall be adjusted when inflation is removed from the system (when
-        //  the inflation is *reduced* in counterpart blockchain).
-        //  This is to **PREVENT** transfer of more inflationary tokens back to *source*(=Ethereum) blockchain
-        //than it was originally(= before inflation/deflation) transferred to the counterpart blockchain.
-        //  Please keep in mind that this action **SHALL** be preceded with *BURNING* of the `amount`
-        //  of ERC20 FET tokens.
+        // NOTE(pb): The `effectiveAmountAccrued` shall be adjusted by deflation amount.
         effectiveAmountAccrued = effectiveAmountAccrued.sub(amount);
-
-        emit Deflate(amount);
+        token.burn(amount);
 
         // NOTE(pb): We should think if alignment of cap is actually right thing to do here.
         if (cap < amount)
@@ -326,7 +350,7 @@ contract Bridge is AccessControl {
      * @dev owner only + only on or after `earliestDelete` block
      */
     function deleteContract(address payable payoutAddress)
-        external
+        public
         onlyOwner
     {
         require(earliestDelete >= _getBlockNumber(), "Earliest delete not reached");
