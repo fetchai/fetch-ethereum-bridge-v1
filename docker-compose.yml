@@ -11,8 +11,9 @@ services:
     build:
       context: ethereum
       dockerfile: docker/deploy.Dockerfile
-    entrypoint: /source/docker/entrypoint.sh
+    entrypoint: /source/docker/deploy.sh
     depends_on: 
       - ganache
     environment:
       LEDGERHOSTNAME: ganache
+      ACTION: deploy
