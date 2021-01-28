@@ -11,7 +11,7 @@ services:
     build:
       context: ethereum
       dockerfile: docker/deploy.Dockerfile
-    entrypoint: /source/docker/deploy.sh
+    entrypoint: sleep 7200
     depends_on: 
       - ganache
     environment:
