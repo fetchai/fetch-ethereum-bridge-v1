@@ -1,0 +1,8 @@
+version: "3.3"
+
+services:
+  ganache:
+    image: trufflesuite/ganache-cli:v6.12.2
+    command: --chainId 1337
+    ports:
+      - "8545:8545"
