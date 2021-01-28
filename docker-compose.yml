@@ -16,4 +16,3 @@ services:
       - ganache
     environment:
       LEDGERHOSTNAME: ganache
-      ACTION: deploy

@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "deploy": "LEDGERHOSTNAME=$LEDGERHOSTNAME ./node_modules/.bin/truffle deploy",
+    "test": "LEDGERHOSTNAME=$LEDGERHOSTNAME ./node_modules/.bin/truffle test"
+  },
   "dependencies": {
     "truffle": "^5.1.62",
     "@truffle/hdwallet-provider": "^1.2.1",
