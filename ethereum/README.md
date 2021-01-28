@@ -23,7 +23,7 @@ $(npm bin)/ganache-cli --chainId 1337
 ### Running Tests
 Run following command to execute all tests.
 ```shell
-$(npm bin)/truffle test
+LEDGERHOSTNAME=localhost $(npm bin)/truffle test
 ```
 >This will also provide estimates of the average gas costs
 of the different methods through the `eth-gas-reporter`.
@@ -35,7 +35,7 @@ of the different methods through the `eth-gas-reporter`.
 ### Deploying contracts
 By default the deployment is done on the `development` network = locally running Ganage node:
 ```shell
-$(npm bin)/truffle deploy
+LEDGERHOSTNAME=localhost $(npm bin)/truffle deploy
 ```
 , in which case it is not necessary to provide the `--network development` command-line switch.
 

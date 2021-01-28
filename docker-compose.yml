@@ -6,3 +6,13 @@ services:
     command: --chainId 1337
     ports:
       - "8545:8545"
+  
+  contractdeployment:
+    build:
+      context: ethereum
+      dockerfile: docker/deploy.Dockerfile
+    entrypoint: /source/docker/entrypoint.sh
+    depends_on: 
+      - ganache
+    environment:
+      LEDGERHOSTNAME: ganache
