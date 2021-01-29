@@ -9,7 +9,7 @@ If you always want to build images run `docker-compose up --build`.
 After that, in a new terminal please run the following command depending on your desired action:
 ```/bin/bash
 #Deploy contract
-docker-compose exec contractdeployment npm run deplloy
+docker-compose exec contractdeployment npm run deploy
 
 # Run tests
 docker-compose exec contractdeployment npm run test
