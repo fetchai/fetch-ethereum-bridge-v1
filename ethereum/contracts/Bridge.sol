@@ -23,21 +23,40 @@ import "../openzeppelin/contracts/access/AccessControl.sol";
 import "../openzeppelin/contracts/math/SafeMath.sol";
 import "./IERC20Token.sol";
 
+
+/// @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2
+/// @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch
+///         Native Mainnet-v2 and **other ways around** (= it is bi-directional).
+///         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.
+///         In the case of refund, user will be charged swap fee configured in this contract.
+/// @dev There three primary actions defining business logic of this contract:
+///       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)
+///       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally
+//                              initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role
+///       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively
+///                        by `relayer` role
+///      Swap Fees are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for
+///      which user is changed swap fee defined by this contract (since relayer need to send refund transaction back to
+///      this contract.
 contract Bridge is AccessControl {
     using SafeMath for uint256;
 
     // *******    USER-LEVEL EVENTS    ********
-    event Swap(uint256 indexed id, string indexed to, uint256 amount, uint256 fee);
+    event Swap(uint256 indexed id, string indexed to, uint256 amount);
     // *******    DELEGATE-LEVEL EVENTS    ********
-    event SwapRefund(uint256 indexed id);
-    event ReverseSwap(uint256 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount);
+    //event SwapRefund(uint256 indexed id, address indexed to, uint256 refundedAmount);
+    event SwapRefund(uint256 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
+    event ReverseSwap(uint256 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
     event Pause(uint256 sinceBlock);
     // *******    ADMIN-LEVEL EVENTS    ********
     event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
     event CapUpdate(uint256 amount);
     event NewRelayEon(uint64 eon);
-    event FeesWithdrawal(address targetAddress, uint256 amount);
-    event ExcessFundsWithdrawal(address targetAddress, uint256 amount);
+    event Withdraw(address indexed targetAddress, uint256 amount);
+    event Deposit(address indexed fromAddress, uint256 amount);
+    event FeesWithdrawal(address indexed targetAddress, uint256 amount);
+    event RefundsFeesWithdrawal(address indexed targetAddress, uint256 amount);
+    event ExcessFundsWithdrawal(address indexed targetAddress, uint256 tokenAmount, uint256 ethAmount);
     event DeleteContract(address payoutAddress);
     // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
     //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
@@ -47,18 +66,19 @@ contract Bridge is AccessControl {
     //event Mint(uint256 amount);
     //event Burn(uint256 amount);
 
+    /// @notice **********    CONSTANTS    ***********
     bytes32 public constant DELEGATE_ROLE = keccak256("DELEGATE_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
-    // *******    IMMUTABLE STATE    ********
+    /// @notice *******    IMMUTABLE STATE    ********
     IERC20Token public immutable token;
     uint256 public immutable earliestDelete;
-    // *******    MUTABLE STATE    ********
-    uint256 public effectiveAmountAccrued;
-    uint256 public feesAccrued;
+    /// @notice ********    MUTABLE STATE    *********
+    uint256 public supply;
+    uint256 public refundsFeesAccrued;
     uint64 public  nextSwapId;
     uint64 public  relayEon;
-    mapping(uint64 => uint256) public refunds; // swapId -> effectiveAmount
+    mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* swapFee)
     uint256 public upperSwapLimit;
     uint256 public lowerSwapLimit;
     uint256 public cap;
@@ -100,6 +120,9 @@ contract Bridge is AccessControl {
     }
 
     modifier verifySwapAmount(uint256 amount) {
+        // NOTE(pb): Leaving check against `swapFee` in place to make sure(well, kind of "sure") that potential refund
+        //  can be processed. We can omit this check in order to spare gas for user's Tx, and so rely solely on check
+        //  against `lowerSwapLimit` only.
         require(amount > swapFee, "Amount must be higher than fee");
         require(amount >= lowerSwapLimit, "Amount bellow lower limit");
         require(amount <= upperSwapLimit, "Amount exceeds upper limit");
@@ -138,9 +161,9 @@ contract Bridge is AccessControl {
         token = IERC20Token(ERC20Address);
         earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
 
-        // NOTE(pb): Unnecessary initialisations, done implicitly by VM
-        //effectiveAmountAccrued = 0;
-        //feesAccrued = 0;
+        /// @dev Unnecessary initialisations, done implicitly by VM
+        //supply = 0;
+        //refundsFeesAccrued = 0;
         //nextSwapId = 0;
 
         // NOTE(pb): Initial value is by design set to MAX_LIMIT<uint64>, so that its NEXT increment(+1) will overflow to 0.
@@ -164,16 +187,11 @@ contract Bridge is AccessControl {
         verifyNotPaused
         verifySwapAmount(amount)
     {
-        uint256 effectiveAmount = amount.sub(swapFee);
-        effectiveAmountAccrued = effectiveAmountAccrued.add(effectiveAmount);
-        require(cap >= effectiveAmountAccrued, "Swap would exceed cap");
-        require(token.transferFrom(msg.sender, address(this), amount), "Allowance too low");
-
-        feesAccrued = feesAccrued.add(swapFee);
-
-        emit Swap(nextSwapId, destinationAddress, amount, swapFee);
-
-        // NOTE(pb): NO safe math necessary here:
+        supply = supply.add(amount);
+        require(cap >= supply, "Swap would exceed cap");
+        token.transferFrom(msg.sender, address(this), amount);
+        emit Swap(nextSwapId, destinationAddress, amount);
+        // NOTE(pb): No necessity to use SafeMath here:
         nextSwapId += 1;
     }
 
@@ -201,11 +219,46 @@ contract Bridge is AccessControl {
         emit NewRelayEon(relayEon);
     }
 
+    // Commented-out, since this approach will cause supply imbalance between this and counterpart contract (due to swap
+    // refund fee = original amount - `effectiveAmount`, which won't be accounted for in supply of counterpart contract.
+    //// NOTE(pb): Refunds swap back to user.
+    ////           This is very flexible implementation, allowing to refund user with the amount exactly as specified in
+    ////           the `effectiveAmount` =  *NOT* affected by `swapFee` currently configured in the contract.
+    ////           This gives relayer complete freedom how much to refund & making implementation of this method to
+    ////           consume less gas (when compared to impl. variant bellow.)
+    //function refund(
+    //    uint64 id,
+    //    address to,
+    //    uint256 effectiveAmount, // The exact amount which will be refunded to user (=it does *NOT* include swapFee)
+    //    uint64 relayEon_
+    //    )
+    //    public
+    //    verifyTxRelayEon(relayEon_)
+    //    onlyRelayer
+    //    verifyRefundSwapId(id)
+    //{
+    //    require(effectiveAmount > 0, "Attempt to refund 0 amount");
+    //    supply = supply.sub(effectiveAmount, "Insufficient contract supply");
+    //    token.transfer(to, effectiveAmount);
+    //    refunds[id] = effectiveAmount;
+    //    emit SwapRefund(id, to, effectiveAmount);
+    //}
 
+    /**
+      * @notice Used in favour of the solution above.
+      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded
+      *         back to the user (this is by-design)
+      * @dev Callable exclusively by `relayer` role
+      * @param id - swap id refund (must be swap id of swap originally created by `swap(...)` call to this contract,
+      *             **NOT** *reverse* swap id!
+      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap` call)
+      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be withdrawn
+      * @param relayEon_ - current relay eon, ensures safe management of relaying process
+      */
     function refund(
         uint64 id,
         address to,
-        uint256 effectiveAmount, // This is WITHOUT fee = original amount - fee
+        uint256 amount,
         uint64 relayEon_
         )
         public
@@ -213,28 +266,61 @@ contract Bridge is AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
-        require(token.transfer(to, effectiveAmount), "Transfer failed");
-        refunds[id] = effectiveAmount;
-        effectiveAmountAccrued = effectiveAmountAccrued.sub(effectiveAmount);
-        emit SwapRefund(id);
+        // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
+        //  to implementation, where these calls would be present in the code just once, after if-else block.
+        if (amount > swapFee) {
+            // NOTE(pb): No need to use safe math here, the overflow is prevented by `if` condition above.
+            uint256 effectiveAmount = amount - swapFee;
+            token.transfer(to, effectiveAmount);
+
+            refundsFeesAccrued = refundsFeesAccrued.add(swapFee);
+            emit SwapRefund(id, to, effectiveAmount, swapFee);
+        } else {
+            // NOTE(pb): no transfer necessary
+            refundsFeesAccrued = refundsFeesAccrued.add(amount);
+            emit SwapRefund(id, to, 0, amount);
+        }
+
+        // NOTE(pb): Whole `amount` **MUST** be withdrawn from `supply` in order to preserve the exact balance with
+        //  `supply` of counterpart contract, since original swap amount is **NO** more part of supply **after** it
+        //  has been refunded (= it has **NOT** been and **NEVER** will be transferred to counterpart contract).
+        supply = supply.sub(amount);
+
+        // NOTE(pb): Here we need to record the original `amount` value (passed as input param) rather than
+        //  `effectiveAmount` in order to make sure, that the value is **NOT** zero (so it is possible to detect
+        //  existence of key-value record in the `refunds` mapping (this is done in the `verifyRefundSwapId(...)`
+        //  modifier). This also means that relayer role shall call this `refund(...)` function only for `amount > 0`,
+        //  otherways relayer will pay Tx fee for executing the transaction which will have *NO* effect.
+        refunds[id] = amount;
     }
 
-    // NOTE(pb):  Fee is *NOT* refunded back to the user (this is by design)
+
+    // NOTE(pb): The `swapFee` is *NOT* refunded back to the user (this is by design)
     function reverseSwap(
         uint64 rid, // Reverse swp id (from counterpart contract on other blockchain)
         address to,
         string calldata from,
         bytes32 originTxHash,
-        uint256 effectiveAmount, // This shall be effectiveAmount (WITHOUT fee) = originalAmount - fee
+        uint256 amount, // This is original swap amount (= *includes* swapFee)
         uint64 relayEon_
         )
         public
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
-        require(token.transfer(to, effectiveAmount), "Transfer failed");
-        effectiveAmountAccrued = effectiveAmountAccrued.sub(effectiveAmount);
-        emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount);
+        // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
+        //  to implementation where calls would be located in the code just once after if-else block.
+        if (amount > swapFee) {
+            // NOTE(pb): No need to use safe math here, the overflow is prevented by `if` condition above.
+            uint256 effectiveAmount = amount.sub(swapFee);
+            token.transfer(to, effectiveAmount);
+            supply = supply.sub(effectiveAmount);
+            emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount, swapFee);
+        } else {
+            // NOTE(pb): no transfer necessary
+            supply = supply.sub(amount);
+            emit ReverseSwap(rid, to, from, originTxHash, 0, amount);
+        }
     }
 
 
@@ -243,7 +329,7 @@ contract Bridge is AccessControl {
 
 
     /**
-     * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number 
+     * @dev Pauses all NON-administrative interaction with the contract since the specidfed block number
      * @param blockNumber block number since which non-admin interaction will be paused (for all _getBlockNumber() >= blockNumber)
      * @dev Delegate only
      */
@@ -263,12 +349,10 @@ contract Bridge is AccessControl {
         public
         onlyOwner
     {
-        // NOTE(pb): The `effectiveAmountAccrued` shall be adjusted by deflation amount.
-        effectiveAmountAccrued = effectiveAmountAccrued.add(amount);
+        // NOTE(pb): The `supply` shall be adjusted by minted amount.
+        supply = supply.add(amount);
+        require(cap >= supply, "Minting would exceed the cap");
         token.mint(address(this), amount);
-
-        // NOTE(pb): We should think if alignment of cap is actually right thing to do here.
-        _setCap(cap.add(amount));
     }
 
 
@@ -276,22 +360,9 @@ contract Bridge is AccessControl {
         public
         onlyOwner
     {
-        // NOTE(pb): any of following subtractions will fail should there be insufficient value
-        //  on any of state variables bellow.
-
-        // NOTE(pb): The `effectiveAmountAccrued` shall be adjusted by deflation amount.
-        effectiveAmountAccrued = effectiveAmountAccrued.sub(amount);
+        // NOTE(pb): The `supply` shall be adjusted by burned amount.
+        supply = supply.sub(amount);
         token.burn(amount);
-
-        // NOTE(pb): We should think if alignment of cap is actually right thing to do here.
-        if (cap < amount)
-        {
-            cap = 0;
-        }
-        else
-        {
-            _setCap(cap.sub(amount));
-        }
     }
 
 
@@ -302,7 +373,12 @@ contract Bridge is AccessControl {
         _setCap(cap_);
     }
 
-
+    /**
+     * @dev Sets limits for swap amount
+     * @param upperSwapLimit_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
+     * @param lowerSwapLimit_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
+     * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
+     */
     function setLimits(
         uint256 upperSwapLimit_,
         uint256 lowerSwapLimit_,
@@ -315,30 +391,87 @@ contract Bridge is AccessControl {
     }
 
 
-    function withdrawFees(address targetAddress)
+    /**
+     * @dev Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to
+     *      another Bridge system, and **NO** other purpose.
+     * @param targetAddress : address to send tokens to
+     * @param amount : address to send tokens to
+     */
+    function withdraw(
+        address targetAddress,
+        uint256 amount
+        )
         public
         onlyOwner
     {
-        require(token.transfer(targetAddress, feesAccrued), "Transfer failed");
-        emit FeesWithdrawal(targetAddress, feesAccrued);
-        feesAccrued = 0;
+        supply = supply.sub(amount);
+        token.transfer(targetAddress, amount);
+        emit Withdraw(targetAddress, amount);
     }
 
 
     /**
-     * @dev Withdraw "excess" tokens, which were sent to contract directly via direct ERC20.transfer(...),
-     *      without interacting with API of this (Staking) contract, what could be done only by mistake.
+     * @dev Deposits funds back in to the contract supply.
+     *      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.
+     *      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as
+     *            recipient/beneficiary and `from` address as sender.
+     *            This means that address passed in as the `from` input parameter of this `Bridge.deposit(...)` call,
+     *            must have already crated allowance by calling `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)`
+     *            *before* calling this(`deposit(...)`) call
+     * @param from : address which the deposit is going to be transferred from
+     * @param amount : deposit amount
+     */
+    function deposit(
+        address from,
+        uint256 amount
+        )
+        public
+        onlyOwner
+    {
+        supply = supply.add(amount);
+        token.transferFrom(from, address(this), amount);
+        emit Deposit(msg.sender, amount);
+    }
+
+
+    /**
+     * @dev Withdraw refunds fees accrued so far.
+     * @param targetAddress : address to send tokens to.
+     */
+    function withdrawRefundsFees(address targetAddress)
+    public
+    onlyOwner
+    {
+        require(refundsFeesAccrued > 0, "");
+        token.transfer(targetAddress, refundsFeesAccrued);
+        refundsFeesAccrued = 0;
+        emit RefundsFeesWithdrawal(targetAddress, refundsFeesAccrued);
+    }
+
+
+    /**
+     * @dev Withdraw "excess" tokens (FET and ETH), which were sent to contract directly via direct transfers,
+     *      (either ERC20.transfer(...) or transferring ETH), without interacting with API of this contract, what could
+     *      be done only by mistake.
      *      Thus this method is meant to be used primarily for rescue purposes, enabling withdrawal of such
      *      "excess" tokens out of contract.
+     * @dev This call transfers also whole ETH balance present on this contract address to `targetAddress`, and
+     *      forwards exactly 2300 gas stipend, what implies that `targetAddress` should not be (preferably) contract
+     *      in order to avoid potential of exceeding forwarded gas stipend.
+     *
      * @param targetAddress : address to send tokens to
      */
-    function withdrawExcessTokens(address payable targetAddress)
+    function withdrawExcessFunds(address payable targetAddress)
         public
         onlyOwner
     {
         uint256 excessAmount = _excessFunds();
-        require(token.transfer(targetAddress, excessAmount), "Transfer failed");
-        emit ExcessFundsWithdrawal(targetAddress, excessAmount);
+        token.transfer(targetAddress, excessAmount);
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance > 0) {
+            targetAddress.transfer(ethBalance);
+        }
+        emit ExcessFundsWithdrawal(targetAddress, excessAmount, ethBalance);
     }
 
 
@@ -354,7 +487,7 @@ contract Bridge is AccessControl {
     {
         require(earliestDelete >= _getBlockNumber(), "Earliest delete not reached");
         uint256 contractBalance = token.balanceOf(address(this));
-        require(token.transfer(payoutAddress, contractBalance));
+        token.transfer(payoutAddress, contractBalance);
         emit DeleteContract(payoutAddress);
         selfdestruct(payoutAddress);
     }
@@ -390,6 +523,7 @@ contract Bridge is AccessControl {
         emit Pause(pausedSinceBlock);
     }
 
+
     function _setLimits(
         uint256 upperSwapLimit_,
         uint256 lowerSwapLimit_,
@@ -397,6 +531,7 @@ contract Bridge is AccessControl {
         )
         internal
     {
+        require((swapFee_ <= lowerSwapLimit_) && (lowerSwapLimit_ <= upperSwapLimit_), "fee<=lower<=upper violated");
         // NOTE(pb): No consistency checks are imposed on the configuration passed in (e.g. upperLimit >= lowerLimit,
         //  etc. ...) - this is intentional, so that desired effect can be achieved - for example temporary disabling
         //  swaps on amount base rather than pausing by setting upperLimit < lowerLimit.
@@ -406,6 +541,7 @@ contract Bridge is AccessControl {
 
         emit LimitsUpdate(upperSwapLimit, lowerSwapLimit, swapFee);
     }
+
 
     function _setCap(uint256 cap_) internal
     {
@@ -418,6 +554,6 @@ contract Bridge is AccessControl {
     //           if there is inconsistency between contract balance and accrued amounts.
     function _excessFunds() internal view returns(uint256) {
         uint256 contractBalance = token.balanceOf(address(this));
-        return contractBalance.sub(effectiveAmountAccrued).sub(feesAccrued);
+        return contractBalance.sub(supply).sub(refundsFeesAccrued);
     }
 }
