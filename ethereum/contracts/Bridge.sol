@@ -44,7 +44,7 @@ contract Bridge is AccessControl {
     using SafeMath for uint256;
 
     // *******    USER-LEVEL EVENTS    ********
-    event Swap(uint256 indexed id, string indexed to, uint256 amount);
+    event Swap(uint64 indexed id, string indexed to, uint256 amount);
     // *******    DELEGATE-LEVEL EVENTS    ********
     event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
     event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
