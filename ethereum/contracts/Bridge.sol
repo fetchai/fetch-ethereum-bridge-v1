@@ -55,7 +55,6 @@ contract Bridge is AccessControl {
     event NewRelayEon(uint64 eon);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
-    event FeesWithdrawal(address indexed targetAddress, uint256 amount);
     event RefundsFeesWithdrawal(address indexed targetAddress, uint256 amount);
     event ExcessFundsWithdrawal(address indexed targetAddress, uint256 tokenAmount, uint256 ethAmount);
     event DeleteContract(address payoutAddress);
