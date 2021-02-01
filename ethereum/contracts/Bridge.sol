@@ -46,8 +46,8 @@ contract Bridge is AccessControl {
     // *******    USER-LEVEL EVENTS    ********
     event Swap(uint256 indexed id, string indexed to, uint256 amount);
     // *******    DELEGATE-LEVEL EVENTS    ********
-    event SwapRefund(uint256 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
-    event ReverseSwap(uint256 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
+    event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
+    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
     event Pause(uint256 sinceBlock);
     // *******    ADMIN-LEVEL EVENTS    ********
     event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
@@ -56,7 +56,7 @@ contract Bridge is AccessControl {
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
     event RefundsFeesWithdrawal(address indexed targetAddress, uint256 amount);
-    event ExcessFundsWithdrawal(address indexed targetAddress, uint256 tokenAmount, uint256 ethAmount);
+    event ExcessFundsWithdrawal(address indexed targetAddress, uint256 tokenAmount);
     event DeleteContract(address payoutAddress);
     // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
     //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
@@ -512,15 +512,21 @@ contract Bridge is AccessControl {
 
 
     /**
-     * @dev Withdraw "excess" tokens (FET and ETH), which were sent to contract directly via direct transfers,
-     *      (either ERC20.transfer(...) or transferring ETH), without interacting with API of this contract, what could
-     *      be done only by mistake.
-     *      Thus this method is meant to be used primarily for rescue purposes, enabling withdrawal of such
-     *      "excess" tokens out of contract.
+     * @dev Withdraw excess FET tokens FET, which were sent to address of this Bridge contract via unsolicited ERC20
+     *      transfer (either `ERC20.transfer(...)` or `ERC20.transferFrom(...)`), without interacting with API of this
+     *      Bridge contract, what could be done only by mistake.
+     *      Thus this method is meant to be used primarily for rescue purposes, enabling withdrawal of such excess
+     *      tokens out of contract.
      *
-     * @dev This call transfers also whole ETH balance present on this contract address to `targetAddress`, and
-     *      forwards exactly 2300 gas stipend, what implies that `targetAddress` should not be (preferably) contract
-     *      in order to avoid potential of exceeding forwarded gas stipend.
+     * @dev It is NOT necessary to handle ETH funds in this function, because this (Bridge) contract prevents all
+     *      transaction which would transfer ETH in to address of this (Bridge) contract.
+     *      This is because this contract by-design does *NOT* implement `receive()` and/or payable fallback function in
+     *      order to prevent being recipient of ETH transfers (what includes unsolicited ones). Please note that there
+     *      that there is an exception to this - copy-paste from solidity docs: "Contract without a receive Ether
+     *      function can receive Ether as a recipient of a coinbase transaction (aka miner block reward) or as a
+     *      destination of a selfdestruct.". This is, however, irrelevant to this contract, since this contract is never
+     *      going to be receiver of block rewards, and implementation of the `deleteContract(to)` function in this
+     *      contract prevents to call it with address of this contract as input parameter.
      *
      * @param targetAddress : address to send tokens to
      */
@@ -530,11 +536,7 @@ contract Bridge is AccessControl {
     {
         uint256 excessAmount = _excessFunds();
         token.transfer(targetAddress, excessAmount);
-        uint256 ethBalance = address(this).balance;
-        if (ethBalance > 0) {
-            targetAddress.transfer(ethBalance);
-        }
-        emit ExcessFundsWithdrawal(targetAddress, excessAmount, ethBalance);
+        emit ExcessFundsWithdrawal(targetAddress, excessAmount);
     }
 
 
@@ -549,6 +551,7 @@ contract Bridge is AccessControl {
         onlyOwner
     {
         require(earliestDelete >= _getBlockNumber(), "Earliest delete not reached");
+        require(payoutAddress != address(this), "pay addr == this contract addr");
         uint256 contractBalance = token.balanceOf(address(this));
         token.transfer(payoutAddress, contractBalance);
         emit DeleteContract(payoutAddress);
