@@ -491,6 +491,7 @@ contract Bridge is AccessControl {
         onlyOwner
     {
         supply = supply.add(amount);
+        require(cap >= supply, "Deposit would exceed the cap");
         token.transferFrom(from, address(this), amount);
         emit Deposit(msg.sender, amount);
     }
