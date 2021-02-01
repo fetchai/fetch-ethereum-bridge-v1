@@ -46,7 +46,6 @@ contract Bridge is AccessControl {
     // *******    USER-LEVEL EVENTS    ********
     event Swap(uint256 indexed id, string indexed to, uint256 amount);
     // *******    DELEGATE-LEVEL EVENTS    ********
-    //event SwapRefund(uint256 indexed id, address indexed to, uint256 refundedAmount);
     event SwapRefund(uint256 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
     event ReverseSwap(uint256 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
     event Pause(uint256 sinceBlock);
@@ -168,8 +167,9 @@ contract Bridge is AccessControl {
         //refundsFeesAccrued = 0;
         //nextSwapId = 0;
 
-        // NOTE(pb): Initial value is by design set to MAX_LIMIT<uint64>, so that its NEXT increment(+1) will overflow to 0.
-        relayEon = ~uint64(0);
+        // NOTE(pb): Initial value is by design set to MAX_LIMIT<uint64>, so that its NEXT increment(+1) will
+        //           overflow to 0.
+        relayEon = type(uint64).max;
 
         _setCap(cap_);
         _setLimits(upperSwapLimit_, lowerSwapLimit_, swapFee_);
