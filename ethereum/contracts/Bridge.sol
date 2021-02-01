@@ -24,20 +24,22 @@ import "../openzeppelin/contracts/math/SafeMath.sol";
 import "./IERC20Token.sol";
 
 
-/// @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2
-/// @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch
-///         Native Mainnet-v2 and **other ways around** (= it is bi-directional).
-///         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.
-///         In the case of refund, user will be charged swap fee configured in this contract.
-/// @dev There three primary actions defining business logic of this contract:
-///       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)
-///       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally
-//                              initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role
-///       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively
-///                        by `relayer` role
-///      Swap Fees are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for
-///      which user is changed swap fee defined by this contract (since relayer need to send refund transaction back to
-///      this contract.
+/**
+ * @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2
+ * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch
+ *         Native Mainnet-v2 and **other ways around** (= it is bi-directional).
+ *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.
+ *         In the case of refund, user will be charged swap fee configured in this contract.
+ * @dev There three primary actions defining business logic of this contract:
+ *       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)
+ *       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally
+ *                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role
+ *       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively
+ *                        by `relayer` role
+ *      Swap Fees are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for
+ *      which user is changed swap fee defined by this contract (since relayer need to send refund transaction back to
+ *      this contract.
+ */
 contract Bridge is AccessControl {
     using SafeMath for uint256;
 
@@ -120,10 +122,9 @@ contract Bridge is AccessControl {
     }
 
     modifier verifySwapAmount(uint256 amount) {
-        // NOTE(pb): Leaving check against `swapFee` in place to make sure(well, kind of "sure") that potential refund
-        //  can be processed. We can omit this check in order to spare gas for user's Tx, and so rely solely on check
-        //  against `lowerSwapLimit` only.
-        require(amount > swapFee, "Amount must be higher than fee");
+        // NOTE(pb): Commenting-out check against `swapFee` in order to spare gas for user's Tx, relying solely on check
+        //  against `lowerSwapLimit` only, which is ensured to be `>= swapFee` (by `_setLimits(...)` function).
+        //require(amount > swapFee, "Amount must be higher than fee");
         require(amount >= lowerSwapLimit, "Amount bellow lower limit");
         require(amount <= upperSwapLimit, "Amount exceeds upper limit");
         _;
@@ -140,7 +141,8 @@ contract Bridge is AccessControl {
     Contract start
     *******************/
     /**
-     * @param ERC20Address address of the ERC20 contract
+     * @notice ERC20Address address of the ERC20 contract
+     *
      * @param cap_ address of the ERC20 contract
      * @param upperSwapLimit_ value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
      * @param lowerSwapLimit_ value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
@@ -179,6 +181,30 @@ contract Bridge is AccessControl {
     // ***********    USER-LEVEL ACCESS METHODS    **********
 
 
+    /**
+      * @notice Initiates swap, which will be relayed to the other blockchain.
+      *         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be
+      *         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details
+      *         in desc. for `refund(...)` call.
+      *
+      * @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each
+      *      new swap created, and so uniquely identifies each swap. This identifier is referred to as "reverse swap id"
+      *      on the other blockchain.
+      *      Callable by anyone.
+      *
+      * @param destinationAddress - address on **OTHER** blockchain where the refund will be transferred in to. User
+      *                             is **RESPONSIBLE** for providing the **CORRECT** and valid value.
+      *                             The **CORRECT** means, in this context, that address is valid AND user really
+      *                             intended this particular address value as destination = that address is NOT lets say
+      *                             copy-paste mistake made by user. Reason being that when user provided valid address
+      *                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then
+      *                             there is **NOTHING** what can be done to recover funds back to user (= refund) once
+      *                             the swap will be relayed to the other blockchain!
+      *                             The **VALID** means that provided value successfully passes consistency checks of
+      *                             valid address of **OTHER** blockchain. In the case when user provides invalid
+      *                             address value, relayer will execute refund - please see desc. for `refund()` call
+      *                             for more details.
+      */
     function swap(
         uint256 amount, // This is original amount (INCLUDES fee)
         string calldata destinationAddress
@@ -196,6 +222,14 @@ contract Bridge is AccessControl {
     }
 
 
+    /**
+     * @notice Returns amount of excess FET ERC20 tokens which were sent to this contract directly via direct ERC20
+     *         transfer to address of this contract (by calling ERC20.transfer(...)), without interacting with API of
+     *         this contract.
+     *      be done only by mistake.
+     *
+     * @return targetAddress : address to send tokens to
+     */
     function getExcessFunds() public view returns(uint256) {
         return _excessFunds();
     }
@@ -205,6 +239,12 @@ contract Bridge is AccessControl {
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
 
 
+    /**
+      * @notice Starts the new relay eon.
+      * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two
+      *      relayer services. It provides clean isolation of potentially still pending transactions from previous
+      *      relayer svc and the current one.
+      */
     function newRelayEon()
         public
         onlyRelayer
@@ -219,37 +259,14 @@ contract Bridge is AccessControl {
         emit NewRelayEon(relayEon);
     }
 
-    // Commented-out, since this approach will cause supply imbalance between this and counterpart contract (due to swap
-    // refund fee = original amount - `effectiveAmount`, which won't be accounted for in supply of counterpart contract.
-    //// NOTE(pb): Refunds swap back to user.
-    ////           This is very flexible implementation, allowing to refund user with the amount exactly as specified in
-    ////           the `effectiveAmount` =  *NOT* affected by `swapFee` currently configured in the contract.
-    ////           This gives relayer complete freedom how much to refund & making implementation of this method to
-    ////           consume less gas (when compared to impl. variant bellow.)
-    //function refund(
-    //    uint64 id,
-    //    address to,
-    //    uint256 effectiveAmount, // The exact amount which will be refunded to user (=it does *NOT* include swapFee)
-    //    uint64 relayEon_
-    //    )
-    //    public
-    //    verifyTxRelayEon(relayEon_)
-    //    onlyRelayer
-    //    verifyRefundSwapId(id)
-    //{
-    //    require(effectiveAmount > 0, "Attempt to refund 0 amount");
-    //    supply = supply.sub(effectiveAmount, "Insufficient contract supply");
-    //    token.transfer(to, effectiveAmount);
-    //    refunds[id] = effectiveAmount;
-    //    emit SwapRefund(id, to, effectiveAmount);
-    //}
 
     /**
-      * @notice Used in favour of the solution above.
       * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded
       *         back to the user (this is by-design)
+      *
       * @dev Callable exclusively by `relayer` role
-      * @param id - swap id refund (must be swap id of swap originally created by `swap(...)` call to this contract,
+      *
+      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,
       *             **NOT** *reverse* swap id!
       * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap` call)
       * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be withdrawn
@@ -276,14 +293,14 @@ contract Bridge is AccessControl {
             refundsFeesAccrued = refundsFeesAccrued.add(swapFee);
             emit SwapRefund(id, to, effectiveAmount, swapFee);
         } else {
-            // NOTE(pb): no transfer necessary
+            // NOTE(pb): No transfer necessary in this case, since whole amount is taken as swap fee.
             refundsFeesAccrued = refundsFeesAccrued.add(amount);
             emit SwapRefund(id, to, 0, amount);
         }
 
         // NOTE(pb): Whole `amount` **MUST** be withdrawn from `supply` in order to preserve the exact balance with
         //  `supply` of counterpart contract, since original swap amount is **NO** more part of supply **after** it
-        //  has been refunded (= it has **NOT** been and **NEVER** will be transferred to counterpart contract).
+        //  has been refunded (= it has **NOT** been, and **NEVER** will be, transferred to counterpart contract).
         supply = supply.sub(amount);
 
         // NOTE(pb): Here we need to record the original `amount` value (passed as input param) rather than
@@ -295,7 +312,27 @@ contract Bridge is AccessControl {
     }
 
 
-    // NOTE(pb): The `swapFee` is *NOT* refunded back to the user (this is by design)
+    /**
+      * @notice Finalises swap initiated by counterpart contract on the other blockchain.
+      *         This call send swapped tokens to address (`to`) user specified in original swap on other blockchain.
+      *
+      * @dev Callable exclusively by `relayer` role
+      *
+      * @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.
+      *              This id is, by definition, sequentially growing number incremented by 1 fro each new swap initiated
+      *              the other blockchain. **However** it is *NOT* ensured that all swaps from the other blockchain
+      *              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back
+      *              to user on the other blockchain.
+      * @param to - address where the refund will be transferred in to
+      * @param from - source address from which user transferred tokens from on the other blockchain. Present primarily
+      *               for purposes of quick querying on this blockchain.
+      * @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to
+      *                       create strong bond between this and other blockchain.
+      * @param amount - original amount specified in associated swap initiated on the other blockchain.
+      *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,
+      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.
+      * @param relayEon_ - current relay eon, ensures safe management of relaying process
+      */
     function reverseSwap(
         uint64 rid, // Reverse swp id (from counterpart contract on other blockchain)
         address to,
@@ -308,17 +345,16 @@ contract Bridge is AccessControl {
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
-        // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
-        //  to implementation where calls would be located in the code just once after if-else block.
         if (amount > swapFee) {
             // NOTE(pb): No need to use safe math here, the overflow is prevented by `if` condition above.
-            uint256 effectiveAmount = amount.sub(swapFee);
+            uint256 effectiveAmount = amount - swapFee;
+
             token.transfer(to, effectiveAmount);
+            // NOTE(pb): In theory, SafeMath should not be necessary for the following sub., left in for peace in mind:
             supply = supply.sub(effectiveAmount);
             emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount, swapFee);
         } else {
-            // NOTE(pb): no transfer necessary
-            supply = supply.sub(amount);
+            // NOTE(pb): No transfer, no contract supply change since whole amount is taken as swap fee.
             emit ReverseSwap(rid, to, from, originTxHash, 0, amount);
         }
     }
@@ -329,9 +365,11 @@ contract Bridge is AccessControl {
 
 
     /**
-     * @dev Pauses all NON-administrative interaction with the contract since the specidfed block number
-     * @param blockNumber block number since which non-admin interaction will be paused (for all _getBlockNumber() >= blockNumber)
+     * @notice Pauses all NON-administrative interaction with the contract since the specified block number
+     * @param blockNumber block number since which non-admin interaction will be paused (for all
+     *        _getBlockNumber() >= blockNumber).
      * @dev Delegate only
+     *      If `blocknumber < _getBlockNumber()`, then contract will be paused immediately = from `_getBlockNumber()`.
      */
     function pauseSince(uint256 blockNumber)
         public
@@ -345,6 +383,11 @@ contract Bridge is AccessControl {
     // ************    ADMIN-LEVEL ACCESS METHODS   *************
 
 
+    /**
+     * @notice Mints provided amount of FET tokens.
+     *         This is to reflect changes in minted FET token supply on the **OTHER** blockchain.
+     * @param amount - number of FET tokens to mint.
+     */
     function mint(uint256 amount)
         public
         onlyOwner
@@ -355,7 +398,11 @@ contract Bridge is AccessControl {
         token.mint(address(this), amount);
     }
 
-
+    /**
+     * @notice Burns provided amount of FET tokens.
+     *         This is to reflect changes in minted FET token supply on the **OTHER** blockchain.
+     * @param amount - number of FET tokens to mint.
+     */
     function burn(uint256 amount)
         public
         onlyOwner
@@ -366,15 +413,24 @@ contract Bridge is AccessControl {
     }
 
 
-    function setCap(uint256 cap_)
+    /**
+     * @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other
+     *         blockchain.
+     *         This cap limits (from top) all operations which *increase* contract's `supply` value = `swap(...)` and
+     *         `mint(...)`.
+     * @param value - number of FET tokens to mint.
+     */
+    function setCap(uint256 value)
         public
         onlyOwner
     {
-        _setCap(cap_);
+        _setCap(value);
     }
 
+
     /**
-     * @dev Sets limits for swap amount
+     * @notice Sets limits for swap amount
+     *
      * @param upperSwapLimit_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
      * @param lowerSwapLimit_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
      * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
@@ -392,8 +448,8 @@ contract Bridge is AccessControl {
 
 
     /**
-     * @dev Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to
-     *      another Bridge system, and **NO** other purpose.
+     * @notice Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to
+     *       another Bridge system, and **NO** other purpose.
      * @param targetAddress : address to send tokens to
      * @param amount : address to send tokens to
      */
@@ -455,6 +511,7 @@ contract Bridge is AccessControl {
      *      be done only by mistake.
      *      Thus this method is meant to be used primarily for rescue purposes, enabling withdrawal of such
      *      "excess" tokens out of contract.
+     *
      * @dev This call transfers also whole ETH balance present on this contract address to `targetAddress`, and
      *      forwards exactly 2300 gas stipend, what implies that `targetAddress` should not be (preferably) contract
      *      in order to avoid potential of exceeding forwarded gas stipend.
@@ -477,7 +534,7 @@ contract Bridge is AccessControl {
 
     /**
      * @notice Delete the contract, transfers the remaining token and ether balance to the specified
-       payoutAddress
+     *         payoutAddress
      * @param payoutAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens
      * @dev owner only + only on or after `earliestDelete` block
      */
@@ -514,7 +571,8 @@ contract Bridge is AccessControl {
 
     /**
      * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number 
-     * @param blockNumber block number since which non-admin interaction will be paused (for all _getBlockNumber() >= blockNumber)
+     * @param blockNumber - block number since which non-admin interaction will be paused (for all
+     *                      _getBlockNumber() >= blockNumber)
      */
     function _pauseSince(uint256 blockNumber) internal 
     {
