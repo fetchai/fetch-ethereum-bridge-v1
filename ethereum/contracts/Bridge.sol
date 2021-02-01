@@ -45,7 +45,7 @@ contract Bridge is AccessControl {
 
     // *******    USER-LEVEL EVENTS    ********
     event Swap(uint64 indexed id, string indexed to, uint256 amount);
-    // *******    DELEGATE-LEVEL EVENTS    ********
+    // *******    RELAYER-LEVEL EVENTS    ********
     event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
     event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
     event Pause(uint256 sinceBlock);
