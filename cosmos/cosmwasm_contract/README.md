@@ -9,8 +9,7 @@ This assumes you understand the theory and just want to get coding.
 
 ## Creating a new repo from template
 
-Assuming you have a recent version of rust and cargo (v1.47.0+) installed
-(via [rustup](https://rustup.rs/)),
+Assuming you have a recent version of rust and cargo installed (via [rustup](https://rustup.rs/)),
 then the following should get you a new repo to start a contract:
 
 First, install
@@ -24,42 +23,25 @@ cargo install cargo-generate --features vendored-openssl
 Now, use it to create your new contract.
 Go to the folder in which you want to place it and run:
 
-**0.13 (latest)**
+**0.10 (latest)**
 
 ```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --name PROJECT_NAME
-````
-
-**0.12**
-
-```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.12 --name PROJECT_NAME
-```
-
-**0.11**
-
-```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.11 --name PROJECT_NAME
-```
-**0.10**
-
-```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.10 --name PROJECT_NAME
+cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --name YOUR_NAME_HERE
 ```
 
 **0.9**
 
 ```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.9 --name PROJECT_NAME
+cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.9 --name YOUR_NAME_HERE
 ```
 
 **0.8**
 
 ```sh
-cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.8 --name PROJECT_NAME
+cargo generate --git https://github.com/CosmWasm/cosmwasm-template.git --branch 0.8 --name YOUR_NAME_HERE
 ```
 
-You will now have a new folder called `PROJECT_NAME` (I hope you changed that to something else)
+You will now have a new folder called `YOUR_NAME_HERE` (I hope you changed that to something else)
 containing a simple working contract and build system that you can customize.
 
 ## Create a Repo

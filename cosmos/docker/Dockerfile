@@ -22,7 +22,7 @@ ENV GOLANG_VER=${golang_version}
 
 
 # utils
-RUN apt install -y wget make curl git 
+RUN apt install -y wget make curl git jq 
 
 # python 3.6
 RUN apt install -y python3 python3-pip
@@ -48,12 +48,19 @@ RUN git clone https://github.com/CosmWasm/wasmd.git && cd wasmd && \
     make install && wasmd version
 
 
+##########################
+### setup cosmwasm env ###
+##########################
+
+RUN rustup target add wasm32-unknown-unknown
+
+
 ########################
 ### setup local node ###
 ########################
 
-COPY ./scripts /scripts
-RUN chmod +x /scripts/*.sh
+COPY ./docker /scripts_docker
+RUN chmod +x /scripts_docker/*.sh
 
 ARG wasmd_password="12345678"
 ENV PASSWORD=${wasmd_password}
@@ -61,12 +68,8 @@ ENV PASSWORD=${wasmd_password}
 ARG token="ucosm"
 ENV TOKEN=${token}
 
-RUN /scripts/00_setup_wasmd_local_v${WASMD_VER}.sh
+RUN /scripts_docker/00_setup_wasmd_local_v${WASMD_VER}.sh
 
-##########################
-### setup cosmwasm env ###
-##########################
+EXPOSE 26657
 
-RUN rustup target add wasm32-unknown-unknown
-
-ENTRYPOINT ["/bin/bash", "/scripts/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/scripts_docker/entrypoint.sh"]

@@ -1,31 +1,33 @@
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, HandleResponse, InitResponse, MessageInfo, StdResult,
-    HumanAddr,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
+    StdResult, Storage, HumanAddr
 };
 
-use crate::error::ContractError;
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{RoleResponse, HandleMsg, InitMsg, QueryMsg, U256};
+use crate::state::{config, /*config_read,*/ State};
 
-// Note, you can use StdResult in some functions where you do not
-// make use of the custom errors
-pub fn init(
-    _deps: DepsMut,
+pub fn init<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _info: MessageInfo,
     _msg: InitMsg,
-) -> Result<InitResponse, ContractError> {
+) -> StdResult<InitResponse> {
+    let state = State {
+        next_swap_id: 0,
+        relay_eon: 0,
+    };
+
+    config(&mut deps.storage).save(&state)?;
+
     Ok(InitResponse::default())
 }
 
-// And declare a custom Error variant for the ones where you will want to make use of it
-pub fn handle(
-    _deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
+pub fn handle<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
     msg: HandleMsg,
-) -> Result<HandleResponse, ContractError> {
+) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Swap { amount: _, destination: _ } => Ok(HandleResponse::default()),
+        HandleMsg::Swap { amount, destination} => try_swap(deps, env, amount, destination),
         HandleMsg::ReverseSwap { rid: _, to: _, from: _, origin_tx_hash: _, amount: _, relay_eon: _ } => Ok(HandleResponse::default()),
         HandleMsg::Refund { id: _, to: _, amount: _, relay_eon: _ } => Ok(HandleResponse::default()),
         HandleMsg::Pause { since_block: _ } => Ok(HandleResponse::default()),
@@ -39,13 +41,29 @@ pub fn handle(
     }
 }
 
+fn try_swap<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _amount: U256,
+    _destination: String,
+) -> StdResult<HandleResponse> {
+   config(&mut deps.storage).update(|mut state| {
+        state.next_swap_id += 1;
+        Ok(state)
+    })?;
 
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    Ok(HandleResponse::default())
+}
+
+pub fn query<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    msg: QueryMsg,
+) -> StdResult<Binary> {
     match msg {
         QueryMsg::HasRole { role, address} => to_binary(&query_role(deps, role, address)?),
     }
 }
 
-fn query_role(_deps: Deps, _role : u64, _address : HumanAddr) -> StdResult<CountResponse> {
-    Ok(CountResponse { has_role: false })
+fn query_role<S: Storage, A: Api, Q: Querier>(_deps: &Extern<S, A, Q>, _role : u64, _address : HumanAddr) -> StdResult<RoleResponse> {
+    Ok(RoleResponse { has_role: true })
 }
