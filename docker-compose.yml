@@ -1,0 +1,18 @@
+version: "3.3"
+
+services:
+  ganache:
+    image: trufflesuite/ganache-cli:v6.12.2
+    command: --chainId 1337
+    ports:
+      - "8545:8545"
+  
+  contractdeployment:
+    build:
+      context: ethereum
+      dockerfile: docker/deploy.Dockerfile
+    entrypoint: sleep 7200
+    depends_on: 
+      - ganache
+    environment:
+      LEDGERHOSTNAME: ganache
