@@ -23,7 +23,7 @@ Cosmwasm contracts need to be compiled before deployment.
 We will use the built docker image environment to compile the contract
 
 ```bash
-docker run --rm --init --net=host -v $(pwd):/source/ --workdir /source/  --entrypoint /bin/bash -it cosmwasm-bridge
+docker run --rm --net=host -v $(pwd):/source/ --workdir /source/  --entrypoint /bin/bash -it cosmwasm-bridge
 ```
 
 To compile the contract, run the following within the docker container
@@ -52,7 +52,7 @@ upon success `CODE_ID` env variable should contain an integer (`1` if first stor
 
 Once the contract is successfully uploaded, it can be instantiated as follow
 ```bash
-RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm instantiate $CODE_IF '{}' --from validator --label my-bridge-contract --amount 5000ucosm -y)
+RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm instantiate $CODE_ID '{}' --from validator --label my-bridge-contract --amount 5000ucosm -y)
 CONTRACT_ADDRESS=$(echo $RES | jq -r ".logs[0].events[0].attributes[-1].value")
 echo $CONTRACT_ADDRESS > contract_address
 ```
@@ -65,7 +65,7 @@ If successful, this will return the contract address in `CONTRACT_ADDRESS` env v
 The current python script only handles actions execution events. To start watching such events for a given action, from the same working directory and in a new terminal run
 
 ```bash
-docker run --rm --init --net=host -v $(pwd):/source/ --workdir /source/  --entrypoint /bin/bash -it cosmwasm-bridge
+docker run --rm --net=host -v $(pwd):/source/ --workdir /source/  --entrypoint /bin/bash -it cosmwasm-bridge
 # inside container
 CONTRACT_ADDRESS=$(cat contract_address)
 python3 cosmwasm_watch_contract_events.py $CONTRACT_ADDRESS Swap
@@ -80,21 +80,20 @@ Go back to the previous container shell and run the following:
 (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"amount": "10", "destination":"some-ether-address"}}' --from validator -y
 ```
 
-
-
-
-
-
-
 ## Resources
-
 ### local wasmd deployment
 
--
--
--
-
+- official repo https://github.com/CosmWasm/wasmd
+- dev node setup https://github.com/CosmWasm/wasmd/tree/master/docker
+- colearn-contract script 
 
 ### contract programming
 
-- 
+- rust cosmwasm lib reference
+- contract template
+- contract examples
+
+### querying events
+
+- hight-based queries
+- websocket subscription

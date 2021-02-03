@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdResult, Storage, HumanAddr
+    log, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
+    StdResult, Storage, HumanAddr, /*CanonicalAddr, Coin, HandleResult,*/
 };
 
 use crate::msg::{RoleResponse, HandleMsg, InitMsg, QueryMsg, U256};
@@ -8,10 +8,11 @@ use crate::state::{config, /*config_read,*/ State};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    _env: Env,
+    env: Env,
     _msg: InitMsg,
 ) -> StdResult<InitResponse> {
     let state = State {
+        source: env.message.sender.clone(),
         next_swap_id: 0,
         relay_eon: 0,
     };
@@ -44,15 +45,22 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 fn try_swap<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _amount: U256,
-    _destination: String,
+    amount: U256,
+    destination: String,
 ) -> StdResult<HandleResponse> {
    config(&mut deps.storage).update(|mut state| {
         state.next_swap_id += 1;
         Ok(state)
     })?;
 
-    Ok(HandleResponse::default())
+    let log = vec![log("action", "swap"), log("destination", destination), log("amount", amount)];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
