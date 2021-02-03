@@ -19,30 +19,8 @@
 
 pragma solidity ^0.6.0 || ^0.7.0;
 
-import "../openzeppelin/contracts/mocks/ERC20Mock.sol";
+import "./IERC20MintFacility.sol";
+import "../openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
-contract FetERC20Mock is ERC20Mock
-{
-    using SafeMath for uint256;
-
-    constructor (
-        string memory name,
-        string memory symbol,
-        uint256 initialSupply,
-        uint8 decimals_
-        )
-        payable
-        ERC20Mock(name, symbol, msg.sender, initialSupply)
-    {
-        _setupDecimals(decimals_);
-    }
-
-
-    function burnFrom(address account, uint256 amount) public virtual {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
-
-        _approve(account, _msgSender(), decreasedAllowance);
-        _burn(account, amount);
-    }
-}
+interface IERC20Token is IERC20, IERC20MintFacility {}
