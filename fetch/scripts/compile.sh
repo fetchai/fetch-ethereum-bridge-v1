@@ -1,3 +1,5 @@
+set -e
+
 wd=$(pwd)
 cd $1
 RUSTFLAGS='-C link-arg=-s' cargo wasm
