@@ -40,6 +40,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     let delete_protection_period = msg.delete_protection_period.unwrap_or(0u64);
     let earliest_delete = current_block_number + delete_protection_period;
+    let contract_addr = env.contract.address;
+    let contract_addr_human = deps.api.human_address(&contract_addr)?;
 
     let state = State {
         supply: msg.deposit, // Uint128::zero(), // TMP(LR)
@@ -56,6 +58,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         admin: env.message.sender.clone(),
         relayer: env.message.sender.clone(),
         denom: env.message.sent_funds[0].denom.clone(), // TMP(LR)
+        contract_addr_human,                            // optimization
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -98,32 +101,27 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             relay_eon,
         ),
         HandleMsg::Refund {
-            id: _,
-            to: _,
-            amount: _,
-            relay_eon: _,
-        } => Ok(HandleResponse::default()),
-        HandleMsg::Pause { since_block: _ } => Ok(HandleResponse::default()),
-        HandleMsg::FreezeFunds { amount: _ } => Ok(HandleResponse::default()),
-        HandleMsg::UnFreezeFunds { amount: _ } => Ok(HandleResponse::default()),
-        HandleMsg::SetCap { amount: _ } => Ok(HandleResponse::default()),
+            id,
+            to,
+            amount,
+            relay_eon,
+        } => try_refund(deps, &env, &state, id, to, amount, relay_eon),
+        HandleMsg::Pause { since_block } => try_pause(deps, &env, &state, since_block),
+        HandleMsg::FreezeFunds { amount } => try_freeze_funds(deps, &env, &state, amount),
+        HandleMsg::UnFreezeFunds { amount } => try_unfreeze_funds(deps, &env, &state, amount),
+        HandleMsg::SetCap { amount } => try_set_cap(deps, &env, &state, amount),
         HandleMsg::SetLimits {
-            swap_min: _,
-            swap_max: _,
-            swap_fee: _,
-        } => Ok(HandleResponse::default()),
-        HandleMsg::GrantRole {
-            role: _,
-            address: _,
-        } => Ok(HandleResponse::default()),
-        HandleMsg::RevokeRole {
-            role: _,
-            address: _,
-        } => Ok(HandleResponse::default()),
-        HandleMsg::RenounceRole {
-            role: _,
-            address: _,
-        } => Ok(HandleResponse::default()),
+            swap_min,
+            swap_max,
+            swap_fee,
+        } => try_set_limits(deps, &env, &state, swap_min, swap_max, swap_fee),
+        HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, &state, role, address),
+        HandleMsg::RevokeRole { role, address } => {
+            try_revoke_role(deps, &env, &state, role, address)
+        }
+        HandleMsg::RenounceRole { role, address } => {
+            try_renouce_role(deps, &env, &state, role, address)
+        }
     }
 }
 
@@ -135,11 +133,16 @@ fn try_swap<S: Storage, A: Api, Q: Querier>(
     destination: String,
 ) -> StdResult<HandleResponse> {
     verify_not_paused(env, state)?;
-    verify_swap_amount(amount, state)?;
+    verify_swap_amount_limits(amount, state)?;
+
+    let increased_supply = state.supply + amount;
+    if increased_supply > state.cap {
+        return Err(StdError::generic_err("Swap would exceed cap"));
+    }
 
     let swap_id = state.next_swap_id;
     config(&mut deps.storage).update(|mut state| {
-        state.supply += amount;
+        state.supply = increased_supply;
         state.next_swap_id += 1;
         Ok(state)
     })?;
@@ -148,7 +151,8 @@ fn try_swap<S: Storage, A: Api, Q: Querier>(
         log("action", "swap"),
         log("destination", destination),
         log("swap_id", swap_id),
-        log("amount", amount), // TOFIX(LR) how about fees?
+        log("amount", amount),
+        // NOTE(LR) fees will be deducted in destination chain
     ];
 
     let r = HandleResponse {
@@ -174,22 +178,15 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     only_relayer(env, state)?;
 
     if amount > state.swap_fee {
-        // TOFIX(LR) when amount == fee, amount will still be consumed
+        // NOTE(LR) when amount == fee, amount will still be consumed
         let swap_fee = state.swap_fee;
         let effective_amount = (amount - swap_fee)?;
         let to_canonical = deps.api.canonical_address(&to)?;
-        let rtx = send_tokens(
-            &deps.api,
-            &env,
-            &state,
-            &to_canonical,
-            amount,
-            "reverse_swap",
-        )?;
+        let rtx =
+            send_tokens_from_contract(&deps.api, &state, &to_canonical, amount, "reverse_swap")?;
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
-            state.sealed_reverse_swap_id += 1; // TOFIX(LR) after exec should be == rid
-                                               //state.sealed_reverse_swap_id = rid;
+            //state.sealed_reverse_swap_id = rid; // TODO(LR)
             Ok(state)
         })?;
 
@@ -232,6 +229,103 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     }
 }
 
+// Refund operation
+// is excuted when a swap can be finalized on the other chain
+// the case when that happen include:
+// - an error in the destination address: malformed wallet, invalid destination address
+// - failure to finalized the swap command on the other chain:
+//    + error in the contract
+//    + on the dest chain: highly imporbable for ether and mostly probable for cosmos native
+// Refund will rebalance the `supply`
+fn try_refund<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _id: u64,
+    _to: HumanAddr,
+    _amount: Uint128,
+    _relay_eon: u64,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_pause<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _since_block: u64,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_freeze_funds<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _amount: Uint128,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_unfreeze_funds<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _amount: Uint128,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_set_cap<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _amount: Uint128,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_set_limits<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _swap_min: Uint128,
+    _swap_max: Uint128,
+    _swap_fee: Uint128,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_grant_role<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _role: u64,
+    _address: HumanAddr,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _role: u64,
+    _address: HumanAddr,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
+fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: &Env,
+    _state: &State,
+    _role: u64,
+    _address: HumanAddr,
+) -> StdResult<HandleResponse> {
+    Ok(HandleResponse::default())
+}
+
 /* ***************************************************
  * *****************    Helpers      *****************
  * ***************************************************/
@@ -248,16 +342,13 @@ fn amount_from_funds(funds: &Vec<Coin>) -> Uint128 {
     }
 }
 
-fn send_tokens<A: Api>(
+fn send_tokens_from_contract<A: Api>(
     api: &A,
-    env: &Env,
     state: &State,
     to_address: &CanonicalAddr,
     amount: Uint128,
     action: &str,
 ) -> HandleResult {
-    let from_address = &env.contract.address;
-    let from_human = api.human_address(&from_address)?;
     let to_human = api.human_address(to_address)?;
     let log = vec![log("action", action), log("to", to_human.as_str())];
     let coin = Coin {
@@ -267,7 +358,7 @@ fn send_tokens<A: Api>(
 
     let r = HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: from_human,
+            from_address: state.contract_addr_human.clone(),
             to_address: to_human,
             amount: vec![coin],
         })],
@@ -302,13 +393,11 @@ fn verify_not_paused(env: &Env, state: &State) -> HandleResult {
     }
 }
 
-fn verify_swap_amount(amount: Uint128, state: &State) -> HandleResult {
+fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
     if amount < state.lower_swap_limit {
         Err(StdError::generic_err("Amount bellow lower limit"))
     } else if amount > state.upper_swap_limit {
         Err(StdError::generic_err("Amount exceeds upper limit"))
-    } else if (state.supply + amount) > state.cap {
-        Err(StdError::generic_err("Swap would exceed cap"))
     } else {
         Ok(HandleResponse::default())
     }
@@ -325,56 +414,6 @@ fn only_relayer(env: &Env, state: &State) -> HandleResult {
         Ok(HandleResponse::default())
     }
 }
-
-/*
-fn perform_transfer<T: Storage>(
-    store: &mut T,
-    from: &CanonicalAddr,
-    to: &CanonicalAddr,
-    amount: u128,
-) -> StdResult<()> {
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
-
-    let mut from_balance = read_u128(&balances_store, from.as_slice())?;
-    if from_balance < amount {
-        return Err(StdError::generic_err(format!(
-            "Insufficient funds: balance={}, required={}",
-            from_balance, amount
-        )));
-    }
-    from_balance -= amount;
-    balances_store.set(from.as_slice(), &from_balance.to_be_bytes());
-
-    let mut to_balance = read_u128(&balances_store, to.as_slice())?;
-    to_balance += amount;
-    balances_store.set(to.as_slice(), &to_balance.to_be_bytes());
-
-    Ok(())
-}
-
-
-// Converts 16 bytes value into u128
-// Errors if data found that is not 16 bytes
-pub fn bytes_to_u128(data: &[u8]) -> StdResult<u128> {
-    match data[0..16].try_into() {
-        Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
-        Err(_) => Err(StdError::generic_err(
-            "Corrupted data found. 16 byte expected.",
-        )),
-    }
-}
-
-
-// Reads 16 byte storage value into u128
-// Returns zero if key does not exist. Errors if data found that is not 16 bytes
-pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> StdResult<u128> {
-    let result = store.get(key);
-    match result {
-        Some(data) => bytes_to_u128(&data),
-        None => Ok(0u128),
-    }
-}
-*/
 
 /* ***************************************************
  * *****************    Queries      *****************

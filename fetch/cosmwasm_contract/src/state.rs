@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Storage};
+use cosmwasm_std::{CanonicalAddr, HumanAddr, Storage};
 use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
 
 use crate::msg::Uint128;
@@ -24,14 +24,7 @@ pub struct State {
     pub cap: Uint128,
     pub swap_fee: Uint128,
     pub paused_since_block: u64,
-    // (1) Refund operation
-    // is excuted when a swap can be finalized on the other chain
-    // the case when that happen include:
-    // - an error in the destination address: malformed wallet, invalid destination address
-    // - failure to finalized the swap command on the other chain:
-    //    + error in the contract
-    //    + on the dest chain: highly imporbable for ether and mostly probable for cosmos native
-    // Refund will rebalance the `supply`
+    
     // (2) TODO(LR)(low) check if this is possible in cosmos
     // Objective: end of the life of the contract
     pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
@@ -42,6 +35,9 @@ pub struct State {
 
     // temporary
     pub denom: String,
+
+    // optimization
+    pub contract_addr_human: HumanAddr,
 }
 
 pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
