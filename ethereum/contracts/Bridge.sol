@@ -48,7 +48,7 @@ contract Bridge is AccessControl {
     // *******    RELAYER-LEVEL EVENTS    ********
     event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
     event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
-    event Pause(uint256 sinceBlock);
+    event Pause(uint64 sinceBlock);
     // *******    ADMIN-LEVEL EVENTS    ********
     event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
     event CapUpdate(uint256 amount);
@@ -72,7 +72,7 @@ contract Bridge is AccessControl {
 
     /// @notice *******    IMMUTABLE STATE    ********
     IERC20Token public immutable token;
-    uint256 public immutable earliestDelete;
+    uint64 public immutable earliestDelete;
     /// @notice ********    MUTABLE STATE    *********
     uint256 public supply;
     uint256 public refundsFeesAccrued;
@@ -83,7 +83,7 @@ contract Bridge is AccessControl {
     uint256 public lowerSwapLimit;
     uint256 public cap;
     uint256 public swapFee;
-    uint256 public pausedSinceBlock;
+    uint64 public pausedSinceBlock;
 
 
 
@@ -158,12 +158,14 @@ contract Bridge is AccessControl {
         , uint256 upperSwapLimit_
         , uint256 lowerSwapLimit_
         , uint256 swapFee_
-        , uint256 pausedSinceBlock_
-        , uint256 deleteProtectionPeriod_)
+        , uint64 pausedSinceBlock_
+        , uint64 deleteProtectionPeriod_)
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         token = IERC20Token(ERC20Address);
-        earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
+        uint64 earliestDelete_ = _getBlockNumber() + deleteProtectionPeriod_;
+        require(earliestDelete_ > deleteProtectionPeriod_, "deleteProtectionPeriod overflow");
+        earliestDelete = earliestDelete_;
 
         /// @dev Unnecessary initialisations, done implicitly by VM
         //supply = 0;
@@ -377,7 +379,7 @@ contract Bridge is AccessControl {
      * @dev Delegate only
      *      If `blocknumber < _getBlockNumber()`, then contract will be paused immediately = from `_getBlockNumber()`.
      */
-    function pauseSince(uint256 blockNumber)
+    function pauseSince(uint64 blockNumber)
         public
         canPause
     {
@@ -568,9 +570,9 @@ contract Bridge is AccessControl {
      * @dev VIRTUAL Method returning bock number. Introduced for
      *      testing purposes (allows mocking).
      */
-    function _getBlockNumber() internal view virtual returns(uint256)
+    function _getBlockNumber() internal view virtual returns(uint64)
     {
-        return block.number;
+        return uint64(block.number);
     }
 
 
@@ -584,9 +586,9 @@ contract Bridge is AccessControl {
      * @param blockNumber - block number since which non-admin interaction will be paused (for all
      *                      _getBlockNumber() >= blockNumber)
      */
-    function _pauseSince(uint256 blockNumber) internal 
+    function _pauseSince(uint64 blockNumber) internal
     {
-        uint256 currentBlockNumber = _getBlockNumber();
+        uint64 currentBlockNumber = _getBlockNumber();
         pausedSinceBlock = blockNumber < currentBlockNumber ? currentBlockNumber : blockNumber;
         emit Pause(pausedSinceBlock);
     }

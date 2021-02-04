@@ -21,7 +21,7 @@
                 "upperSwapLimit": "1000",
                 "lowerSwapLimit": "100",
                 "swapFee": "100",
-                "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlock": "0xffffffffffffffff",
                 "deleteProtectionPeriod": "10"
             }
         }
