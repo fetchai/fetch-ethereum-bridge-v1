@@ -1,16 +1,10 @@
 {
-  "scripts": {
-    "deploy": "LEDGERHOSTNAME=$LEDGERHOSTNAME truffle deploy",
-    "test": "LEDGERHOSTNAME=$LEDGERHOSTNAME truffle test"
+  "scripts" : {
+    "ganache": "$(npm bin)/ganache-cli --chainId 1337",
+    "ganache-w-mnem": "$(npm bin)/ganache-cli --chainId 1337 --mnemonic \"$(cat ~/.secrets_mnemonic_development)\""
   },
-  "dependencies": {
-    "truffle": "^5.1.62",
-    "@truffle/hdwallet-provider": "^1.2.1",
-    "path": "^0.12.7"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@openzeppelin/test-helpers": "^0.5.10",
-    "@openzeppelin/test-environment": "^0.1.9",
     "ganache-cli": "^6.12.2"
   }
 }
