@@ -1,24 +1,28 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_std::{HumanAddr};
 
 //use crate::cosmwasm_bignumber::{Uint256};
 
-//pub type U256 = Uint256;
-pub type U256 = Uint128;
+pub type Uint128 = cosmwasm_std::Uint128;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
+    pub cap: Uint128,
+    pub deposit: Uint128,
+    pub upper_swap_limit: Uint128,
+    pub lower_swap_limit: Uint128,
+    pub swap_fee: Uint128,
+    pub paused_since_block: Option<u64>,
+    pub delete_protection_period: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
-    
     // user level methods
     Swap {
-        amount: U256,
         destination: String,
     },
 
@@ -27,15 +31,15 @@ pub enum HandleMsg {
         rid: u64,
         to: HumanAddr,
         from: String,
-        origin_tx_hash: U256,
-        amount: U256,
+        origin_tx_hash: Uint128,
+        amount: Uint128,
         relay_eon: u64,
     },
 
     Refund {
         id: u64,
         to: HumanAddr,
-        amount: U256,
+        amount: Uint128,
         relay_eon: u64,
     },
 
@@ -43,24 +47,25 @@ pub enum HandleMsg {
         since_block: u64,
     },
 
-
     // admin
-    FreezeFunds { // add funds to contracts from the owner
-        amount: U256,
+    FreezeFunds {
+        // add funds to contracts from the owner
+        amount: Uint128,
     },
 
-    UnFreezeFunds { // withdrawal from contract to the owner
-        amount: U256,
+    UnFreezeFunds {
+        // withdrawal from contract to the owner
+        amount: Uint128,
     },
 
     SetCap {
-        amount: U256,
+        amount: Uint128,
     },
 
     SetLimits {
-        swap_min: U256,
-        swap_max: U256,
-        swap_fee: U256,
+        swap_min: Uint128,
+        swap_max: Uint128,
+        swap_fee: Uint128,
     },
 
     // Access Control
@@ -84,10 +89,7 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // Access Control
-    HasRole {
-        role: u64,
-        address: HumanAddr,
-    }
+    HasRole { role: u64, address: HumanAddr },
 }
 
 // We define a custom struct for each query response
