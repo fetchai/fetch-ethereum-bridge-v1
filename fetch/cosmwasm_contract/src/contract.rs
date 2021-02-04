@@ -292,13 +292,13 @@ fn verify_tx_relay_eon(eon: u64, state: &State) -> HandleResult {
 }
 
 fn verify_not_paused(env: &Env, state: &State) -> HandleResult {
-    if env.block.height >= state.paused_since_block {
+    if env.block.height < state.paused_since_block {
+        Ok(HandleResponse::default())
+    } else {
         Err(StdError::generic_err(format!(
             "Contract has been paused {}",
             state.paused_since_block
         )))
-    } else {
-        Ok(HandleResponse::default())
     }
 }
 
