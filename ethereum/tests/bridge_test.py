@@ -27,11 +27,11 @@ class Setup:
     relayer = None
     users = None
 
-    src_tx_hash = brownie.convert.to_bytes("0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", 'bytes32')
+    dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
+    dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [dest_swap_address])
+    src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
 
     adminRole = 0
-    #relayerRole = brownie.web3.keccak(text="RELAYER_ROLE")
-    #delegateRole = brownie.web3.keccak(text="DELEGATE_ROLE")
     relayerRole = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
     delegateRole = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
 
@@ -113,19 +113,20 @@ def revereseSwap(bridge,
                  rid: int,
                  to_user,
                  amount: int = setup.amount,
-                 origin_from: str = "a src addr",
+                 origin_from: str = setup.dest_swap_address,
                  origin_tx_hash = setup.src_tx_hash,
-                 caller=setup.relayer,
-                 relayEon = None):
+                 caller=None,
+                 relay_eon = None):
     swapFee = bridge.swapFee()
-    relayEon = bridge.relayEon() if relayEon is None else relayEon
+    caller = caller or setup.relayer
+    relay_eon = relay_eon or bridge.relayEon()
     origSupply = bridge.supply()
     origBridgeBal = token.balanceOf(bridge)
     origUserBal = token.balanceOf(to_user)
 
     effectiveAmount = amount - swapFee if amount > swapFee else 0
 
-    tx = bridge.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relayEon, {'from': setup.relayer})
+    tx = bridge.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relay_eon, {'from': caller})
 
     assert bridge.supply() == origSupply - effectiveAmount
     assert token.balanceOf(bridge) == origBridgeBal - effectiveAmount
