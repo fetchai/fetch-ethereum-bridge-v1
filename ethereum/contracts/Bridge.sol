@@ -44,10 +44,10 @@ contract Bridge is AccessControl {
     using SafeMath for uint256;
 
     // *******    USER-LEVEL EVENTS    ********
-    event Swap(uint64 indexed id, string indexed to, uint256 amount);
+    event Swap(uint64 indexed id, string indexed indexedTo, string to, uint256 amount);
     // *******    RELAYER-LEVEL EVENTS    ********
     event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
-    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 amount, uint256 fee);
+    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
     event Pause(uint256 sinceBlock);
     // *******    ADMIN-LEVEL EVENTS    ********
     event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
@@ -220,7 +220,7 @@ contract Bridge is AccessControl {
         supply = supply.add(amount);
         require(cap >= supply, "Swap would exceed cap");
         token.transferFrom(msg.sender, address(this), amount);
-        emit Swap(nextSwapId, destinationAddress, amount);
+        emit Swap(nextSwapId, destinationAddress, destinationAddress, amount);
         // NOTE(pb): No necessity to use SafeMath here:
         nextSwapId += 1;
     }
