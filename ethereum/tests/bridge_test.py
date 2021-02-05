@@ -2,7 +2,7 @@
 import pprint
 import pytest
 import brownie
-from brownie import FetERC20Mock, Bridge
+from brownie import FetERC20Mock, BridgeMock
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -22,7 +22,8 @@ class Setup:
     lowerSwapLimit = 10
     swapFeee = 5
     pausedSincelBlock = 0xffffffffffffffff
-    deleteProtectionPeriod = 10
+    deleteProtectionPeriod = 13
+    deploymentBlockNumber = None
     owner = None
     relayer = None
     users = None
@@ -53,8 +54,8 @@ def token(FetERC20Mock, accounts):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def bridge(Bridge, token, accounts):
-    contract = Bridge.deploy(
+def bridge(BridgeMock, token, accounts):
+    contract = BridgeMock.deploy(
         token.address,
         setup.cap,
         setup.upperSwapLimit,
@@ -64,13 +65,8 @@ def bridge(Bridge, token, accounts):
         setup.deleteProtectionPeriod,
         {'from': setup.owner})
 
-    #print(f'contract relayer role: {contract.RELAYER_ROLE()}, calculated: {setup.relayerRole}')
-
+    setup.deploymentBlockNumber = contract.blockNumber()
     contract.grantRole(setup.relayerRole, setup.relayer.address, {'from': setup.owner})
-
-    #assert contract.getRoleMemberCount(setup.relayerRole) == 1
-    #assert contract.getRoleMember(setup.relayerRole, 0) == setup.relayer
-    #assert contract.hasRole(setup.relayerRole, setup.relayer)
 
     yield contract
 
@@ -82,11 +78,11 @@ def isolate(fn_isolation):
     pass
 
 
-def swap(bridge, token, user, amount: int = setup.amount, dest_addr: str = "a dest addr"):
+def swap(bridge, token, user, amount: int = setup.amount, dest_addr: str = setup.dest_swap_address):
     origSwapId = bridge.nextSwapId()
-    origSupply = bridge.supply()
-    origBridgeBal = token.balanceOf(bridge)
-    origUserBal = token.balanceOf(user)
+    orig_bridge_supply = bridge.supply()
+    orig_bridge_balance = token.balanceOf(bridge)
+    orig_user_balance = token.balanceOf(user)
     #assert origBal >= amount
 
     token.approve(bridge, amount, {'from': user})
@@ -95,15 +91,53 @@ def swap(bridge, token, user, amount: int = setup.amount, dest_addr: str = "a de
     tx = bridge.swap(amount, dest_addr, {'from': user})
 
     assert bridge.nextSwapId() == origSwapId + 1
-    assert bridge.supply() == origSupply + amount
-    assert token.balanceOf(bridge) == origBridgeBal + amount
-    assert token.balanceOf(user) == origUserBal - amount
+    assert bridge.supply() == orig_bridge_supply + amount
+    assert token.balanceOf(bridge) == orig_bridge_balance + amount
+    assert token.balanceOf(user) == orig_user_balance - amount
 
     event = tx.events['Swap']
     assert event['id'] == origSwapId
     assert brownie.convert.to_bytes(event['indexedTo'], 'bytes32') == brownie.web3.solidityKeccak(['string'], [dest_addr])
     assert event['to'] == dest_addr
     assert event['amount'] == amount
+
+    return tx
+
+
+def refund(bridge,
+           token,
+           id: int,
+           to_user,
+           amount: int = setup.amount,
+           relay_eon = None,
+           caller=None):
+
+    swapFee = bridge.swapFee()
+    caller = caller or setup.relayer
+    relay_eon = relay_eon or bridge.relayEon()
+    orig_refunds_fees_accrued = bridge.refundsFeesAccrued()
+    orig_bridge_supply = bridge.supply()
+    orig_bridge_balance = token.balanceOf(bridge)
+    orig_user_balance = token.balanceOf(to_user)
+
+    effective_fee = swapFee if amount > swapFee else amount
+    refunded_amount = amount - effective_fee
+
+    #assert bridge.refunds(id) == 0
+    tx = bridge.refund(id, to_user, amount, relay_eon, {'from': caller})
+
+    assert bridge.supply() == orig_bridge_supply - amount
+    assert bridge.refundsFeesAccrued() == orig_refunds_fees_accrued + effective_fee
+    assert bridge.refunds(id) == amount
+
+    assert token.balanceOf(bridge) == orig_bridge_balance - refunded_amount
+    assert token.balanceOf(to_user) == orig_user_balance + refunded_amount
+
+    event = tx.events['SwapRefund']
+    assert event['id'] == id
+    assert event['to'] == to_user
+    assert event['refundedAmount'] == refunded_amount
+    assert event['fee'] == swapFee
 
     return tx
 
@@ -115,40 +149,47 @@ def revereseSwap(bridge,
                  amount: int = setup.amount,
                  origin_from: str = setup.dest_swap_address,
                  origin_tx_hash = setup.src_tx_hash,
-                 caller=None,
-                 relay_eon = None):
+                 relay_eon=None,
+                 caller=None):
     swapFee = bridge.swapFee()
     caller = caller or setup.relayer
+    orig_refunds_fees_accrued = bridge.refundsFeesAccrued()
     relay_eon = relay_eon or bridge.relayEon()
-    origSupply = bridge.supply()
-    origBridgeBal = token.balanceOf(bridge)
-    origUserBal = token.balanceOf(to_user)
+    orig_bridge_supply = bridge.supply()
+    orig_bridge_balance = token.balanceOf(bridge)
+    orig_user_balance = token.balanceOf(to_user)
 
-    effectiveAmount = amount - swapFee if amount > swapFee else 0
+    effective_amount = amount - swapFee if amount > swapFee else 0
 
     tx = bridge.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relay_eon, {'from': caller})
 
-    assert bridge.supply() == origSupply - effectiveAmount
-    assert token.balanceOf(bridge) == origBridgeBal - effectiveAmount
-    assert token.balanceOf(to_user) == origUserBal + effectiveAmount
+    assert bridge.supply() == orig_bridge_supply - effective_amount
+    assert bridge.refundsFeesAccrued() == orig_refunds_fees_accrued
+    assert token.balanceOf(bridge) == orig_bridge_balance - effective_amount
+    assert token.balanceOf(to_user) == orig_user_balance + effective_amount
 
     event = tx.events['ReverseSwap']
     assert event['rid'] == rid
     assert event['to'] == to_user
     assert brownie.convert.to_bytes(event['from'], 'bytes32') == brownie.web3.solidityKeccak(['string'], [origin_from])
     assert brownie.convert.to_bytes(event['originTxHash'], 'bytes32') == origin_tx_hash
-    assert event['effectiveAmount'] == effectiveAmount
+    assert event['effectiveAmount'] == effective_amount
     assert event['fee'] == swapFee
 
     return tx
 
 
-def test_initialState(bridge):
+def test_initial_state(bridge, token):
     assert bridge.relayEon() == ((1<<64)-1)
     assert bridge.nextSwapId() == 0
+    assert bridge.refundsFeesAccrued() == 0
+    assert bridge.token() == token
+    assert bridge.earliestDelete() == setup.deploymentBlockNumber + setup.deleteProtectionPeriod
+    assert bridge.refundsFeesAccrued() == 0
+    assert bridge.refundsFeesAccrued() == 0
 
 
-def test_firstNewRelayEon(bridge):
+def test_newRelayEon_basic(bridge):
     tx = bridge.newRelayEon({'from': setup.relayer})
     assert bridge.relayEon() == 0
     evName = 'NewRelayEon'
@@ -156,12 +197,25 @@ def test_firstNewRelayEon(bridge):
     assert tx.events[evName]['eon'] == 0
 
 
-def test_basicSwap(bridge, token):
+def test_swap_basic(bridge, token):
     swap(bridge, token, user=setup.users[0])
 
 
-def test_basicReverseSwap(bridge, token):
+def test_reverseSwap_basic(bridge, token):
     user = setup.users[0]
     amount = setup.amount
     swap(bridge, token, user=user, amount=amount)
     revereseSwap(bridge, token, rid=0, to_user=user, amount=amount)
+
+
+def test_refund_bacis(bridge, token):
+    user = setup.users[0]
+    amount = setup.amount
+    swap_tx = swap(bridge, token, user=user, amount=amount)
+    refund(bridge, token, id=swap_tx.events['Swap']['id'], to_user=user, amount=amount)
+
+def test_refund_amount_smaller_than_fee(bridge, token):
+    user = setup.users[0]
+    amount = setup.amount
+    swap_tx = swap(bridge, token, user=user, amount=amount)
+    refund(bridge, token, id=swap_tx.events['Swap']['id'], to_user=user, amount=amount)
