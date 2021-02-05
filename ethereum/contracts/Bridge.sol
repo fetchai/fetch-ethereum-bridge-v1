@@ -163,7 +163,7 @@ contract Bridge is AccessControl {
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         token = IERC20Token(ERC20Address);
-        earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
+        earliestDelete = block.number.add(deleteProtectionPeriod_);
 
         /// @dev Unnecessary initialisations, done implicitly by VM
         //supply = 0;
