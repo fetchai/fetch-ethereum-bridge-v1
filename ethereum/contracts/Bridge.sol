@@ -115,7 +115,7 @@ contract Bridge is AccessControl {
     }
 
     modifier verifyNotPaused() {
-        require(pausedSinceBlock > _getBlockNumber(), "Contract has been paused");
+        require(pausedSinceBlock > block.number, "Contract has been paused");
         _;
     }
 
@@ -163,7 +163,7 @@ contract Bridge is AccessControl {
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         token = IERC20Token(ERC20Address);
-        earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
+        earliestDelete = block.number.add(deleteProtectionPeriod_);
 
         /// @dev Unnecessary initialisations, done implicitly by VM
         //supply = 0;
@@ -373,9 +373,9 @@ contract Bridge is AccessControl {
     /**
      * @notice Pauses all NON-administrative interaction with the contract since the specified block number
      * @param blockNumber block number since which non-admin interaction will be paused (for all
-     *        _getBlockNumber() >= blockNumber).
+     *        block.number >= blockNumber).
      * @dev Delegate only
-     *      If `blocknumber < _getBlockNumber()`, then contract will be paused immediately = from `_getBlockNumber()`.
+     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.
      */
     function pauseSince(uint256 blockNumber)
         public
@@ -551,7 +551,7 @@ contract Bridge is AccessControl {
         public
         onlyOwner
     {
-        require(earliestDelete >= _getBlockNumber(), "Earliest delete not reached");
+        require(earliestDelete >= block.number, "Earliest delete not reached");
         require(payoutAddress != address(this), "pay addr == this contract addr");
         uint256 contractBalance = token.balanceOf(address(this));
         token.transfer(payoutAddress, contractBalance);
@@ -564,16 +564,6 @@ contract Bridge is AccessControl {
     // ******************    INTERNAL METHODS   *****************
 
 
-    /**
-     * @dev VIRTUAL Method returning bock number. Introduced for
-     *      testing purposes (allows mocking).
-     */
-    function _getBlockNumber() internal view virtual returns(uint256)
-    {
-        return block.number;
-    }
-
-
     function _isOwner() internal view returns(bool) {
         return hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -582,11 +572,11 @@ contract Bridge is AccessControl {
     /**
      * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number
      * @param blockNumber - block number since which non-admin interaction will be paused (for all
-     *                      _getBlockNumber() >= blockNumber)
+     *                      block.number >= blockNumber)
      */
     function _pauseSince(uint256 blockNumber) internal
     {
-        uint256 currentBlockNumber = _getBlockNumber();
+        uint256 currentBlockNumber = block.number;
         pausedSinceBlock = blockNumber < currentBlockNumber ? currentBlockNumber : blockNumber;
         emit Pause(pausedSinceBlock);
     }

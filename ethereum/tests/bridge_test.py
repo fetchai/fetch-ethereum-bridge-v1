@@ -1,18 +1,17 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
+
 import pprint
 import pytest
 import brownie
-from brownie import FetERC20Mock, BridgeMock
+from brownie import FetERC20Mock, Bridge
 from dataclasses import dataclass, InitVar
 from enum import Enum, auto
-from typing import Type, Optional, Any
-import json
+from typing import Type
 
 
 CanonicalFET = Type[int]
 
 
-#from eth_keys.datatypes import Signature as Signature2
 class AutoNameEnum(Enum):
     def _generate_next_value_(name, start, count, last_values):
         return name
@@ -111,7 +110,7 @@ class BridgeTest:
     bridge: BridgeSetup = BridgeSetup(token)
     vals: ValuesSetup = ValuesSetup(token)
     t: FetERC20Mock = None
-    b: BridgeMock = None
+    b: Bridge = None
 
 
     def swap(self, user, amount: int = None, dest_addr: str = None):
@@ -247,13 +246,13 @@ def tokenFactory(FetERC20Mock, accounts):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def bridgeFactory(BridgeMock, tokenFactory, accounts):
+def bridgeFactory(Bridge, tokenFactory, accounts):
     def bridge_(test: BridgeTest = None) -> BridgeTest:
         test: BridgeTest = tokenFactory(test)
         b = test.bridge
         u = test.users
 
-        contract = BridgeMock.deploy(
+        contract = Bridge.deploy(
             test.t.address,
             b.cap,
             b.upperSwapLimit,
