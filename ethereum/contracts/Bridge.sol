@@ -163,7 +163,7 @@ contract Bridge is AccessControl {
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         token = IERC20Token(ERC20Address);
-        earliestDelete = block.number.add(deleteProtectionPeriod_);
+        earliestDelete = _getBlockNumber().add(deleteProtectionPeriod_);
 
         /// @dev Unnecessary initialisations, done implicitly by VM
         //supply = 0;
@@ -580,11 +580,11 @@ contract Bridge is AccessControl {
 
 
     /**
-     * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number 
+     * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number
      * @param blockNumber - block number since which non-admin interaction will be paused (for all
      *                      _getBlockNumber() >= blockNumber)
      */
-    function _pauseSince(uint256 blockNumber) internal 
+    function _pauseSince(uint256 blockNumber) internal
     {
         uint256 currentBlockNumber = _getBlockNumber();
         pausedSinceBlock = blockNumber < currentBlockNumber ? currentBlockNumber : blockNumber;
