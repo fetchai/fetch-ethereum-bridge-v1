@@ -24,8 +24,12 @@ import "./Bridge.sol";
 
 contract BridgeMock is Bridge
 {
-    uint256 public blockNumber;
-
+    /// @dev This state veriable needs to be default-initialised to the current block.number value
+    ///      in order to maintain the *same* behaviour as production `Bridge` contract, so the same
+    ///      implementation of tests will pass for both contracts `Bridge` nad `BridgeMock`
+    ///      For the very same reason, this state variable was made intentionally *private* (= so it
+    ///      can *not* be used/relied-on in tests implementation).
+    uint256 private blockNumber = block.number;
 
     constructor(
           address ERC20Address
@@ -46,7 +50,21 @@ contract BridgeMock is Bridge
         , deleteProtectionPeriod_
         )
     {
-        blockNumber = block.number;
+        // NOTE(pb): Changing/setting default value of `blockNumber` state variable here, inside of this
+        //  *derived* contract constructor, will **NOT** have effect inside of *base* contract constructor.
+        //  The reason being, that it is too late to change/set the value here, since constructor of the
+        //  **BASE** contract `Bridge` has been called *already*, which internally calls the
+        //  `_getBlockNumber()` method.
+        //  Solidity/EVM deviates from well established concept(in other languages) where calling virtual
+        //  function from within the constructor: Solidity calls override implementation from *derived*
+        //  contract from withing *BASE* contract constructor execution = base class constructor call method
+        //  from *derived* contract which is **NOT** initialised yet since it's constructor has **not**
+        //  been called yet.
+        //  Thus it can be initialised only from within the *override* implementation method itself using
+        //  lazy initialisation pattern. However, the `_getBlockNumber()` method is declared as `view`,
+        //  so lazy init. pattern can *not* be used there, since it would require to modify contract state.
+        //  The only viable option is to use default value initialiser when the state variable is *declared*.
+        //blockNumber = ...; // this will *not* have effect inside of constructor of `Bridge` base class
     }
 
 
@@ -54,6 +72,7 @@ contract BridgeMock is Bridge
     {
         blockNumber = value;
     }
+
 
     function _getBlockNumber() internal view override returns(uint256)
     {
