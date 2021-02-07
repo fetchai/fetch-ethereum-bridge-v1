@@ -318,6 +318,56 @@ contract Bridge is AccessControl {
 
 
     /**
+      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded
+      *         back to the user (= swap fee is waived = user will receive full `amount`).
+      *         Purpose of this method is to enable full refund in the situations when it si not user's fault that
+      *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged
+      *         period of time, etc. ...).
+      *
+      * @dev Callable exclusively by `relayer` role
+      *
+      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,
+      *             **NOT** *reverse* swap id!
+      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`
+      *             call)
+      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be
+      *                 waived = user will receive whole `amount` value.
+      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction
+      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been
+      *                 called at all!
+      * @param relayEon_ - current relay eon, ensures safe management of relaying process
+      */
+    function refundInFull(
+        uint64 id,
+        address to,
+        uint256 amount,
+        uint64 relayEon_
+        )
+        public
+        verifyTxRelayEon(relayEon_)
+        onlyRelayer
+        verifyRefundSwapId(id)
+    {
+        token.transfer(to, amount);
+        emit SwapRefund(id, to, amount, 0);
+
+        // NOTE(pb): Whole `amount` **MUST** be withdrawn from `supply` in order to preserve the exact balance with
+        //  `supply` of counterpart contract, since original swap amount is **NO** more part of supply **after** it
+        //  has been refunded (= it has **NOT** been, and **NEVER** will be, transferred to counterpart contract).
+        supply = supply.sub(amount);
+
+        // NOTE(pb): Here we need to record the original `amount` value (passed as input param) rather than
+        //  `effectiveAmount` in order to make sure, that the value is **NOT** zero (so it is possible to detect
+        //  existence of key-value record in the `refunds` mapping (this is done in the `verifyRefundSwapId(...)`
+        //  modifier). This also means that relayer role shall call this function function only for `amount > 0`,
+        //  otherways relayer will pay Tx fee for executing the transaction which will have *NO* effect.
+        refunds[id] = amount;
+    }
+
+
+
+
+    /**
       * @notice Finalises swap initiated by counterpart contract on the other blockchain.
       *         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**
       *         blockchain.
@@ -337,6 +387,9 @@ contract Bridge is AccessControl {
       * @param amount - original amount specified in associated swap initiated on the other blockchain.
       *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,
       *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.
+      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction
+      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been
+      *                 called at all!
       * @param relayEon_ - current relay eon, ensures safe management of relaying process
       */
     function reverseSwap(
