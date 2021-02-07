@@ -3,10 +3,14 @@ import pprint
 import pytest
 import brownie
 from brownie import FetERC20Mock, BridgeMock
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 from enum import Enum, auto
-from typing import Optional, Any
+from typing import Type, Optional, Any
 import json
+
+
+CanonicalFET = Type[int]
+
 
 #from eth_keys.datatypes import Signature as Signature2
 class AutoNameEnum(Enum):
@@ -34,54 +38,78 @@ class EventType(AutoNameEnum):
 
 @dataclass
 class TokenSetup:
-    tokenDecimals = 18
-    totalSupply = 10**10
-    userFunds = 1000
+    tokenDecimals: int = 18
+    multiplier: int = 10**tokenDecimals
+    totalSupply: int = None
+    userFunds: int = None
+
+    def toCanonical(self, amount_fet: int ) -> CanonicalFET:
+        return amount_fet * self.multiplier
+
+    def __post_init__(self):
+        self.totalSupply = self.toCanonical(1000000)
+        self.userFunds = self.toCanonical(1000)
 
 
 @dataclass
-class Users:
+class UsersSetup:
     owner = None
     relayer = None
     users = None
-    adminRole = 0
-    relayerRole = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-    delegateRole = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
+    adminRole: bytes = 0
+    relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+    delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
 
 
 @dataclass
 class BridgeSetup:
-    cap = 1000
-    upperSwapLimit = 100
-    lowerSwapLimit = 10
-    swapFee = 5
-    pausedSinceBlock = 0xffffffffffffffff
-    pausedSinceBlockEffective = None
-    deleteProtectionPeriod = 13
-    deploymentBlockNumber = None
+    token: InitVar[TokenSetup]
+    cap: int = None
+    upperSwapLimit: int = None
+    lowerSwapLimit: int = None
+    swapFee: int = None
+    pausedSinceBlock: int = 0xffffffffffffffff
+    pausedSinceBlockEffective: int = None
+    deleteProtectionPeriod: int = 13
+    deploymentBlockNumber: int = None
+
+    def __post_init__(self, token):
+        self.cap = token.toCanonical(1000)
+        self.upperSwapLimit = token.toCanonical(100)
+        self.lowerSwapLimit = token.toCanonical(10)
+        self.swapFee = token.toCanonical(5)
 
 
 @dataclass
 class ValuesSetup:
-    amount = 10
+    token: InitVar[TokenSetup]
+    amount: int = None
     dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
     dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [dest_swap_address])
     src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
 
+    def __post_init__(self, token):
+        self.amount = token.toCanonical(10)
+
 
 @dataclass
 class Setup__:
-    users: Users = Users()
+    users: UsersSetup = UsersSetup()
     token: TokenSetup = TokenSetup()
-    bridge: BridgeSetup = BridgeSetup()
-    vals: ValuesSetup = ValuesSetup()
+    bridge: BridgeSetup = None
+    vals: ValuesSetup = None
+
+    def __post_init__(self):
+        self.bridge = BridgeSetup(self.token)
+        self.vals = ValuesSetup(self.token)
 
 
+@dataclass()
 class BridgeTest:
-    users: Users = Users()
+    users: UsersSetup = UsersSetup()
     token: TokenSetup = TokenSetup()
-    bridge: BridgeSetup = BridgeSetup()
-    vals: ValuesSetup = ValuesSetup()
+    bridge: BridgeSetup = BridgeSetup(token)
+    vals: ValuesSetup = ValuesSetup(token)
     t: FetERC20Mock = None
     b: BridgeMock = None
 
@@ -195,9 +223,6 @@ class BridgeTest:
         return tx
 
 
-#setup = Setup()
-
-
 @pytest.fixture(scope="module", autouse=True)
 def tokenFactory(FetERC20Mock, accounts):
     def token_(test: BridgeTest = None) -> BridgeTest:
@@ -286,13 +311,12 @@ def bridgeFactory(BridgeMock, tokenFactory, accounts):
 #
 #    return bridge_
 
+
 @pytest.fixture(autouse=True)
 def isolate(fn_isolation):
     # perform a chain rewind after completing each test, to ensure proper isolation
     # https://eth-brownie.readthedocs.io/en/v1.10.3/tests-pytest-intro.html#isolation-fixtures
     pass
-
-
 
 
 def test_initial_state(bridgeFactory):
