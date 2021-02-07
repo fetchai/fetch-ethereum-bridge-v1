@@ -347,7 +347,7 @@ def test_refund_amount_smaller_than_fee(bridgeFactory):
     assert e['fee'] == amount
 
 
-def test_refund_waive_fee(bridgeFactory):
+def test_refund_in_full(bridgeFactory):
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     amount = test.vals.amount
