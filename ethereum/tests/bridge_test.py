@@ -276,42 +276,6 @@ def bridgeFactory(BridgeMock, tokenFactory, accounts):
     yield bridge_
 
 
-#def bridgeEx(
-#   cap=1000
-# , upperSwapLimit = 100
-# , lowerSwapLimit = 10
-# , swapFee = 5
-# , pausedSinceBlock = 3
-# , deleteProtectionPeriod = 13):
-#    s = Setup()
-#    s.cap = cap
-#    s.upperSwapLimit = upperSwapLimit
-#    s.lowerSwapLimit = lowerSwapLimit
-#    s.swapFee = swapFee
-#    s.pausedSinceBlock = pausedSinceBlock
-#    s.deleteProtectionPeriod = deleteProtectionPeriod
-#
-#    #@pytest.fixture(scope="module", autouse=True)
-#    #def bridge_(BridgeMock, token, accounts):
-#    #    contract = BridgeMock.deploy(
-#    #        token.address,
-#    #        s.cap,
-#    #        s.upperSwapLimit,
-#    #        s.lowerSwapLimit,
-#    #        s.swapFee,
-#    #        s.pausedSinceBlock,
-#    #        s.deleteProtectionPeriod,
-#    #        {'from': s.owner})
-#    #    pprint.pprint(contract.tx.events)
-#    #    s.deploymentBlockNumber = contract.tx.block_number
-#    #    s.pausedSinceBlockEffective = s.pausedSinceBlock if s.pausedSinceBlock > s.deploymentBlockNumber else s.deploymentBlockNumber
-#    #    contract.grantRole(s.relayerRole, s.relayer.address, {'from': s.owner})
-#
-#    #    yield contract
-#
-#    return bridge_
-
-
 @pytest.fixture(autouse=True)
 def isolate(fn_isolation):
     # perform a chain rewind after completing each test, to ensure proper isolation
@@ -363,37 +327,18 @@ def test_refund_bacis(bridgeFactory):
     test.refund(id=swap_tx.events['Swap']['id'], to_user=user, amount=amount)
 
 
-#def test_refund_amount_smaller_than_fee1(bridgeFactory):
-#    test = bridgeFactory()
-#
-#    user = test.users.users[0]
-#    amount = test.bridge.swapFee
-#    test.b.setLimits(test.bridge.upperSwapLimit, amount, amount)
-#
-#    swap_tx = test.swap(user=user, amount=amount)
-#
-#    test.b.setLimits(test.bridge.upperSwapLimit, amount+1, amount+1)
-#
-#    tx = test.refund(id=swap_tx.events['Swap']['id'], to_user=user, amount=amount)
-#    e = tx.events[str(EventType.SwapRefund)]
-#    assert e['refundedAmount'] == 0
-#    assert e['fee'] == amount
-
-
 def test_refund_amount_smaller_than_fee(bridgeFactory):
-    test: BridgeTest = BridgeTest()
-    test.bridge.lowerSwapLimit = test.bridge.swapFee
-
-    bridgeFactory(test)
+    test = bridgeFactory()
 
     user = test.users.users[0]
     amount = test.bridge.swapFee
+    test.b.setLimits(test.bridge.upperSwapLimit, amount, amount)
 
     swap_tx = test.swap(user=user, amount=amount)
 
     test.b.setLimits(test.bridge.upperSwapLimit, amount+1, amount+1)
 
-    tx = test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount)
+    tx = test.refund(id=swap_tx.events['Swap']['id'], to_user=user, amount=amount)
     e = tx.events[str(EventType.SwapRefund)]
     assert e['refundedAmount'] == 0
     assert e['fee'] == amount
@@ -403,23 +348,7 @@ def test_swap_reverts_when_bridge_is_paused(bridgeFactory):
     test = bridgeFactory()
 
     user = test.users.users[0]
-    amount = test.bridge.swapFee
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    n = 10
-    test.b.setBlockNumber(n)
-    test.b.pauseSince(n+1)
-    test.swap(user=user, amount=amount)
-
-    test.b.pauseSince(n)
-    with brownie.reverts(revert_msg="Contract has been paused"):
-        test.b.swap(amount, test.vals.dest_swap_address, {'from': user})
-
-
-def test_swap_reverts_when_bridge_is_paused_2(bridgeFactory):
-    test = bridgeFactory()
-
-    user = test.users.users[0]
-    amount = test.bridge.swapFee
+    amount = test.bridge.upperSwapLimit
     # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
     test.swap(user=user, amount=amount)
 
