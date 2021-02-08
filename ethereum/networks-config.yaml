@@ -71,3 +71,9 @@ live:
     host: https://data-seed-prebsc-1-s1.binance.org:8545/
     id: BSC-test
     name: BSC-test
+- name: Docker
+  networks:
+  - chainid: 1337
+    host: http://ganache:8545
+    id: docker
+    name: docker

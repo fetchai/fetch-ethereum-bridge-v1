@@ -8,6 +8,12 @@ project_structure:
 
 networks:
     default: development
+    docker:
+        gas_limit: max
+        gas_buffer: 1
+        gas_price: 0
+        reverting_tx_gas_limit: max
+        default_contract_owner: true
     development:
         gas_limit: max
         gas_buffer: 1

@@ -3,7 +3,7 @@ version: "3.3"
 services:
   ganache:
     image: trufflesuite/ganache-cli:v6.12.2
-    command: --chainId 1337 -m "tonight victory turtle miss chalk width easily inform quote script melody proof"
+    command: --chainId 1337 
     ports:
       - "8545:8545"
   
