@@ -20,9 +20,10 @@
 pragma solidity ^0.6.0 || ^0.7.0;
 
 import "../openzeppelin/contracts/mocks/ERC20Mock.sol";
+import "../openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 
 
-contract FetERC20Mock is ERC20Mock
+contract FetERC20Mock is ERC20Mock, ERC20Burnable
 {
     using SafeMath for uint256;
 
@@ -36,13 +37,5 @@ contract FetERC20Mock is ERC20Mock
         ERC20Mock(name, symbol, msg.sender, initialSupply)
     {
         _setupDecimals(decimals_);
-    }
-
-
-    function burnFrom(address account, uint256 amount) public virtual {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
-
-        _approve(account, _msgSender(), decreasedAllowance);
-        _burn(account, amount);
     }
 }

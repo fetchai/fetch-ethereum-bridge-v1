@@ -50,14 +50,14 @@ contract Bridge is AccessControl {
     event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
     event Pause(uint256 sinceBlock);
     // *******    ADMIN-LEVEL EVENTS    ********
-    event LimitsUpdate(uint256 upperSwqpLimit, uint256 lowerSwapLimit, uint256 swapFee);
-    event CapUpdate(uint256 amount);
+    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
+    event CapUpdate(uint256 value);
     event NewRelayEon(uint64 eon);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
     event RefundsFeesWithdrawal(address indexed targetAddress, uint256 amount);
-    event ExcessFundsWithdrawal(address indexed targetAddress, uint256 tokenAmount);
-    event DeleteContract(address payoutAddress);
+    event ExcessFundsWithdrawal(address indexed targetAddress, uint256 amount);
+    event DeleteContract(address targetAddress, uint256 amount);
     // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
     //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
     //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can
@@ -79,8 +79,8 @@ contract Bridge is AccessControl {
     uint64 public  nextSwapId;
     uint64 public  relayEon;
     mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* swapFee)
-    uint256 public upperSwapLimit;
-    uint256 public lowerSwapLimit;
+    uint256 public swapMax;
+    uint256 public swapMin;
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
@@ -89,7 +89,7 @@ contract Bridge is AccessControl {
 
     /* Only callable by owner */
     modifier onlyOwner() {
-        require(_isOwner(), "Caller is not an owner");
+        require(_isOwner(), "Caller must be owner");
         _;
     }
 
@@ -121,10 +121,10 @@ contract Bridge is AccessControl {
 
     modifier verifySwapAmount(uint256 amount) {
         // NOTE(pb): Commenting-out check against `swapFee` in order to spare gas for user's Tx, relying solely on check
-        //  against `lowerSwapLimit` only, which is ensured to be `>= swapFee` (by `_setLimits(...)` function).
+        //  against `swapMin` only, which is ensured to be `>= swapFee` (by `_setLimits(...)` function).
         //require(amount > swapFee, "Amount must be higher than fee");
-        require(amount >= lowerSwapLimit, "Amount bellow lower limit");
-        require(amount <= upperSwapLimit, "Amount exceeds upper limit");
+        require(amount >= swapMin, "Amount bellow lower limit");
+        require(amount <= swapMax, "Amount exceeds upper limit");
         _;
     }
 
@@ -145,8 +145,8 @@ contract Bridge is AccessControl {
      *
      * @param ERC20Address - address of FET ERC20 token contract
      * @param cap_ - limits contract `supply` value from top
-     * @param upperSwapLimit_ - value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
-     * @param lowerSwapLimit_ - value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
+     * @param swapMax_ - value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
+     * @param swapMin_ - value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
      * @param swapFee_ - represents fee which user has to pay for swap execution,
      * @param pausedSinceBlock_ - block number since which the contract will be paused for all user-level actions
      * @param deleteProtectionPeriod_ - number of blocks(from contract deployment block) during which contract can
@@ -155,8 +155,8 @@ contract Bridge is AccessControl {
     constructor(
           address ERC20Address
         , uint256 cap_
-        , uint256 upperSwapLimit_
-        , uint256 lowerSwapLimit_
+        , uint256 swapMax_
+        , uint256 swapMin_
         , uint256 swapFee_
         , uint256 pausedSinceBlock_
         , uint256 deleteProtectionPeriod_)
@@ -175,7 +175,7 @@ contract Bridge is AccessControl {
         relayEon = type(uint64).max;
 
         _setCap(cap_);
-        _setLimits(upperSwapLimit_, lowerSwapLimit_, swapFee_);
+        _setLimits(swapMax_, swapMin_, swapFee_);
         _pauseSince(pausedSinceBlock_);
     }
 
@@ -490,19 +490,19 @@ contract Bridge is AccessControl {
     /**
      * @notice Sets limits for swap amount
      *
-     * @param upperSwapLimit_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
-     * @param lowerSwapLimit_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
+     * @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
+     * @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
      * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
      */
     function setLimits(
-        uint256 upperSwapLimit_,
-        uint256 lowerSwapLimit_,
+        uint256 swapMax_,
+        uint256 swapMin_,
         uint256 swapFee_
         )
         public
         onlyOwner
     {
-        _setLimits(upperSwapLimit_, lowerSwapLimit_, swapFee_);
+        _setLimits(swapMax_, swapMin_, swapFee_);
     }
 
 
@@ -529,23 +529,18 @@ contract Bridge is AccessControl {
      * @dev Deposits funds back in to the contract supply.
      *      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.
      *      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as
-     *            recipient/beneficiary and `from` address as sender.
-     *            This means that address passed in as the `from` input parameter of this `Bridge.deposit(...)` call,
-     *            must have already crated allowance by calling `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)`
-     *            *before* calling this(`deposit(...)`) call
-     * @param from : address which the deposit is going to be transferred from
+     *            recipient/beneficiary and Tx sender address as sender.
+     *            This means that address passed in as the Tx sender, must have already crated allowance by calling the
+     *            `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)` *before* calling this(`deposit(...)`) call.
      * @param amount : deposit amount
      */
-    function deposit(
-        address from,
-        uint256 amount
-        )
+    function deposit(uint256 amount)
         public
         onlyOwner
     {
         supply = supply.add(amount);
         require(cap >= supply, "Deposit would exceed the cap");
-        token.transferFrom(from, address(this), amount);
+        token.transferFrom(msg.sender, address(this), amount);
         emit Deposit(msg.sender, amount);
     }
 
@@ -555,13 +550,13 @@ contract Bridge is AccessControl {
      * @param targetAddress : address to send tokens to.
      */
     function withdrawRefundsFees(address targetAddress)
-    public
-    onlyOwner
+        public
+        onlyOwner
     {
         require(refundsFeesAccrued > 0, "");
         token.transfer(targetAddress, refundsFeesAccrued);
-        refundsFeesAccrued = 0;
         emit RefundsFeesWithdrawal(targetAddress, refundsFeesAccrued);
+        refundsFeesAccrued = 0;
     }
 
 
@@ -584,7 +579,7 @@ contract Bridge is AccessControl {
      *
      * @param targetAddress : address to send tokens to
      */
-    function withdrawExcessFunds(address payable targetAddress)
+    function withdrawExcessFunds(address targetAddress)
         public
         onlyOwner
     {
@@ -597,19 +592,19 @@ contract Bridge is AccessControl {
     /**
      * @notice Delete the contract, transfers the remaining token and ether balance to the specified
      *         payoutAddress
-     * @param payoutAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens
+     * @param targetAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens
      * @dev owner only + only on or after `earliestDelete` block
      */
-    function deleteContract(address payable payoutAddress)
+    function deleteContract(address payable targetAddress)
         public
         onlyOwner
     {
         require(earliestDelete >= block.number, "Earliest delete not reached");
-        require(payoutAddress != address(this), "pay addr == this contract addr");
+        require(targetAddress != address(this), "pay addr == this contract addr");
         uint256 contractBalance = token.balanceOf(address(this));
-        token.transfer(payoutAddress, contractBalance);
-        emit DeleteContract(payoutAddress);
-        selfdestruct(payoutAddress);
+        token.transfer(targetAddress, contractBalance);
+        emit DeleteContract(targetAddress, contractBalance);
+        selfdestruct(targetAddress);
     }
 
 
@@ -629,28 +624,27 @@ contract Bridge is AccessControl {
      */
     function _pauseSince(uint256 blockNumber) internal
     {
-        uint256 currentBlockNumber = block.number;
-        pausedSinceBlock = blockNumber < currentBlockNumber ? currentBlockNumber : blockNumber;
+        pausedSinceBlock = blockNumber < block.number ? block.number : blockNumber;
         emit Pause(pausedSinceBlock);
     }
 
 
     function _setLimits(
-        uint256 upperSwapLimit_,
-        uint256 lowerSwapLimit_,
+        uint256 swapMax_,
+        uint256 swapMin_,
         uint256 swapFee_
         )
         internal
     {
-        require((swapFee_ <= lowerSwapLimit_) && (lowerSwapLimit_ <= upperSwapLimit_), "fee<=lower<=upper violated");
+        require((swapFee_ <= swapMin_) && (swapMin_ <= swapMax_), "fee<=lower<=upper violated");
         // NOTE(pb): No consistency checks are imposed on the configuration passed in (e.g. upperLimit >= lowerLimit,
         //  etc. ...) - this is intentional, so that desired effect can be achieved - for example temporary disabling
         //  swaps on amount base rather than pausing by setting upperLimit < lowerLimit.
-        upperSwapLimit = upperSwapLimit_;
-        lowerSwapLimit = lowerSwapLimit_;
+        swapMax = swapMax_;
+        swapMin = swapMin_;
         swapFee = swapFee_;
 
-        emit LimitsUpdate(upperSwapLimit, lowerSwapLimit, swapFee);
+        emit LimitsUpdate(swapMax, swapMin, swapFee);
     }
 
 
