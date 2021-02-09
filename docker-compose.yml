@@ -7,12 +7,20 @@ services:
     ports:
       - "8545:8545"
   
-  contractdeployment:
+  ethereum:
     build:
       context: ethereum
-      dockerfile: docker/deploy.Dockerfile
+      dockerfile: docker/Dockerfile
     entrypoint: sleep 7200
     depends_on: 
       - ganache
     environment:
       LEDGERHOSTNAME: ganache
+
+  fetchledger:
+    build:
+      context: fetch/ledger
+      dockerfile: Dockerfile
+    ports:
+      - "26657:26657"
+      - "1317:1317"

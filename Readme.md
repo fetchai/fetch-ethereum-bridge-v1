@@ -8,11 +8,14 @@ If you always want to build images run `docker-compose up --build`.
 
 After that, in a new terminal please run the following command depending on your desired action:
 ```/bin/bash
-#Deploy contract
-docker-compose exec contractdeployment npm run deploy
+# Import brownie networks
+docker-compose exec ethereum brownie networks import networks-config.yaml True
 
-# Run tests
-docker-compose exec contractdeployment npm run test
+#Deploy ERC20 mock
+docker-compose exec ethereum brownie run deploy_erc20mock.py --network docker
+
+# Deploy Bridge contract
+docker-compose exec ethereum brownie run deploy_bridge.py --network docker
 ```
 
 The infrastructure can be deleted by running `docker-compose down`.
