@@ -12,4 +12,4 @@ fetchd add-genesis-account $(fetchcli keys show validator -a) 115299757500000000
 fetchd gentx --amount 100000000000000000000atestfet --name validator --keyring-backend test
 fetchd collect-gentxs
 
-fetchd start
+fetchd start --rpc.laddr tcp://0.0.0.0:26657
