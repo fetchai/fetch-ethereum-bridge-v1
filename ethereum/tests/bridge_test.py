@@ -30,7 +30,7 @@ class EventType(AutoNameEnum):
     NewRelayEon = auto()
     Withdraw = auto()
     Deposit = auto()
-    RefundsFeesWithdrawal = auto()
+    FeesWithdrawal = auto()
     ExcessFundsWithdrawal = auto()
     DeleteContract = auto()
 
@@ -71,8 +71,8 @@ class BridgeSetup:
     swapMax: int = None
     swapMin: int = None
     swapFee: int = None
-    pausedSinceBlock: int = 0xffffffffffffffff
-    pausedSinceBlockEffective: int = None
+    pauseSinceBlock: int = 0xffffffffffffffff
+    pauseSinceBlockEffective: int = None
     deleteProtectionPeriod: int = 13
     earliestDelete: int = None
     deploymentBlockNumber: int = None
@@ -117,6 +117,30 @@ class BridgeTest:
     t: FetERC20Mock = None
     b: Bridge = None
 
+    def standard_setup(self,
+                       user=None,
+                       amount=None,
+                       excess_amount=1234,
+                       relay_eon=None,
+                       caller=None):
+        """
+        This method is for creating standard initial setup for tests.
+        It's goal is to set contract state the way that all state variables
+        related to keeping track of contract's financial affairs and operations
+        will be set to non-trivial(non-default) values.
+        """
+        # Add excess funds
+        self.t.transfer(self.b, excess_amount, {'from': user})
+        # Add 3 swaps
+        self.swap(user=user, amount=amount)
+        tx2 = self.swap(user=user, amount=amount)
+        self.swap(user=user, amount=amount)
+        # Refund 2nd swap
+        self.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+        # Add reverse swap
+        self.reverseSwap(rid=0, to_user=user, amount=amount, relay_eon=relay_eon, caller=caller)
+
+        assert self.b.getFeesAccrued() > 0
 
     def swap(self, user, amount: int = None, dest_addr: str = None):
         amount = self.vals.amount if amount is None else amount
@@ -126,8 +150,8 @@ class BridgeTest:
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(user)
-        #assert origBal >= amount
-
+        
+        # PRECONDITION:
         self.t.approve(self.b, amount, {'from': user})
         assert self.t.allowance(user, self.b) == amount
 
@@ -160,7 +184,7 @@ class BridgeTest:
         caller = caller or self.users.relayer
         swapFee = 0 if waive_fee else self.b.swapFee()
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
@@ -175,7 +199,7 @@ class BridgeTest:
             tx = self.b.refund(id, to_user, amount, relay_eon, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued + effective_fee
+        assert self.b.getFeesAccrued() == orig_fees_accrued + effective_fee
         assert self.b.refunds(id) == amount
 
         assert self.t.balanceOf(self.b) == orig_bridge_balance - refunded_amount
@@ -190,14 +214,14 @@ class BridgeTest:
         return tx
 
 
-    def revereseSwap(self,
-                     rid: int,
-                     to_user,
-                     amount: int = None,
-                     origin_from: str = None,
-                     origin_tx_hash = None,
-                     relay_eon = None,
-                     caller = None):
+    def reverseSwap(self,
+                    rid: int,
+                    to_user,
+                    amount: int = None,
+                    origin_from: str = None,
+                    origin_tx_hash = None,
+                    relay_eon = None,
+                    caller = None):
 
         amount = self.vals.amount if amount is None else amount
         origin_from = self.vals.dest_swap_address if origin_from is None else origin_from
@@ -206,7 +230,7 @@ class BridgeTest:
         caller = caller or self.users.relayer
         swapFee = self.b.swapFee()
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
@@ -216,8 +240,8 @@ class BridgeTest:
 
         tx = self.b.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relay_eon, {'from': caller})
 
-        assert self.b.supply() == orig_bridge_supply - effective_amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.supply() == orig_bridge_supply - amount
+        assert self.b.getFeesAccrued() == orig_fees_accrued + effective_fee
         assert self.t.balanceOf(self.b) == orig_bridge_balance - effective_amount
         assert self.t.balanceOf(to_user) == orig_user_balance + effective_amount
 
@@ -232,47 +256,19 @@ class BridgeTest:
         return tx
 
 
-    def withdrawExcessFunds(self,
-                            target_address,
-                            caller = None):
-        caller = caller or self.users.owner
-
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
-        orig_bridge_supply = self.b.supply()
-        orig_bridge_balance = self.t.balanceOf(self.b)
-        orig_target_address_balance = self.t.balanceOf(target_address)
-
-        expected_new_bridge_balance = orig_bridge_supply + orig_refunds_fees_accrued
-        expected_excess_funds = orig_bridge_balance - expected_new_bridge_balance
-        expected_new_target_address_balance = orig_target_address_balance + expected_excess_funds
-
-        tx = self.b.withdrawExcessFunds(target_address, {'from': caller})
-
-        assert self.b.supply() == orig_bridge_supply
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
-        assert self.t.balanceOf(self.b) == expected_new_bridge_balance
-        assert self.t.balanceOf(target_address) == expected_new_target_address_balance
-
-        event = tx.events[str(EventType.ExcessFundsWithdrawal)]
-        assert event['targetAddress'] == target_address
-        assert event['amount'] == expected_excess_funds
-
-        return tx
-
-
     def mint(self,
              amount,
              caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
 
         tx = self.b.mint(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply + amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.getFeesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance + amount
 
         event = tx.events['Transfer']
@@ -288,14 +284,14 @@ class BridgeTest:
              caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
 
         tx = self.b.burn(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.getFeesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance - amount
 
         event = tx.events['Transfer']
@@ -311,7 +307,7 @@ class BridgeTest:
                 caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_from_balance = self.t.balanceOf(caller)
@@ -319,7 +315,7 @@ class BridgeTest:
         tx = self.b.deposit(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply + amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.getFeesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance + amount
         assert self.t.balanceOf(caller) == orig_from_balance - amount
 
@@ -341,7 +337,7 @@ class BridgeTest:
                  caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
@@ -349,7 +345,7 @@ class BridgeTest:
         tx = self.b.withdraw(target_address, amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.getFeesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance - amount
         assert self.t.balanceOf(target_address) == orig_target_address_balance + amount
 
@@ -365,31 +361,33 @@ class BridgeTest:
         return tx
 
 
-    def withdrawRefundsFees(self,
-                            target_address,
-                            caller = None):
+    def withdrawFees(self,
+                     target_address,
+                     caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
 
-        tx = self.b.withdrawRefundsFees(target_address, {'from': caller})
+        tx = self.b.withdrawFees(target_address, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply
-        assert self.b.refundsFeesAccrued() == 0
-        assert self.t.balanceOf(self.b) == orig_bridge_balance - orig_refunds_fees_accrued
-        assert self.t.balanceOf(target_address) == orig_target_address_balance + orig_refunds_fees_accrued
+        assert self.b.getFeesAccrued() == 0
+        resul_contract_balance = self.t.balanceOf(self.b)
+        assert resul_contract_balance == orig_bridge_balance - orig_fees_accrued
+        assert resul_contract_balance == orig_bridge_supply
+        assert self.t.balanceOf(target_address) == orig_target_address_balance + orig_fees_accrued
 
-        e_transfer = tx.events[str(EventType.RefundsFeesWithdrawal)]
+        e_transfer = tx.events[str(EventType.FeesWithdrawal)]
         assert e_transfer['targetAddress'] == target_address
-        assert e_transfer['amount'] == orig_refunds_fees_accrued
+        assert e_transfer['amount'] == orig_fees_accrued
 
         e_transfer = tx.events['Transfer']
         assert e_transfer['from'] == self.b
         assert e_transfer['to'] == target_address
-        assert e_transfer['value'] == orig_refunds_fees_accrued
+        assert e_transfer['value'] == orig_fees_accrued
 
         return tx
 
@@ -493,7 +491,6 @@ def tokenFactory(FetERC20Mock, accounts):
             contract.transfer(user, t.userFunds)
 
         test.t = contract
-        print(f'ERC20 token contract')
 
         return test
     yield token_
@@ -512,24 +509,21 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
             b.swapMax,
             b.swapMin,
             b.swapFee,
-            b.pausedSinceBlock,
+            b.pauseSinceBlock,
             b.deleteProtectionPeriod,
             {'from': u.owner})
 
-        pprint.pprint(contract.tx.events)
-
         b.deploymentBlockNumber = contract.tx.block_number
-        b.pausedSinceBlockEffective = b.pausedSinceBlock if b.pausedSinceBlock > b.deploymentBlockNumber else b.deploymentBlockNumber
+        b.pauseSinceBlockEffective = b.pauseSinceBlock if b.pauseSinceBlock > b.deploymentBlockNumber else b.deploymentBlockNumber
         b.earliestDelete = b.deploymentBlockNumber + b.deleteProtectionPeriod
 
-        assert contract.pausedSinceBlock() == b.pausedSinceBlockEffective
+        assert contract.pausedSinceBlock() == b.pauseSinceBlockEffective
         assert contract.earliestDelete() == b.earliestDelete
 
         contract.grantRole(u.relayerRole, u.relayer, {'from': u.owner})
         contract.grantRole(u.delegateRole, u.delegate, {'from': u.owner})
 
         test.b = contract
-        print(f'Bridge contract')
 
         return test
     yield bridge_
@@ -545,69 +539,89 @@ def isolate(fn_isolation):
 def test_initial_state(bridgeFactory):
     test: BridgeTest = bridgeFactory()
 
-    print(f'{test.b.tx.events}')
-
     assert test.b.relayEon() == ((1<<64)-1)
     assert test.b.nextSwapId() == 0
-    assert test.b.refundsFeesAccrued() == 0
+    assert test.b.getFeesAccrued() == 0
     assert test.b.token() == test.t.address
     assert test.b.earliestDelete() == test.bridge.deploymentBlockNumber + test.bridge.deleteProtectionPeriod
-    assert test.b.pausedSinceBlock() == test.bridge.pausedSinceBlockEffective
-    assert test.b.refundsFeesAccrued() == 0
+    assert test.b.pausedSinceBlock() == test.bridge.pauseSinceBlockEffective
+    assert test.b.getFeesAccrued() == 0
 
 
 def test_initial_state_non_trivial_pause_since_0(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     brownie.chain.mine(100)
     expectedPauseSince = brownie.web3.eth.blockNumber + 10000
     test = BridgeTest()
-    test.bridge.pausedSinceBlock = expectedPauseSince
+    test.bridge.pauseSinceBlock = expectedPauseSince
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     test = bridgeFactory(test)
+
+    # ===   THEN / VERIFICATION:  =========================
     assert test.bridge.deploymentBlockNumber < expectedPauseSince
     assert test.b.pausedSinceBlock() == expectedPauseSince
 
 
 def test_initial_state_non_trivial_pause_since_1(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     n = 100
     brownie.chain.mine(n)
     test = BridgeTest()
-    test.bridge.pausedSinceBlock = int(n / 2)
+    test.bridge.pauseSinceBlock = int(n / 2)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     test = bridgeFactory(test)
+
+    # ===   THEN / VERIFICATION:  =========================
     assert int(n / 2) < test.b.pausedSinceBlock()
     assert test.b.pausedSinceBlock() == test.bridge.deploymentBlockNumber
 
 
 def test_initial_state_non_trivial_earliest_delete(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     dpp = 10000
     n = 100
     brownie.chain.mine(n)
     test = BridgeTest()
     test.bridge.deleteProtectionPeriod = dpp
+
+    # ===   WHEN / TEST SUBJECT  ==========================
     test = bridgeFactory(test)
 
+    # ===   THEN / VERIFICATION:  =========================
     assert test.b.earliestDelete() == test.bridge.deploymentBlockNumber + dpp
 
 
 def test_newRelayEon_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
 
     for u in test.users.notRelayers:
          with brownie.reverts(revert_msg="Caller must be relayer"):
              test.b.newRelayEon({'from': u})
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.b.newRelayEon({'from': test.users.relayer})
 
+    # ===   THEN / VERIFICATION:  =========================
     assert test.b.relayEon() == 0
     assert tx.events[str(EventType.NewRelayEon)]['eon'] == 0
 
 
 def test_swap_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
+
+    # ===   WHEN / TEST SUBJECT  ==========================
     test.swap(user=test.users.users[0])
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
 def test_reverseSwap_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     amount = test.vals.amount
@@ -615,30 +629,46 @@ def test_reverseSwap_basic(bridgeFactory):
 
     for u in test.users.notRelayers:
          with brownie.reverts(revert_msg="Caller must be relayer"):
-             test.revereseSwap(rid=0, to_user=user, amount=amount, caller=u)
+             test.reverseSwap(rid=0, to_user=user, amount=amount, caller=u)
 
-    test.revereseSwap(rid=0, to_user=user, amount=amount)
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
 def test_reverseSwap_amount_smaller_than_fee(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
-    amount = test.vals.amount
-    test.swap(user=user, amount=amount)
-    # PRECONDITION: shall pass - proof that reverse swap can be done
-    test.revereseSwap(rid=0, to_user=user, amount=amount)
+    swapFee = test.b.swapFee()
+    amount = test.bridge.swapMin + swapFee
 
+    amount_smaller_than_fee = swapFee - 1
+    assert amount_smaller_than_fee > 1
+
+    # Proof that it is possible to execute swap & reverseSwap successfully:
     test.swap(user=user, amount=amount)
-    test.b.setLimits(test.bridge.swapMax, amount+1, amount+1)
-    tx = test.revereseSwap(rid=1, to_user=user, amount=amount)
-    # NOTE(pb): Just repeating basic check here again - this, all other possible consistency checks are done inside
-    #           of the `test.revereseSwap(...)` method.
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+
+    # Adding supply to the contract (there is none left in the contract after above 2 proof-calls):
+    test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    tx = test.reverseSwap(rid=1, to_user=user, amount=amount_smaller_than_fee)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again - this, all other possible consistency checks are done inside of the
+    # `test.reverseSwap(...)` method.
     e = tx.events[str(EventType.ReverseSwap)]
     assert e['effectiveAmount'] == 0
-    assert e['fee'] == amount
+    assert e['fee'] == amount_smaller_than_fee
 
 
 def test_refund_bacis(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     amount = test.vals.amount
@@ -648,12 +678,16 @@ def test_refund_bacis(bridgeFactory):
          with brownie.reverts(revert_msg="Caller must be relayer"):
              test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, caller=u)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
 def test_refund_amount_smaller_than_fee(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
-
     user = test.users.users[0]
     amount = test.bridge.swapFee
     test.b.setLimits(test.bridge.swapMax, amount, amount)
@@ -662,13 +696,19 @@ def test_refund_amount_smaller_than_fee(bridgeFactory):
 
     test.b.setLimits(test.bridge.swapMax, amount+1, amount+1)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
     e = tx.events[str(EventType.SwapRefund)]
     assert e['refundedAmount'] == 0
     assert e['fee'] == amount
 
 
 def test_refund_reverts_for_already_refunded_swap(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     user = test.users.users[0]
@@ -680,11 +720,17 @@ def test_refund_reverts_for_already_refunded_swap(bridgeFactory):
     swap_id = swap_tx1.events[str(EventType.Swap)]['id']
 
     test.refund(id=swap_id, to_user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
     with brownie.reverts(revert_msg="Refund was already processed"):
         test.refund(id=swap_id, to_user=user, amount=amount)
 
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+
 
 def test_refund_reverts_for_invalid_id(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     user = test.users.users[0]
@@ -695,18 +741,29 @@ def test_refund_reverts_for_invalid_id(bridgeFactory):
 
     swap_id = swap_tx2.events[str(EventType.Swap)]['id']
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     with brownie.reverts(revert_msg="Invalid swap id"):
         test.refund(id=swap_id + 1, to_user=user, amount=amount)
 
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+
 
 def test_refund_in_full(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     amount = test.vals.amount
     swap_tx = test.swap(user=user, amount=amount)
     assert test.b.supply() == amount
     assert test.b.swapFee() > 0
+
+    # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
     assert test.b.supply() == 0
     e = tx.events[str(EventType.SwapRefund)]
     assert e['refundedAmount'] == amount
@@ -714,65 +771,98 @@ def test_refund_in_full(bridgeFactory):
 
 
 def test_swap_reverts_when_bridge_is_paused(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     user = test.users.users[0]
     amount = test.bridge.swapMax
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
     test.swap(user=user, amount=amount)
 
     test.pauseSince(0)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
     with brownie.reverts(revert_msg="Contract has been paused"):
         test.swap(user=user, amount=amount)
 
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+
 
 def test_paused_only_by_permitted_users(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     with brownie.reverts(revert_msg="Only relayer, admin or delegate"):
         test.pauseSince(0, caller=test.users.users[0])
 
-    test.pauseSince(0, caller=test.users.relayer)
-    test.pauseSince(1, caller=test.users.delegate)
-    test.pauseSince(2, caller=test.users.owner)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    for i, user in enumerate([test.users.relayer, test.users.delegate, test.users.owner], start=0):
+        test.pauseSince(i, caller=user)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
 def test_set_limits_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
+
+    new_swap_max = test.b.swapMax() + 1
+    new_swap_min = test.b.swapMin() + 1
+    new_swap_fee = test.b.swapFee() + 1
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
-            test.setLimits(100, 10, 5, caller=u)
+            test.setLimits(new_swap_max, new_swap_min, new_swap_fee, caller=u)
 
-    test.setLimits(100, 10, 5)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.setLimits(new_swap_max, new_swap_min, new_swap_fee)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
-def test_set_limits_reverts_on_comp_logic(bridgeFactory):
+def test_set_limits_reverts(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     permutations = [
         (100, 5, 10),
         (5, 100, 10),
         (5, 10, 100),
-        (10, 5, 100)
+        (10, 5, 100),
+        (10, 100, 5)
     ]
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     for max, min, fee in permutations:
         with brownie.reverts(revert_msg="fee<=lower<=upper violated"):
             test.setLimits(max, min, fee)
 
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+
 
 def test_set_cap_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
+
+    orig_cap = test.b.cap()
+    new_cap = orig_cap + 1
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
-            test.setCap(1000, caller=u)
+            test.setCap(new_cap, caller=u)
 
-    test.setCap(1000)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.setCap(new_cap)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
 
 
-def test_set_limits_reverts_on_cap_violation(bridgeFactory):
+def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
 
     orig_supply = test.b.supply()
@@ -780,6 +870,7 @@ def test_set_limits_reverts_on_cap_violation(bridgeFactory):
     test.setCap(orig_supply + room)
     amount = room + 1
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     with brownie.reverts(revert_msg="Swap would exceed cap"):
         test.swap(user=test.users.users[0], amount=amount)
 
@@ -789,60 +880,22 @@ def test_set_limits_reverts_on_cap_violation(bridgeFactory):
     with brownie.reverts(revert_msg="Minting would exceed the cap"):
         test.mint(amount)
 
-
-def test_withdraw_excess_funds_basic(bridgeFactory):
-    excess_amount = 1234
-    test = bridgeFactory()
-    user = test.users.users[0]
-    amount = test.bridge.swapMax
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.swap(user=user, amount=amount)
-
-    test.t.transfer(test.b, excess_amount)
-    tx = test.b.withdrawExcessFunds(test.users.users[1])
-    # Note(pb): Following assertion is not necessary, it is done inside of the above call
-    #  `BridgeTest.withdrawExcessFunds(...)`
-    e = tx.events[str(EventType.ExcessFundsWithdrawal)]
-    assert e['targetAddress'] == test.users.users[1]
-    assert e['amount'] == excess_amount
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
 
 
-def test_withdraw_excess_funds_with_refunds_fees(bridgeFactory):
-    excess_amount = 1234
-    test = bridgeFactory()
-    user = test.users.users[0]
-    amount = test.bridge.swapMax
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    tx3 = test.swap(user=user, amount=amount)
-
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
-    test.refund(id=tx3.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
-
-    assert test.b.refundsFeesAccrued() > 0
-
-    test.t.transfer(test.b, excess_amount)
-
-    tx = test.b.withdrawExcessFunds(test.users.users[1])
-    # Note(pb): Following assertion is not necessary, it is done inside of the above call
-    #  `BridgeTest.withdrawExcessFunds(...)`
-    e = tx.events[str(EventType.ExcessFundsWithdrawal)]
-    assert e['targetAddress'] == test.users.users[1]
-    assert e['amount'] == excess_amount
-
-
-def test_refunds_fees(bridgeFactory):
+def test_fees_accrued(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test = bridgeFactory()
     user = test.users.users[0]
     amount = test.bridge.swapMax
 
+    swap_fee = test.b.swapFee()
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
-    # PRECONDITION: Add some supply, refunded fees, and excess funds:
     test.t.transfer(test.b, excess_amount)
     test.swap(user=user, amount=amount)
     tx2 = test.swap(user=user, amount=amount)
@@ -851,36 +904,44 @@ def test_refunds_fees(bridgeFactory):
     test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
     test.refund(id=tx3.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + 2*test.b.swapFee()
+    # ===   WHEN / TEST SUBJECT  ==========================
+    fees_accrued = test.b.getFeesAccrued()
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert fees_accrued == orig_fees_accrued + 2*swap_fee + excess_amount
     assert test.b.supply() == orig_supply + amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + 2*test.b.swapFee() + excess_amount
+    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + 2*swap_fee + excess_amount
 
 
 def test_mint(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     mint_amount = 972
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     amount = test.bridge.swapMax
 
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.mint(mint_amount)
 
-    tx = test.mint(mint_amount)
-
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
-    assert test.b.supply() == orig_supply + amount + mint_amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() + mint_amount + excess_amount
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert test.b.getFeesAccrued() == orig_fees_accrued
+    assert test.b.supply() == orig_supply + mint_amount
+    assert test.t.balanceOf(test.b) == orig_contract_balance + mint_amount
 
 
 def test_burn(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
@@ -889,28 +950,29 @@ def test_burn(bridgeFactory):
     burn_amount = amount/2
     assert burn_amount > 0
 
-    orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
-    orig_contract_balance = test.t.balanceOf(test.b)
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
 
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    orig_supply = test.b.supply()
+    orig_fees_accrued = test.b.getFeesAccrued()
+    orig_contract_balance = test.t.balanceOf(test.b)
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
             test.burn(burn_amount, caller=u)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     test.burn(burn_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
-    assert test.b.supply() == orig_supply + amount - burn_amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() - burn_amount + excess_amount
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert test.b.getFeesAccrued() == orig_fees_accrued
+    assert test.b.supply() == orig_supply - burn_amount
+    assert test.t.balanceOf(test.b) == orig_contract_balance - burn_amount
 
 
 def test_deposit(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     deposit_amount = 972
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
@@ -918,16 +980,12 @@ def test_deposit(bridgeFactory):
     from_user = test.users.owner
     amount = test.bridge.swapMax
 
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_from_user_balance = test.t.balanceOf(from_user)
-
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
     test.t.approve(test.b, deposit_amount, {'from': from_user})
 
@@ -935,15 +993,20 @@ def test_deposit(bridgeFactory):
         with brownie.reverts(revert_msg="Caller must be owner"):
             tx = test.deposit(deposit_amount, caller=u)
 
-    tx = test.deposit(deposit_amount)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.deposit(deposit_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
-    assert test.b.supply() == orig_supply + amount + deposit_amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() + deposit_amount + excess_amount
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert test.b.getFeesAccrued() == orig_fees_accrued
+    assert test.b.supply() == orig_supply + deposit_amount
+    assert test.t.balanceOf(test.b) == orig_contract_balance + deposit_amount
     assert test.t.balanceOf(from_user) == orig_from_user_balance - deposit_amount
 
 
 def test_withdraw(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
@@ -951,114 +1014,83 @@ def test_withdraw(bridgeFactory):
     amount = test.bridge.swapMax
     withdraw_amount = 972
 
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
-
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
             test.withdraw(target_to_user, withdraw_amount, caller=u)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.withdraw(target_to_user, withdraw_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
-    assert test.b.supply() == orig_supply + amount - withdraw_amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() - withdraw_amount + excess_amount
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert test.b.getFeesAccrued() == orig_fees_accrued
+    assert test.b.supply() == orig_supply - withdraw_amount
+    assert test.t.balanceOf(test.b) == orig_contract_balance - withdraw_amount
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + withdraw_amount
 
 
-def test_withdraw_refunds_fees(bridgeFactory):
+def test_withdraw_fees(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     target_to_user = test.users.users[1]
     amount = test.bridge.swapMax
 
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
-    expected_refunds_fees_accrued = orig_refunds_fees + test.b.swapFee()
 
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
-
-    assert test.b.refundsFeesAccrued() == expected_refunds_fees_accrued
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + excess_amount + test.b.swapFee()
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
-            test.withdrawRefundsFees(target_to_user, caller=u)
+            test.withdrawFees(target_to_user, caller=u)
 
-    test.withdrawRefundsFees(target_to_user)
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.withdrawFees(target_to_user)
 
-    assert test.b.refundsFeesAccrued() == 0
-    assert test.b.supply() == orig_supply + amount
-    assert test.t.balanceOf(test.b) == orig_contract_balance + amount + excess_amount - orig_refunds_fees
-    assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + expected_refunds_fees_accrued
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
+    assert test.b.getFeesAccrued() == 0
+    assert test.b.supply() == orig_supply
+    assert test.t.balanceOf(test.b) == orig_contract_balance - orig_fees_accrued
+    assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_fees_accrued
 
 
-def test_delete_contract_badsic(bridgeFactory):
+def test_delete_contract_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     target_to_user = test.users.users[1]
     amount = test.bridge.swapMax
 
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
-
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
-
-    expected_resulting_target_to_user_balance = orig_target_to_user_balance + orig_contract_balance + amount + excess_amount + test.b.swapFee()
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
             test.deleteContract(target_to_user, caller=u)
 
+    # ===   WHEN / TEST SUBJECT  ==========================
     test.deleteContract(target_to_user)
 
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+    # Just repeating basic check here again to make it explicit and visible:
     assert test.t.balanceOf(test.b) == 0
-    assert test.t.balanceOf(target_to_user) == expected_resulting_target_to_user_balance
-
-
-def test_delete_contract_badsic1(bridgeFactory):
-    excess_amount = 1234
-    test: BridgeTest = bridgeFactory()
-    user = test.users.users[0]
-    target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
-
-    orig_contract_balance = test.t.balanceOf(test.b)
-    orig_target_to_user_balance = test.t.balanceOf(target_to_user)
-
-    # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
-    test.t.transfer(test.b, excess_amount, {'from': user})
-    test.swap(user=user, amount=amount)
-    tx2 = test.swap(user=user, amount=amount)
-    test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
-
-    expected_resulting_target_to_user_balance = orig_target_to_user_balance + orig_contract_balance + amount + excess_amount + test.b.swapFee()
-
-    for u in test.users.notOwners:
-         with brownie.reverts(revert_msg="Caller must be owner"):
-             test.deleteContract(target_to_user, caller=u)
-
-    test.deleteContract(target_to_user)
-
-    assert test.t.balanceOf(test.b) == 0
-    assert test.t.balanceOf(target_to_user) == expected_resulting_target_to_user_balance
+    assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_contract_balance
