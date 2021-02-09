@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from brownie import network, accounts, Bridge as Contract
+from brownie import network, accounts, FetERC20Mock as Contract
 import json
 import os
 
@@ -23,27 +23,18 @@ def main():
     with open(deployment_manifest_path, mode="r") as f:
         manifest = json.load(f)
         network_manif = manifest[network.show_active()]
-        erc20address = network_manif["FetERC20Mock"]["contract_address"]
-        if  erc20address == "" and network_manif["Bridge"]["constructor_parameters"]["ERC20Address"] == "":
-            print("Deploy run first deploy_erc20mock.py to deploy ERC20 contract")
-            exit
-        contract_manif = network_manif["Bridge"]
-
+        contract_manif = network_manif["FetERC20Mock"]
+    
     print(f'network manifest: {network_manif}')
     constructor_params = contract_manif['constructor_parameters']
-    if constructor_params['ERC20Address'] == "":
-        constructor_params['ERC20Address'] = erc20address
     contract = Contract.deploy(
-          constructor_params['ERC20Address']
-        , constructor_params['cap']
-        , constructor_params['upperSwapLimit']
-        , constructor_params['lowerSwapLimit']
-        , constructor_params['swapFee']
-        , constructor_params['pausedSinceBlock']
-        , constructor_params['deleteProtectionPeriod']
+          constructor_params['name']
+        , constructor_params['symbol']
+        , constructor_params['initialSupply']
+        , constructor_params['decimals_']
         , {'from': owner})
         #, {'from': owner, 'gas_price': '20 gwei'})
-
+    
     contract_manif["contract_address"] = contract.address
     contract_manif["deployer_address"] = owner.address
     if hasattr(owner, 'public_key'):
@@ -51,6 +42,6 @@ def main():
     else:
         contract_manif["deployer_public_key"] = ""
         #contract_manif.pop("deployer_public_key", None)
-
+    
     with open(deployment_manifest_path, mode='w') as f:
         json.dump(manifest, f, indent=4)
