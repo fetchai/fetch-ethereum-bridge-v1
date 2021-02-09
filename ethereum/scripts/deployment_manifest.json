@@ -31,9 +31,9 @@
     "BSC": {},
     "docker": {
         "FetERC20Mock": {
-            "deployer_address": "",
+            "deployer_address": "0x0d64Bb606DF8F89B3281eF1C8b46E86D52254987",
             "deployer_public_key": "",
-            "contract_address": "",
+            "contract_address": "0x22eCA5fb3CA53C43fD04142A6492383bBd3199c1",
             "constructor_parameters": {
                 "name": "Fetch",
                 "symbol": "FET",
