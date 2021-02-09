@@ -23,10 +23,15 @@ def main():
     with open(deployment_manifest_path, mode="r") as f:
         manifest = json.load(f)
         network_manif = manifest[network.show_active()]
+        erc20address = network_manif["FetERC20Mock"]["contract_address"]
+        if  erc20address == "":
+            print("Deploy run first deploy_erc20mock.py to deploy ERC20 contract")
+            exit
         contract_manif = network_manif["Bridge"]
 
     print(f'network manifest: {network_manif}')
     constructor_params = contract_manif['constructor_parameters']
+    constructor_params['ERC20Address'] = erc20address
     contract = Contract.deploy(
           constructor_params['ERC20Address']
         , constructor_params['cap']

@@ -42,11 +42,11 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0xb9d8Bd3Eb9676637DBb9E0Bc809bAe42C9bE4d8C",
-            "contract_address": "0x1980862aD67643F8DE28CaEa9f310380eaFB18be",
+            "deployer_address": "0x0d64Bb606DF8F89B3281eF1C8b46E86D52254987",
+            "contract_address": "0x147063Aa2200a8Fc56f3E851aA6AC614478816cb",
             "deployer_public_key": "",
             "constructor_parameters": {
-                "ERC20Address": "c2e109affd2fefd5b313350a4b2adc75ec2e96b1",
+                "ERC20Address": "0x22eCA5fb3CA53C43fD04142A6492383bBd3199c1",
                 "cap": "1000000",
                 "upperSwapLimit": "1000",
                 "lowerSwapLimit": "100",
