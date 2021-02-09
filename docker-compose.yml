@@ -16,3 +16,11 @@ services:
       - ganache
     environment:
       LEDGERHOSTNAME: ganache
+
+  fetchledger:
+    build:
+      context: fetch/ledger
+      dockerfile: Dockerfile
+    ports:
+      - "26657:26657"
+      - "1317:1317"
