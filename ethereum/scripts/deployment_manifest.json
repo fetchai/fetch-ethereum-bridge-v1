@@ -28,5 +28,32 @@
     },
     "mainnet": {},
     "BSC-test": {},
-    "BSC": {}
+    "BSC": {},
+    "docker": {
+        "FetERC20Mock": {
+            "deployer_address": "",
+            "deployer_public_key": "",
+            "contract_address": "",
+            "constructor_parameters": {
+                "name": "Fetch",
+                "symbol": "FET",
+                "initialSupply": "1152997575000000000000000000",
+                "decimals_": "18"
+            }
+        },
+        "Bridge": {
+            "deployer_address": "0xb9d8Bd3Eb9676637DBb9E0Bc809bAe42C9bE4d8C",
+            "contract_address": "0x1980862aD67643F8DE28CaEa9f310380eaFB18be",
+            "deployer_public_key": "",
+            "constructor_parameters": {
+                "ERC20Address": "c2e109affd2fefd5b313350a4b2adc75ec2e96b1",
+                "cap": "1000000",
+                "upperSwapLimit": "1000",
+                "lowerSwapLimit": "100",
+                "swapFee": "100",
+                "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "deleteProtectionPeriod": "10"
+            }
+        }
+    }
 }

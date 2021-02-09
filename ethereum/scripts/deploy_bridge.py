@@ -11,15 +11,14 @@ def main():
     deployment_manifest_path = os.path.join(base_dir, deploument_manifest_filename)
 
     priv_key_path_env_var = "PRIV_KEY_PATH"
-    private_key_file = '~/.secrets_key_0'
     if priv_key_path_env_var in os.environ:
+        # IF env var to key file is provided
         private_key_file = os.environ.get(priv_key_path_env_var)
+        owner = accounts.load(private_key_file)
     else:
-        print(f"The {priv_key_path_env_var} env var is not defined, using default path \"{private_key_file}\"")
+        # If not use default accounts
+        owner = accounts[0]
 
-    owner = accounts.load(private_key_file)
-
-    #owner = accounts[0]
     print(f"key: {owner}")
     with open(deployment_manifest_path, mode="r") as f:
         manifest = json.load(f)
