@@ -43,7 +43,7 @@
         },
         "Bridge": {
             "deployer_address": "0x0d64Bb606DF8F89B3281eF1C8b46E86D52254987",
-            "contract_address": "0x147063Aa2200a8Fc56f3E851aA6AC614478816cb",
+            "contract_address": "0xA3560140458051d19e1752C3963162CD75224272",
             "deployer_public_key": "",
             "constructor_parameters": {
                 "ERC20Address": "0x22eCA5fb3CA53C43fD04142A6492383bBd3199c1",
