@@ -241,7 +241,8 @@ contract Bridge is AccessControl {
      * @return targetAddress : address to send tokens to
      */
     function getFeesAccrued() public view returns(uint256) {
-        return _feesAccrued();
+        // NOTE(pb): This subtraction shall NEVER fail:
+        return token.balanceOf(address(this)).sub(supply, "Critical err: balance < supply");
     }
 
 
@@ -560,7 +561,7 @@ contract Bridge is AccessControl {
         public
         onlyOwner
     {
-        uint256 fees = _feesAccrued();
+        uint256 fees = getFeesAccrued();
         require(fees > 0, "No fees to withdraw");
         token.transfer(targetAddress, fees);
         emit FeesWithdrawal(targetAddress, fees);
@@ -628,11 +629,5 @@ contract Bridge is AccessControl {
     {
         cap = cap_;
         emit CapUpdate(cap);
-    }
-
-
-    function _feesAccrued() internal view returns(uint256) {
-        // NOTE(pb): This subtraction shall NEVER fail:
-        return token.balanceOf(address(this)).sub(supply, "Critical err: balance < supply");
     }
 }
