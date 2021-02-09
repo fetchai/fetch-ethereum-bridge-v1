@@ -10,7 +10,7 @@ services:
   ethereum:
     build:
       context: ethereum
-      dockerfile: docker/deploy.Dockerfile
+      dockerfile: docker/Dockerfile
     entrypoint: sleep 7200
     depends_on: 
       - ganache

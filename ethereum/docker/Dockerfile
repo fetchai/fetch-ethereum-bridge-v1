@@ -5,3 +5,5 @@ RUN pip install pipenv
 WORKDIR /source
 
 COPY . .
+
+RUN pipenv install --system --deploy --ignore-pipfile
