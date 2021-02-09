@@ -30,7 +30,7 @@ class EventType(AutoNameEnum):
     NewRelayEon = auto()
     Withdraw = auto()
     Deposit = auto()
-    RefundsFeesWithdrawal = auto()
+    FeesWithdrawal = auto()
     ExcessFundsWithdrawal = auto()
     DeleteContract = auto()
 
@@ -160,7 +160,7 @@ class BridgeTest:
         caller = caller or self.users.relayer
         swapFee = 0 if waive_fee else self.b.swapFee()
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
@@ -175,7 +175,7 @@ class BridgeTest:
             tx = self.b.refund(id, to_user, amount, relay_eon, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued + effective_fee
+        assert self.b.feesAccrued() == orig_fees_accrued + effective_fee
         assert self.b.refunds(id) == amount
 
         assert self.t.balanceOf(self.b) == orig_bridge_balance - refunded_amount
@@ -206,7 +206,7 @@ class BridgeTest:
         caller = caller or self.users.relayer
         swapFee = self.b.swapFee()
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
@@ -217,7 +217,7 @@ class BridgeTest:
         tx = self.b.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relay_eon, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - effective_amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued + effective_fee
         assert self.t.balanceOf(self.b) == orig_bridge_balance - effective_amount
         assert self.t.balanceOf(to_user) == orig_user_balance + effective_amount
 
@@ -237,19 +237,19 @@ class BridgeTest:
                             caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
 
-        expected_new_bridge_balance = orig_bridge_supply + orig_refunds_fees_accrued
+        expected_new_bridge_balance = orig_bridge_supply + orig_fees_accrued
         expected_excess_funds = orig_bridge_balance - expected_new_bridge_balance
         expected_new_target_address_balance = orig_target_address_balance + expected_excess_funds
 
         tx = self.b.withdrawExcessFunds(target_address, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == expected_new_bridge_balance
         assert self.t.balanceOf(target_address) == expected_new_target_address_balance
 
@@ -265,14 +265,14 @@ class BridgeTest:
              caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
 
         tx = self.b.mint(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply + amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance + amount
 
         event = tx.events['Transfer']
@@ -288,14 +288,14 @@ class BridgeTest:
              caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
 
         tx = self.b.burn(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance - amount
 
         event = tx.events['Transfer']
@@ -311,7 +311,7 @@ class BridgeTest:
                 caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_from_balance = self.t.balanceOf(caller)
@@ -319,7 +319,7 @@ class BridgeTest:
         tx = self.b.deposit(amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply + amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance + amount
         assert self.t.balanceOf(caller) == orig_from_balance - amount
 
@@ -341,7 +341,7 @@ class BridgeTest:
                  caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
@@ -349,7 +349,7 @@ class BridgeTest:
         tx = self.b.withdraw(target_address, amount, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply - amount
-        assert self.b.refundsFeesAccrued() == orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == orig_fees_accrued
         assert self.t.balanceOf(self.b) == orig_bridge_balance - amount
         assert self.t.balanceOf(target_address) == orig_target_address_balance + amount
 
@@ -365,31 +365,31 @@ class BridgeTest:
         return tx
 
 
-    def withdrawRefundsFees(self,
-                            target_address,
-                            caller = None):
+    def withdrawFees(self,
+                     target_address,
+                     caller = None):
         caller = caller or self.users.owner
 
-        orig_refunds_fees_accrued = self.b.refundsFeesAccrued()
+        orig_fees_accrued = self.b.feesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
 
-        tx = self.b.withdrawRefundsFees(target_address, {'from': caller})
+        tx = self.b.withdrawFees(target_address, {'from': caller})
 
         assert self.b.supply() == orig_bridge_supply
-        assert self.b.refundsFeesAccrued() == 0
-        assert self.t.balanceOf(self.b) == orig_bridge_balance - orig_refunds_fees_accrued
-        assert self.t.balanceOf(target_address) == orig_target_address_balance + orig_refunds_fees_accrued
+        assert self.b.feesAccrued() == 0
+        assert self.t.balanceOf(self.b) == orig_bridge_balance - orig_fees_accrued
+        assert self.t.balanceOf(target_address) == orig_target_address_balance + orig_fees_accrued
 
-        e_transfer = tx.events[str(EventType.RefundsFeesWithdrawal)]
+        e_transfer = tx.events[str(EventType.FeesWithdrawal)]
         assert e_transfer['targetAddress'] == target_address
-        assert e_transfer['amount'] == orig_refunds_fees_accrued
+        assert e_transfer['amount'] == orig_fees_accrued
 
         e_transfer = tx.events['Transfer']
         assert e_transfer['from'] == self.b
         assert e_transfer['to'] == target_address
-        assert e_transfer['value'] == orig_refunds_fees_accrued
+        assert e_transfer['value'] == orig_fees_accrued
 
         return tx
 
@@ -549,11 +549,11 @@ def test_initial_state(bridgeFactory):
 
     assert test.b.relayEon() == ((1<<64)-1)
     assert test.b.nextSwapId() == 0
-    assert test.b.refundsFeesAccrued() == 0
+    assert test.b.feesAccrued() == 0
     assert test.b.token() == test.t.address
     assert test.b.earliestDelete() == test.bridge.deploymentBlockNumber + test.bridge.deleteProtectionPeriod
     assert test.b.pausedSinceBlock() == test.bridge.pausedSinceBlockEffective
-    assert test.b.refundsFeesAccrued() == 0
+    assert test.b.feesAccrued() == 0
 
 
 def test_initial_state_non_trivial_pause_since_0(bridgeFactory):
@@ -820,7 +820,7 @@ def test_withdraw_excess_funds_with_refunds_fees(bridgeFactory):
     test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
     test.refund(id=tx3.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
-    assert test.b.refundsFeesAccrued() > 0
+    assert test.b.feesAccrued() > 0
 
     test.t.transfer(test.b, excess_amount)
 
@@ -839,7 +839,7 @@ def test_refunds_fees(bridgeFactory):
     amount = test.bridge.swapMax
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
     # PRECONDITION: Add some supply, refunded fees, and excess funds:
@@ -851,7 +851,7 @@ def test_refunds_fees(bridgeFactory):
     test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
     test.refund(id=tx3.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + 2*test.b.swapFee()
+    assert test.b.feesAccrued() == orig_refunds_fees + 2*test.b.swapFee()
     assert test.b.supply() == orig_supply + amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + 2*test.b.swapFee() + excess_amount
 
@@ -864,7 +864,7 @@ def test_mint(bridgeFactory):
     amount = test.bridge.swapMax
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
     # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
@@ -875,7 +875,7 @@ def test_mint(bridgeFactory):
 
     tx = test.mint(mint_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
+    assert test.b.feesAccrued() == orig_refunds_fees + test.b.swapFee()
     assert test.b.supply() == orig_supply + amount + mint_amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() + mint_amount + excess_amount
 
@@ -890,7 +890,7 @@ def test_burn(bridgeFactory):
     assert burn_amount > 0
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
     # PRECONDITION: shall pass, to prove that the Bridge contract is *not* paused yet
@@ -905,7 +905,7 @@ def test_burn(bridgeFactory):
 
     test.burn(burn_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
+    assert test.b.feesAccrued() == orig_refunds_fees + test.b.swapFee()
     assert test.b.supply() == orig_supply + amount - burn_amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() - burn_amount + excess_amount
 
@@ -919,7 +919,7 @@ def test_deposit(bridgeFactory):
     amount = test.bridge.swapMax
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_from_user_balance = test.t.balanceOf(from_user)
 
@@ -937,7 +937,7 @@ def test_deposit(bridgeFactory):
 
     tx = test.deposit(deposit_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
+    assert test.b.feesAccrued() == orig_refunds_fees + test.b.swapFee()
     assert test.b.supply() == orig_supply + amount + deposit_amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() + deposit_amount + excess_amount
     assert test.t.balanceOf(from_user) == orig_from_user_balance - deposit_amount
@@ -952,7 +952,7 @@ def test_withdraw(bridgeFactory):
     withdraw_amount = 972
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
 
@@ -968,7 +968,7 @@ def test_withdraw(bridgeFactory):
 
     tx = test.withdraw(target_to_user, withdraw_amount)
 
-    assert test.b.refundsFeesAccrued() == orig_refunds_fees + test.b.swapFee()
+    assert test.b.feesAccrued() == orig_refunds_fees + test.b.swapFee()
     assert test.b.supply() == orig_supply + amount - withdraw_amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + test.b.swapFee() - withdraw_amount + excess_amount
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + withdraw_amount
@@ -982,7 +982,7 @@ def test_withdraw_refunds_fees(bridgeFactory):
     amount = test.bridge.swapMax
 
     orig_supply = test.b.supply()
-    orig_refunds_fees = test.b.refundsFeesAccrued()
+    orig_refunds_fees = test.b.feesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
     expected_refunds_fees_accrued = orig_refunds_fees + test.b.swapFee()
@@ -993,16 +993,16 @@ def test_withdraw_refunds_fees(bridgeFactory):
     tx2 = test.swap(user=user, amount=amount)
     test.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
 
-    assert test.b.refundsFeesAccrued() == expected_refunds_fees_accrued
+    assert test.b.feesAccrued() == expected_refunds_fees_accrued
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + excess_amount + test.b.swapFee()
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Caller must be owner"):
-            test.withdrawRefundsFees(target_to_user, caller=u)
+            test.withdrawFees(target_to_user, caller=u)
 
-    test.withdrawRefundsFees(target_to_user)
+    test.withdrawFees(target_to_user)
 
-    assert test.b.refundsFeesAccrued() == 0
+    assert test.b.feesAccrued() == 0
     assert test.b.supply() == orig_supply + amount
     assert test.t.balanceOf(test.b) == orig_contract_balance + amount + excess_amount - orig_refunds_fees
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + expected_refunds_fees_accrued

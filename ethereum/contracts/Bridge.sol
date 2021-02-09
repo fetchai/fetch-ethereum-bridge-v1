@@ -55,7 +55,7 @@ contract Bridge is AccessControl {
     event NewRelayEon(uint64 eon);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
-    event RefundsFeesWithdrawal(address indexed targetAddress, uint256 amount);
+    event FeesWithdrawal(address indexed targetAddress, uint256 amount);
     event ExcessFundsWithdrawal(address indexed targetAddress, uint256 amount);
     event DeleteContract(address targetAddress, uint256 amount);
     // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
@@ -66,6 +66,7 @@ contract Bridge is AccessControl {
     //event Mint(uint256 amount);
     //event Burn(uint256 amount);
 
+
     /// @notice **********    CONSTANTS    ***********
     bytes32 public constant DELEGATE_ROLE = keccak256("DELEGATE_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
@@ -75,7 +76,7 @@ contract Bridge is AccessControl {
     uint256 public immutable earliestDelete;
     /// @notice ********    MUTABLE STATE    *********
     uint256 public supply;
-    uint256 public refundsFeesAccrued;
+    uint256 public feesAccrued;
     uint64 public  nextSwapId;
     uint64 public  relayEon;
     mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* swapFee)
@@ -167,7 +168,7 @@ contract Bridge is AccessControl {
 
         /// @dev Unnecessary initialisations, done implicitly by VM
         //supply = 0;
-        //refundsFeesAccrued = 0;
+        //feesAccrued = 0;
         //nextSwapId = 0;
 
         // NOTE(pb): Initial value is by design set to MAX_LIMIT<uint64>, so that its NEXT increment(+1) will
@@ -295,11 +296,11 @@ contract Bridge is AccessControl {
             uint256 effectiveAmount = amount - swapFee;
             token.transfer(to, effectiveAmount);
 
-            refundsFeesAccrued = refundsFeesAccrued.add(swapFee);
+            feesAccrued = feesAccrued.add(swapFee);
             emit SwapRefund(id, to, effectiveAmount, swapFee);
         } else {
             // NOTE(pb): No transfer necessary in this case, since whole amount is taken as swap fee.
-            refundsFeesAccrued = refundsFeesAccrued.add(amount);
+            feesAccrued = feesAccrued.add(amount);
             emit SwapRefund(id, to, 0, amount);
         }
 
@@ -411,9 +412,11 @@ contract Bridge is AccessControl {
             token.transfer(to, effectiveAmount);
             // NOTE(pb): In theory, SafeMath should not be necessary for the following sub., left in for peace in mind:
             supply = supply.sub(effectiveAmount);
+            feesAccrued = feesAccrued.add(swapFee);
             emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount, swapFee);
         } else {
             // NOTE(pb): No transfer, no contract supply change since whole amount is taken as swap fee.
+            feesAccrued = feesAccrued.add(amount);
             emit ReverseSwap(rid, to, from, originTxHash, 0, amount);
         }
     }
@@ -549,14 +552,14 @@ contract Bridge is AccessControl {
      * @dev Withdraw refunds fees accrued so far.
      * @param targetAddress : address to send tokens to.
      */
-    function withdrawRefundsFees(address targetAddress)
+    function withdrawFees(address targetAddress)
         public
         onlyOwner
     {
-        require(refundsFeesAccrued > 0, "");
-        token.transfer(targetAddress, refundsFeesAccrued);
-        emit RefundsFeesWithdrawal(targetAddress, refundsFeesAccrued);
-        refundsFeesAccrued = 0;
+        require(feesAccrued > 0, "No fees to withdraw");
+        token.transfer(targetAddress, feesAccrued);
+        emit FeesWithdrawal(targetAddress, feesAccrued);
+        feesAccrued = 0;
     }
 
 
@@ -659,6 +662,6 @@ contract Bridge is AccessControl {
     //           if there is inconsistency between contract balance and accrued amounts.
     function _excessFunds() internal view returns(uint256) {
         uint256 contractBalance = token.balanceOf(address(this));
-        return contractBalance.sub(supply).sub(refundsFeesAccrued);
+        return contractBalance.sub(supply).sub(feesAccrued);
     }
 }
