@@ -21,29 +21,12 @@ pragma solidity ^0.6.0 || ^0.7.0;
 
 
 /**
- * @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2
+ * @title *Administrative* interface of Bi-directional bridge for transfer of FET tokens between Ethereum
+ *        and Fetch Mainnet-v2.
  *
- * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch
- *         Native Mainnet-v2 and **other way around** (= it is bi-directional).
- *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.
- *         In the case of a refund, user will be charged a swap fee configured in this contract.
- *
- * @dev There are three primary actions defining business logic of this contract:
- *       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)
- *       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally
- *                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role
- *       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively
- *                        by `relayer` role
- *
- *      Swap Fees for `swap(...)` operations (direction from this contract to are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for
- *      which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back to
- *      this contract.
- *
- *      ! IMPORTANT !: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued* and
- *      *excess funds* sent to the address of this contract via *direct* `ERC20.transfer(...)`.
- *      Implication is, that excess funds **are treated** as swap fees.
- *      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20
- *      contracts, and do the reconciliation.
+ * @notice By design, all methods of this administrative interface can be called exclusively by administrator(s) of
+ *         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change
+ *         supply transferred across the Bridge.
  */
 interface IBridgeAdmin {
 
