@@ -49,6 +49,7 @@ interface IBridgePublic {
 
     event Swap(uint64 indexed id, string indexed indexedTo, string to, uint256 amount);
 
+
     /**
       * @notice Initiates swap, which will be relayed to the other blockchain.
       *         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be
@@ -74,9 +75,5 @@ interface IBridgePublic {
       *                             address value, relayer will execute refund - please see desc. for `refund()` call
       *                             for more details.
       */
-    function swap(
-        uint256 amount, // This is original amount (INCLUDES fee)
-        string calldata destinationAddress
-        )
-        external;
+    function swap(uint256 amount, string calldata destinationAddress) external;
 }

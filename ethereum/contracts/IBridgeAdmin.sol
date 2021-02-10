@@ -105,12 +105,7 @@ interface IBridgeAdmin {
      * @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
      * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
      */
-    function setLimits(
-        uint256 swapMax_,
-        uint256 swapMin_,
-        uint256 swapFee_
-        )
-        external;
+    function setLimits(uint256 swapMax_, uint256 swapMin_, uint256 swapFee_) external;
 
 
     /**
@@ -119,11 +114,7 @@ interface IBridgeAdmin {
      * @param targetAddress : address to send tokens to
      * @param amount : amount of tokens to withdraw
      */
-    function withdraw(
-        address targetAddress,
-        uint256 amount
-        )
-        external;
+    function withdraw(address targetAddress, uint256 amount) external;
 
 
     /**

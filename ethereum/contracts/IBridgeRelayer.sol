@@ -52,6 +52,7 @@ interface IBridgeRelayer {
     event Pause(uint256 sinceBlock);
     event NewRelayEon(uint64 eon);
 
+
     /**
       * @notice Starts the new relay eon.
       * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two
@@ -75,13 +76,7 @@ interface IBridgeRelayer {
       *                 withdrawn
       * @param relayEon_ - current relay eon, ensures safe management of relaying process
       */
-    function refund(
-        uint64 id,
-        address to,
-        uint256 amount,
-        uint64 relayEon_
-        )
-        external;
+    function refund(uint64 id, address to, uint256 amount, uint64 relayEon_) external;
 
 
     /**
@@ -104,13 +99,7 @@ interface IBridgeRelayer {
       *                 called at all!
       * @param relayEon_ - current relay eon, ensures safe management of relaying process
       */
-    function refundInFull(
-        uint64 id,
-        address to,
-        uint256 amount,
-        uint64 relayEon_
-        )
-        external;
+    function refundInFull(uint64 id, address to, uint256 amount, uint64 relayEon_) external;
 
 
     /**
@@ -139,11 +128,11 @@ interface IBridgeRelayer {
       * @param relayEon_ - current relay eon, ensures safe management of relaying process
       */
     function reverseSwap(
-        uint64 rid, // Reverse swp id (from counterpart contract on other blockchain)
+        uint64 rid,
         address to,
         string calldata from,
         bytes32 originTxHash,
-        uint256 amount, // This is original swap amount (= *includes* swapFee)
+        uint256 amount,
         uint64 relayEon_
         )
         external;
