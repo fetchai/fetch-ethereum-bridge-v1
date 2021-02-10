@@ -21,8 +21,8 @@ pragma solidity ^0.6.0 || ^0.7.0;
 
 import "../openzeppelin/contracts/access/AccessControl.sol";
 import "../openzeppelin/contracts/math/SafeMath.sol";
-import "./IERC20Token.sol";
-import "./IBridge.sol";
+import "../interfaces/IERC20Token.sol";
+import "../interfaces/IBridge.sol";
 
 
 /**
