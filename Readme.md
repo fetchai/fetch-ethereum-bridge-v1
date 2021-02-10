@@ -17,7 +17,7 @@ docker-compose exec ethereum brownie run deploy_erc20mock.py --network docker
 # Deploy Ethereum Bridge contract
 docker-compose exec ethereum brownie run deploy_bridge.py --network docker
 
-# Deploy Cosmos Bridge. Please run this after block 44
+# Deploy Cosmos Bridge contract. Please run this after block 44
 # If you get ERROR: aborted execture the following command
 # docker-compose exec fetch fetchcli keys delete validator
 docker-compose exec fetch ./ledger/deploy-bridge.sh
