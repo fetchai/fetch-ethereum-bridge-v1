@@ -14,7 +14,7 @@ RUN apt-get update && apt-get upgrade -y
 ### dependencies ###
 ####################
 
-ARG wasmd_version="0.10.0"
+ARG wasmd_version="0.9.1"
 ENV WASMD_VER=${wasmd_version}
 
 ARG golang_version="1.15.7"
@@ -68,7 +68,7 @@ ENV PASSWORD=${wasmd_password}
 ARG token="ucosm"
 ENV TOKEN=${token}
 
-RUN /scripts_docker/00_setup_wasmd_local.sh
+RUN /scripts_docker/00_setup_wasmd_local_v${WASMD_VER}.sh
 
 EXPOSE 26657
 

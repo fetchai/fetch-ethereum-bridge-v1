@@ -52,7 +52,7 @@ upon success `CODE_ID` env variable should contain an integer (`1` if first stor
 
 Once the contract is successfully uploaded, it can be instantiated as follow
 ```bash
-RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm instantiate $CODE_ID '{}' --from validator --label my-bridge-contract --amount 5000ucosm -y)
+RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm instantiate $CODE_ID '{"cap":"10000", "deposit":"500", "upper_swap_limit":"1000", "lower_swap_limit":"2", "swap_fee":"1"}' --from validator --label my-bridge-contract --amount 10000ucosm -y)
 CONTRACT_ADDRESS=$(echo $RES | jq -r ".logs[0].events[0].attributes[-1].value")
 echo $CONTRACT_ADDRESS > contract_address
 ```
@@ -68,17 +68,31 @@ The current python script only handles actions execution events. To start watchi
 docker run --rm --net=host -v $(pwd):/source/ --workdir /source/  --entrypoint /bin/bash -it cosmwasm-bridge
 # inside container
 CONTRACT_ADDRESS=$(cat contract_address)
-python3 cosmwasm_watch_contract_events.py $CONTRACT_ADDRESS Swap
+python3 cosmwasm_watch_contract_events.py $CONTRACT_ADDRESS swap
 ```
 
-The script will be watching for events related to successful execution of `Swap` action on the deployed contract.
+The script will be watching for events related to successful execution of `swap` action on the deployed contract.
 
 Now, let's produce such events by requesting execution of `Swap` operation. 
 Go back to the previous container shell and run the following:
 
 ```bash
-(echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"amount": "10", "destination":"some-ether-address"}}' --from validator -y
+(echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
 ```
+
+## Contract operations
+
++ `swap` 
+  ```bash
+  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
+  ```
++ `reverse_swap`
+  ```bash
+  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"reverse_swap": {"rid":10, "to":"cosmos1g5e4zzum7r3kp8fpt9zg43ed4hjwr0ajvz5gtr", "sender":"some-ethereum-address", "origin_tx_hash":"11111111", "amount":"10", "relay_eon": 0}}' --from validator -y
+  ```
+
+
+
 
 ## Resources
 ### local wasmd deployment

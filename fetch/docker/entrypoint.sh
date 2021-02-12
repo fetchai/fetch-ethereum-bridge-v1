@@ -1,1 +1,1 @@
-/scripts_docker/entrypoint_local.sh
+/scripts_docker/entrypoint_v${WASMD_VER}.sh
