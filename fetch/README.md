@@ -88,7 +88,7 @@ Go back to the previous container shell and run the following:
   ```
 + `reverse_swap`
   ```bash
-  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"reverse_swap": {"rid":10, "to":"cosmos1g5e4zzum7r3kp8fpt9zg43ed4hjwr0ajvz5gtr", "from":"some-ethereum-address", "origin_tx_hash":"11111111", "amount":"10", "relay_eon": 0}}' --from validator -y
+  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"reverse_swap": {"rid":10, "to":"cosmos1g5e4zzum7r3kp8fpt9zg43ed4hjwr0ajvz5gtr", "sender":"some-ethereum-address", "origin_tx_hash":"11111111", "amount":"10", "relay_eon": 0}}' --from validator -y
   ```
 
 

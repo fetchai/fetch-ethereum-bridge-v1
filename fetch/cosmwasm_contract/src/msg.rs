@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{HumanAddr};
+use cosmwasm_std::HumanAddr;
 
 //use crate::cosmwasm_bignumber::{Uint256};
 
@@ -30,8 +30,8 @@ pub enum HandleMsg {
     ReverseSwap {
         rid: u64,
         to: HumanAddr,
-        from: String,
-        origin_tx_hash: Uint128,
+        sender: String,
+        origin_tx_hash: String, // TOD(LR) should be [32]u8 or String
         amount: Uint128,
         relay_eon: u64,
     },
@@ -46,6 +46,8 @@ pub enum HandleMsg {
     Pause {
         since_block: u64,
     },
+
+    NewRelayEon {},
 
     // admin
     FreezeFunds {

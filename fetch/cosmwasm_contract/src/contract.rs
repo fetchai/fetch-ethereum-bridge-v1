@@ -85,7 +85,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ReverseSwap {
             rid,
             to,
-            from,
+            sender,
             origin_tx_hash,
             amount,
             relay_eon,
@@ -95,7 +95,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             &state,
             rid,
             to,
-            from,
+            sender,
             origin_tx_hash,
             amount,
             relay_eon,
@@ -107,6 +107,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             relay_eon,
         } => try_refund(deps, &env, &state, id, to, amount, relay_eon),
         HandleMsg::Pause { since_block } => try_pause(deps, &env, &state, since_block),
+        HandleMsg::NewRelayEon {} => try_new_relay_eon(deps, &env, &state),
         HandleMsg::FreezeFunds { amount } => try_freeze_funds(deps, &env, &state, amount),
         HandleMsg::UnFreezeFunds { amount } => try_unfreeze_funds(deps, &env, &state, amount),
         HandleMsg::SetCap { amount } => try_set_cap(deps, &env, &state, amount),
@@ -169,8 +170,8 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     state: &State,
     rid: u64,
     to: HumanAddr,
-    from: String,
-    origin_tx_hash: Uint128,
+    sender: String,
+    origin_tx_hash: String,
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
@@ -194,7 +195,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             log("action", "reverse_swap"),
             log("rid", rid),
             log("to", to),
-            log("from", from),
+            log("sender", sender),
             log("origin_tx_hash", origin_tx_hash),
             log("amount", effective_amount),
             log("swap_fee", swap_fee),
@@ -214,7 +215,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             log("action", "reverse_swap"),
             log("rid", rid),
             log("to", to),
-            log("from", from),
+            log("from", sender),
             log("origin_tx_hash", origin_tx_hash),
             log("amount", effective_amount),
             log("swap_fee", swap_fee),
@@ -239,23 +240,66 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
 // Refund will rebalance the `supply`
 fn try_refund<S: Storage, A: Api, Q: Querier>(
     _deps: &mut Extern<S, A, Q>,
-    _env: &Env,
-    _state: &State,
-    _id: u64,
-    _to: HumanAddr,
-    _amount: Uint128,
+    env: &Env,
+    state: &State,
+    id: u64,
+    to: HumanAddr,
+    amount: Uint128,
     _relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    Ok(HandleResponse::default())
+    only_relayer(env, state)?;
+
+    let log = vec![
+        log("action", "refund"),
+        log("destination", to),
+        log("swap_id", id),
+        log("amount", amount),
+        // NOTE(LR) fees will be deducted in destination chain
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_pause<S: Storage, A: Api, Q: Querier>(
     _deps: &mut Extern<S, A, Q>,
-    _env: &Env,
-    _state: &State,
+    env: &Env,
+    state: &State,
     _since_block: u64,
 ) -> StdResult<HandleResponse> {
+    only_relayer(env, state)?;
+    
     Ok(HandleResponse::default())
+}
+
+fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    state: &State,
+) -> StdResult<HandleResponse> {
+    only_relayer(env, state)?;
+    
+    let new_eon = state.relay_eon + 1;
+    config(&mut deps.storage).update(|mut state| {
+        state.relay_eon = new_eon; // FIXME(LR) starts from 1
+        Ok(state)
+    })?;
+
+    let log = vec![
+        log("action", "new_relay_eon"),
+        log("new_relay_eon", new_eon),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None, // TODO(LR) what can I send in data?
+    };
+    Ok(r)
 }
 
 fn try_freeze_funds<S: Storage, A: Api, Q: Querier>(
