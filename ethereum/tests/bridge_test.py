@@ -164,6 +164,7 @@ class BridgeTest:
 
         event = tx.events[str(EventType.Swap)]
         assert event['id'] == origSwapId
+        assert event['from'] == user
         assert brownie.convert.to_bytes(event['indexedTo'], 'bytes32') == brownie.web3.solidityKeccak(['string'], [dest_addr])
         assert event['to'] == dest_addr
         assert event['amount'] == amount
