@@ -22,7 +22,6 @@ pragma solidity ^0.6.0 || ^0.7.0;
 import "../openzeppelin/contracts/access/AccessControl.sol";
 import "../openzeppelin/contracts/math/SafeMath.sol";
 import "../interfaces/IERC20Token.sol";
-import "../interfaces/IBridge.sol";
 
 
 /**
@@ -50,8 +49,30 @@ import "../interfaces/IBridge.sol";
  *      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20
  *      contracts, and do the reconciliation.
  */
-contract Bridge is IBridge, AccessControl {
+contract Bridge is AccessControl {
     using SafeMath for uint256;
+
+    // *******    USER-LEVEL EVENTS    ********
+    event Swap(uint64 indexed id, address indexed from, string indexed indexedTo, string to, uint256 amount);
+    // *******    RELAYER-LEVEL EVENTS    ********
+    event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
+    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
+    event Pause(uint256 sinceBlock);
+    // *******    ADMIN-LEVEL EVENTS    ********
+    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
+    event CapUpdate(uint256 value);
+    event NewRelayEon(uint64 eon);
+    event Withdraw(address indexed targetAddress, uint256 amount);
+    event Deposit(address indexed fromAddress, uint256 amount);
+    event FeesWithdrawal(address indexed targetAddress, uint256 amount);
+    event DeleteContract(address targetAddress, uint256 amount);
+    // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
+    //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
+    //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can
+    //  identify events for mint, resp. burn, calls by filtering ERC20 Transfer events with `from == ZERO_ADDR  &&
+    //  to == Bridge.address` for MINT operation, resp `from == Bridge.address` and `to == ZERO_ADDR` for BURN operation.
+    //event Mint(uint256 amount);
+    //event Burn(uint256 amount);
 
     /// @notice **********    CONSTANTS    ***********
     bytes32 public constant DELEGATE_ROLE = keccak256("DELEGATE_ROLE");
@@ -70,6 +91,7 @@ contract Bridge is IBridge, AccessControl {
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
+
 
 
     /* Only callable by owner */
@@ -198,15 +220,14 @@ contract Bridge is IBridge, AccessControl {
         uint256 amount, // This is original amount (INCLUDES fee)
         string calldata destinationAddress
         )
-        external
-        override
+        public
         verifyNotPaused
         verifySwapAmount(amount)
     {
         supply = supply.add(amount);
         require(cap >= supply, "Swap would exceed cap");
         token.transferFrom(msg.sender, address(this), amount);
-        emit Swap(nextSwapId, destinationAddress, destinationAddress, amount);
+        emit Swap(nextSwapId, msg.sender, destinationAddress, destinationAddress, amount);
         // NOTE(pb): No necessity to use SafeMath here:
         nextSwapId += 1;
     }
@@ -219,7 +240,7 @@ contract Bridge is IBridge, AccessControl {
      *
      * @return targetAddress : address to send tokens to
      */
-    function getFeesAccrued() external view override returns(uint256) {
+    function getFeesAccrued() public view returns(uint256) {
         // NOTE(pb): This subtraction shall NEVER fail:
         return token.balanceOf(address(this)).sub(supply, "Critical err: balance < supply");
     }
@@ -236,8 +257,7 @@ contract Bridge is IBridge, AccessControl {
       *      relayer svc and the current one.
       */
     function newRelayEon()
-        external
-        override
+        public
         onlyRelayer
     {
         // NOTE(pb): No need for safe math for this increment, since the MAX_LIMIT<uint64> is huge number (~10^19),
@@ -271,8 +291,7 @@ contract Bridge is IBridge, AccessControl {
         uint256 amount,
         uint64 relayEon_
         )
-        external
-        override
+        public
         verifyTxRelayEon(relayEon_)
         onlyRelayer
         verifyRefundSwapId(id)
@@ -328,8 +347,7 @@ contract Bridge is IBridge, AccessControl {
         uint256 amount,
         uint64 relayEon_
         )
-        external
-        override
+        public
         verifyTxRelayEon(relayEon_)
         onlyRelayer
         verifyRefundSwapId(id)
@@ -383,8 +401,7 @@ contract Bridge is IBridge, AccessControl {
         uint256 amount, // This is original swap amount (= *includes* swapFee)
         uint64 relayEon_
         )
-        external
-        override
+        public
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
@@ -416,8 +433,7 @@ contract Bridge is IBridge, AccessControl {
      *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.
      */
     function pauseSince(uint256 blockNumber)
-        external
-        override
+        public
         canPause
     {
         _pauseSince(blockNumber);
@@ -434,8 +450,7 @@ contract Bridge is IBridge, AccessControl {
      * @param amount - number of FET tokens to mint.
      */
     function mint(uint256 amount)
-        external
-        override
+        public
         onlyOwner
     {
         // NOTE(pb): The `supply` shall be adjusted by minted amount.
@@ -450,8 +465,7 @@ contract Bridge is IBridge, AccessControl {
      * @param amount - number of FET tokens to burn.
      */
     function burn(uint256 amount)
-        external
-        override
+        public
         onlyOwner
     {
         // NOTE(pb): The `supply` shall be adjusted by burned amount.
@@ -468,8 +482,7 @@ contract Bridge is IBridge, AccessControl {
      * @param value - new cap value.
      */
     function setCap(uint256 value)
-        external
-        override
+        public
         onlyOwner
     {
         _setCap(value);
@@ -488,8 +501,7 @@ contract Bridge is IBridge, AccessControl {
         uint256 swapMin_,
         uint256 swapFee_
         )
-        external
-        override
+        public
         onlyOwner
     {
         _setLimits(swapMax_, swapMin_, swapFee_);
@@ -506,8 +518,7 @@ contract Bridge is IBridge, AccessControl {
         address targetAddress,
         uint256 amount
         )
-        external
-        override
+        public
         onlyOwner
     {
         supply = supply.sub(amount, "Amount exceeds contract supply");
@@ -526,8 +537,7 @@ contract Bridge is IBridge, AccessControl {
      * @param amount : deposit amount
      */
     function deposit(uint256 amount)
-        external
-        override
+        public
         onlyOwner
     {
         supply = supply.add(amount);
@@ -548,11 +558,10 @@ contract Bridge is IBridge, AccessControl {
      * @param targetAddress : address to send tokens to.
      */
     function withdrawFees(address targetAddress)
-        external
-        override
+        public
         onlyOwner
     {
-        uint256 fees = this.getFeesAccrued();
+        uint256 fees = getFeesAccrued();
         require(fees > 0, "No fees to withdraw");
         token.transfer(targetAddress, fees);
         emit FeesWithdrawal(targetAddress, fees);
@@ -566,8 +575,7 @@ contract Bridge is IBridge, AccessControl {
      * @dev owner only + only on or after `earliestDelete` block
      */
     function deleteContract(address payable targetAddress)
-        external
-        override
+        public
         onlyOwner
     {
         require(earliestDelete >= block.number, "Earliest delete not reached");
