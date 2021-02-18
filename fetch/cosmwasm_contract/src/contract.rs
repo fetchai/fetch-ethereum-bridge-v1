@@ -43,6 +43,12 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let contract_addr = env.contract.address;
     let contract_addr_human = deps.api.human_address(&contract_addr)?;
 
+    if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
+        return Err(StdError::generic_err(
+            "inconsistent swap fee and swap limits",
+        ));
+    }
+
     let state = State {
         supply: msg.deposit, // Uint128::zero(), // TMP(LR)
         refunds_fees_accrued: Uint128::zero(),
@@ -65,6 +71,16 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     Ok(InitResponse::default())
 }
+
+/* ***************************************************
+ * **************    Access Control      *************
+ * ***************************************************/
+
+ pub const DEFAULT_ADMIN_ROLE : u64 = 0;
+ pub const RELAYER_ROLE : u64 = 10; // FIXME(LR) arbitrary values, use bytes instead?
+ pub const DELEGATE_ROLE: u64 = 100; 
+
+
 
 /* ***************************************************
  * ******************    Actions    ******************
@@ -272,7 +288,6 @@ fn try_pause<S: Storage, A: Api, Q: Querier>(
     _since_block: u64,
 ) -> StdResult<HandleResponse> {
     only_relayer(env, state)?;
-    
     Ok(HandleResponse::default())
 }
 
@@ -282,7 +297,6 @@ fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
     state: &State,
 ) -> StdResult<HandleResponse> {
     only_relayer(env, state)?;
-    
     let new_eon = state.relay_eon + 1;
     config(&mut deps.storage).update(|mut state| {
         state.relay_eon = new_eon; // FIXME(LR) starts from 1
@@ -478,4 +492,98 @@ fn query_role<S: Storage, A: Api, Q: Querier>(
     _address: HumanAddr,
 ) -> StdResult<RoleResponse> {
     Ok(RoleResponse { has_role: true })
+}
+
+/* ***************************************************
+ * ******************    Tests      ******************
+ * ***************************************************/
+
+#[cfg(test)]
+mod tests {
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
+    use cosmwasm_std::{
+        coins, from_binary, Api, Coin, Extern, HumanAddr, InitResponse, Querier, ReadonlyStorage,
+        StdError,
+    };
+
+    use crate::contract::{handle, init, query};
+    use crate::msg::{HandleMsg, InitMsg, QueryMsg, Uint128};
+    use crate::state::{config_read, State};
+
+    pub const DEFAULT_CREATOR: &str = "creator";
+    pub const DEFAULT_DENUM: &str = "fet";
+    pub const DEFAULT_CAP: u128 = 100000u128;
+    pub const DEFAULT_DEPOSIT: u128 = 10000u128;
+    pub const DEFAULT_SWAP_UPPER_LIMIT: u128 = 1000u128;
+    pub const DEFAULT_SWAP_LOWER_LIMIT: u128 = 10u128;
+    pub const DEFAULT_SWAP_FEE: u128 = 9u128;
+
+    macro_rules! cu128 {
+        ($val:expr) => {
+            // FIXME(LR) be more explicit of allowed expression
+            Uint128::from($val)
+        };
+    }
+
+    fn _mock_init(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        cap: Option<Uint128>,
+        deposit: Option<Uint128>,
+        upper_swap_limit: Option<Uint128>,
+        lower_swap_limit: Option<Uint128>,
+        swap_fee: Option<Uint128>,
+    ) {
+        let msg = InitMsg {
+            cap: cap.unwrap_or(cu128!(DEFAULT_CAP)),
+            deposit: deposit.unwrap_or(cu128!(DEFAULT_DEPOSIT)),
+            upper_swap_limit: upper_swap_limit.unwrap_or(cu128!(DEFAULT_SWAP_UPPER_LIMIT)),
+            lower_swap_limit: lower_swap_limit.unwrap_or(cu128!(DEFAULT_SWAP_LOWER_LIMIT)),
+            swap_fee: swap_fee.unwrap_or(cu128!(DEFAULT_SWAP_FEE)),
+            paused_since_block: None,
+            delete_protection_period: None,
+        };
+
+        let env = mock_env(&deps.api, DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
+        let _res = init(&mut deps, env, msg).expect("contract failed to handle InitMsg");
+    }
+
+    fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>) {
+        _mock_init(&mut deps, None, None, None, None, None); // FIXME(LR) use variadic parameters
+    }
+
+    #[test]
+    fn proper_init() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        mock_init(&mut deps);
+
+        let env = mock_env(&deps.api, DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
+        
+        let creator_ca = deps
+            .api
+            .canonical_address(&HumanAddr::from(DEFAULT_CREATOR))
+            .expect("");
+        let contract_ha = deps.api.human_address(&env.contract.address).expect("");
+        let expected_state = State {
+            supply: cu128!(DEFAULT_DEPOSIT),
+            refunds_fees_accrued: Uint128::from(0u128),
+            next_swap_id: 0,
+            sealed_reverse_swap_id: 0,
+            relay_eon: 0,
+            upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            cap: cu128!(DEFAULT_CAP),
+            swap_fee: cu128!(DEFAULT_SWAP_FEE),
+            paused_since_block: u64::MAX,
+            earliest_delete: env.block.height,
+            admin: creator_ca.clone(),
+            relayer: creator_ca.clone(),
+            denom: DEFAULT_DENUM.to_string(),
+            contract_addr_human: contract_ha,
+        };
+
+        let state = config_read(&deps.storage).load().expect("");
+
+        assert_eq!(state, expected_state);
+    }
 }
