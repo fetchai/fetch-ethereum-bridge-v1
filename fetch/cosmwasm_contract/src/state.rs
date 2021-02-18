@@ -32,13 +32,13 @@ pub struct State {
     pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
 
     // access control
-    pub admin: CanonicalAddr,
-    pub relayer: CanonicalAddr,
+    pub admin: HumanAddr,
+    pub relayer: HumanAddr,
 
     // temporary
     pub denom: String,
 
-    // optimization
+    // optimization FIXME(LR) Not needed any more with version 0.10.0
     pub contract_addr_human: HumanAddr,
 }
 

@@ -26,7 +26,7 @@ mod tests {
             delete_protection_period: None,
         };
 
-        let env = mock_env(&deps.api, "creator", &coins(1000, "fet"));
+        let env = mock_env("creator", &coins(1000, "fet"));
         let res = init(&mut deps, env, msg);
         res.expect("contract successfully handles InitMsg");
     }

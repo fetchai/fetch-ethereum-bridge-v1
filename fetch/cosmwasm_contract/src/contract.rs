@@ -40,8 +40,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     let delete_protection_period = msg.delete_protection_period.unwrap_or(0u64);
     let earliest_delete = current_block_number + delete_protection_period;
-    let contract_addr = env.contract.address;
-    let contract_addr_human = deps.api.human_address(&contract_addr)?;
+    let contract_addr_human = env.contract.address;
 
     if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
         return Err(StdError::generic_err(
@@ -64,7 +63,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         admin: env.message.sender.clone(),
         relayer: env.message.sender.clone(),
         denom: env.message.sent_funds[0].denom.clone(), // TMP(LR)
-        contract_addr_human,                            // optimization
+        contract_addr_human,                            // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -543,7 +542,7 @@ mod tests {
             delete_protection_period: None,
         };
 
-        let env = mock_env(&deps.api, DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
         let _res = init(&mut deps, env, msg).expect("contract failed to handle InitMsg");
     }
 
@@ -557,13 +556,10 @@ mod tests {
 
         mock_init(&mut deps);
 
-        let env = mock_env(&deps.api, DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
         
-        let creator_ca = deps
-            .api
-            .canonical_address(&HumanAddr::from(DEFAULT_CREATOR))
-            .expect("");
-        let contract_ha = deps.api.human_address(&env.contract.address).expect("");
+        let creator = HumanAddr::from(DEFAULT_CREATOR);
+        //let contract_ha = deps.api.human_address(&env.contract.address).expect("");
         let expected_state = State {
             supply: cu128!(DEFAULT_DEPOSIT),
             refunds_fees_accrued: Uint128::from(0u128),
@@ -576,10 +572,10 @@ mod tests {
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: u64::MAX,
             earliest_delete: env.block.height,
-            admin: creator_ca.clone(),
-            relayer: creator_ca.clone(),
+            admin: creator.clone(),
+            relayer: creator.clone(),
             denom: DEFAULT_DENUM.to_string(),
-            contract_addr_human: contract_ha,
+            contract_addr_human: env.contract.address.clone(),
         };
 
         let state = config_read(&deps.storage).load().expect("");
