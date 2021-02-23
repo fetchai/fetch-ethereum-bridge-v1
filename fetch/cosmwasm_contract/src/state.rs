@@ -6,6 +6,7 @@ use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
 use crate::msg::{Uint128};
 
 pub static CONFIG_KEY: &[u8] = b"config";
+pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -46,5 +47,3 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
 pub struct AccessControl {
 
 }
-
-

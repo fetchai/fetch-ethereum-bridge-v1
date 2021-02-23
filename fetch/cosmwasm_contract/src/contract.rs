@@ -16,7 +16,7 @@ use cosmwasm_std::{
     Querier,
     StdError,
     StdResult,
-    Storage, //ReadonlyStorage,
+    Storage,
 };
 
 use crate::access_control::{
@@ -74,6 +74,16 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     Ok(InitResponse::default())
 }
+
+/* ***************************************************
+ * **************    Access Control      *************
+ * ***************************************************/
+
+ pub const DEFAULT_ADMIN_ROLE : u64 = 0;
+ pub const RELAYER_ROLE : u64 = 10; // FIXME(LR) arbitrary values, use bytes instead?
+ pub const DELEGATE_ROLE: u64 = 100; 
+
+
 
 /* ***************************************************
  * ******************    Actions    ******************
