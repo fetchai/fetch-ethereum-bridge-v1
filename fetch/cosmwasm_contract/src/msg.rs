@@ -72,18 +72,17 @@ pub enum HandleMsg {
 
     // Access Control
     GrantRole {
-        role: u64,
+        role: String,
         address: HumanAddr,
     },
 
     RevokeRole {
-        role: u64,
+        role: String,
         address: HumanAddr,
     },
 
     RenounceRole {
-        role: u64,
-        address: HumanAddr, // has to be sender
+        role: String,
     },
 }
 

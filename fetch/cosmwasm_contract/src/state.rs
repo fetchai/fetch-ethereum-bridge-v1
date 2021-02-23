@@ -1,17 +1,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, HumanAddr, Storage};
-use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton, PrefixedStorage, ReadonlyPrefixedStorage};
-
-use crate::msg::Uint128;
+use cosmwasm_std::{HumanAddr, Storage};
+use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
+use crate::msg::{Uint128};
 
 pub static CONFIG_KEY: &[u8] = b"config";
-pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
-
-// FIXME(LR) use these instead of numbers
-//pub const DELEGATE_ROLE: &[u8] = b"DELEGATE_ROLE";
-//pub const RELAYER_ROLE: &[u8] = b"RELAYER_ROLE";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -30,11 +24,7 @@ pub struct State {
     // (2) TODO(LR)(low) check if this is possible in cosmos
     // Objective: end of the life of the contract
     pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
-
-    // access control
-    pub admin: HumanAddr,
-    pub relayer: HumanAddr,
-
+    
     // temporary
     pub denom: String,
 
@@ -57,10 +47,4 @@ pub struct AccessControl {
 
 }
 
-pub fn access_control<S: Storage>(storage: &mut S) -> Singleton<S, AccessControl> {
-    singleton(storage, ACCESS_CONTROL_KEY)
-}
 
-pub fn access_control_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, AccessControl> {
-    singleton_read(storage, ACCESS_CONTROL_KEY)
-}

@@ -19,6 +19,9 @@ use cosmwasm_std::{
     Storage, //ReadonlyStorage,
 };
 
+use crate::access_control::{
+    ac_add_role, ac_get_owner, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole,
+};
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, RoleResponse, Uint128};
 use crate::state::{config, config_read, State};
 
@@ -48,6 +51,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
+    ac_set_owner(&mut deps.storage, &env.message.sender)?;
+    ac_add_role(&mut deps.storage, &env.message.sender, &AccessRole::Admin)?;
+
     let state = State {
         supply: msg.deposit, // Uint128::zero(), // TMP(LR)
         refunds_fees_accrued: Uint128::zero(),
@@ -60,26 +66,14 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         swap_fee: msg.swap_fee,
         paused_since_block,
         earliest_delete,
-        admin: env.message.sender.clone(),
-        relayer: env.message.sender.clone(),
         denom: env.message.sent_funds[0].denom.clone(), // TMP(LR)
-        contract_addr_human,                            // optimization FIXME(LR) not needed any more (version 0.10.0)
+        contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
     config(&mut deps.storage).save(&state)?;
 
     Ok(InitResponse::default())
 }
-
-/* ***************************************************
- * **************    Access Control      *************
- * ***************************************************/
-
- pub const DEFAULT_ADMIN_ROLE : u64 = 0;
- pub const RELAYER_ROLE : u64 = 10; // FIXME(LR) arbitrary values, use bytes instead?
- pub const DELEGATE_ROLE: u64 = 100; 
-
-
 
 /* ***************************************************
  * ******************    Actions    ******************
@@ -131,13 +125,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             swap_max,
             swap_fee,
         } => try_set_limits(deps, &env, &state, swap_min, swap_max, swap_fee),
-        HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, &state, role, address),
-        HandleMsg::RevokeRole { role, address } => {
-            try_revoke_role(deps, &env, &state, role, address)
-        }
-        HandleMsg::RenounceRole { role, address } => {
-            try_renouce_role(deps, &env, &state, role, address)
-        }
+        HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, role, address),
+        HandleMsg::RevokeRole { role, address } => try_revoke_role(deps, &env, role, address),
+        HandleMsg::RenounceRole { role } => try_renouce_role(deps, &env, role),
     }
 }
 
@@ -191,7 +181,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
     verify_tx_relay_eon(relay_eon, state)?;
-    only_relayer(env, state)?;
+    only_relayer(env, &deps.storage)?;
 
     if amount > state.swap_fee {
         // NOTE(LR) when amount == fee, amount will still be consumed
@@ -254,15 +244,15 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
 //    + on the dest chain: highly imporbable for ether and mostly probable for cosmos native
 // Refund will rebalance the `supply`
 fn try_refund<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     env: &Env,
-    state: &State,
+    _state: &State,
     id: u64,
     to: HumanAddr,
     amount: Uint128,
     _relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, state)?;
+    only_relayer(env, &deps.storage)?;
 
     let log = vec![
         log("action", "refund"),
@@ -281,12 +271,12 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
 }
 
 fn try_pause<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     env: &Env,
-    state: &State,
+    _state: &State,
     _since_block: u64,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, state)?;
+    only_relayer(env, &deps.storage)?;
     Ok(HandleResponse::default())
 }
 
@@ -295,7 +285,7 @@ fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     state: &State,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, state)?;
+    only_relayer(env, &deps.storage)?;
     let new_eon = state.relay_eon + 1;
     config(&mut deps.storage).update(|mut state| {
         state.relay_eon = new_eon; // FIXME(LR) starts from 1
@@ -354,32 +344,48 @@ fn try_set_limits<S: Storage, A: Api, Q: Querier>(
 }
 
 fn try_grant_role<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: &Env,
-    _state: &State,
-    _role: u64,
-    _address: HumanAddr,
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    role: String,
+    address: HumanAddr,
 ) -> StdResult<HandleResponse> {
+    only_admin(&env, &deps.storage)?;
+
+    ac_add_role(
+        &mut deps.storage,
+        &address,
+        &AccessRole::from_str(role.as_str())?,
+    )?;
     Ok(HandleResponse::default())
 }
 
 fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: &Env,
-    _state: &State,
-    _role: u64,
-    _address: HumanAddr,
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    role: String,
+    address: HumanAddr,
 ) -> StdResult<HandleResponse> {
+    only_admin(&env, &deps.storage)?;
+
+    ac_revoke_role(
+        &mut deps.storage,
+        &address,
+        &AccessRole::from_str(role.as_str())?,
+    )?;
     Ok(HandleResponse::default())
 }
 
 fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: &Env,
-    _state: &State,
-    _role: u64,
-    _address: HumanAddr,
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    role: String,
 ) -> StdResult<HandleResponse> {
+    let ac_role = &AccessRole::from_str(role.as_str())?;
+    let have_role = ac_have_role(&deps.storage, &env.message.sender, ac_role).unwrap_or(false);
+    if !have_role {
+        return Err(StdError::unauthorized());
+    }
+    ac_revoke_role(&mut deps.storage, &env.message.sender, ac_role)?;
     Ok(HandleResponse::default())
 }
 
@@ -464,11 +470,24 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
  * ************    Access Control      ***************
  * ***************************************************/
 
-fn only_relayer(env: &Env, state: &State) -> HandleResult {
-    if env.message.sender != state.relayer {
-        Err(StdError::unauthorized())
-    } else {
-        Ok(HandleResponse::default())
+fn only_admin<S: Storage>(env: &Env, storage: &S) -> HandleResult {
+    match ac_have_role(storage, &env.message.sender, &AccessRole::Admin) {
+        Ok(_) => Ok(HandleResponse::default()),
+        Err(err) => {
+            let owner = ac_get_owner(storage).unwrap_or(HumanAddr::from(""));
+            if owner == env.message.sender {
+                Ok(HandleResponse::default())
+            } else {
+                Err(err)
+            }
+        }
+    }
+}
+
+fn only_relayer<S: Storage>(env: &Env, storage: &S) -> HandleResult {
+    match ac_have_role(storage, &env.message.sender, &AccessRole::Relayer) {
+        Ok(_) => Ok(HandleResponse::default()),
+        Err(err) => Err(err),
     }
 }
 
@@ -557,7 +576,6 @@ mod tests {
         mock_init(&mut deps);
 
         let env = mock_env(DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
-        
         let creator = HumanAddr::from(DEFAULT_CREATOR);
         //let contract_ha = deps.api.human_address(&env.contract.address).expect("");
         let expected_state = State {
@@ -572,8 +590,6 @@ mod tests {
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: u64::MAX,
             earliest_delete: env.block.height,
-            admin: creator.clone(),
-            relayer: creator.clone(),
             denom: DEFAULT_DENUM.to_string(),
             contract_addr_human: env.contract.address.clone(),
         };
