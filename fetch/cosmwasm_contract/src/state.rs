@@ -2,14 +2,16 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CanonicalAddr, HumanAddr, Storage};
-use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
+use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton, PrefixedStorage, ReadonlyPrefixedStorage};
 
 use crate::msg::Uint128;
 
 pub static CONFIG_KEY: &[u8] = b"config";
+pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
 
-pub const DELEGATE_ROLE: &[u8] = b"DELEGATE_ROLE";
-pub const RELAYER_ROLE: &[u8] = b"RELAYER_ROLE";
+// FIXME(LR) use these instead of numbers
+//pub const DELEGATE_ROLE: &[u8] = b"DELEGATE_ROLE";
+//pub const RELAYER_ROLE: &[u8] = b"RELAYER_ROLE";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -30,13 +32,13 @@ pub struct State {
     pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
 
     // access control
-    pub admin: CanonicalAddr,
-    pub relayer: CanonicalAddr,
+    pub admin: HumanAddr,
+    pub relayer: HumanAddr,
 
     // temporary
     pub denom: String,
 
-    // optimization
+    // optimization FIXME(LR) Not needed any more with version 0.10.0
     pub contract_addr_human: HumanAddr,
 }
 
@@ -46,4 +48,19 @@ pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
 
 pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
     singleton_read(storage, CONFIG_KEY)
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct AccessControl {
+
+}
+
+pub fn access_control<S: Storage>(storage: &mut S) -> Singleton<S, AccessControl> {
+    singleton(storage, ACCESS_CONTROL_KEY)
+}
+
+pub fn access_control_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, AccessControl> {
+    singleton_read(storage, ACCESS_CONTROL_KEY)
 }

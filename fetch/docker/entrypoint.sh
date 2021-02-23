@@ -1,1 +1,1 @@
-/scripts_docker/entrypoint_v${WASMD_VER}.sh
+/scripts_docker/entrypoint_fetchd_v${FETCHD_VER}.sh
