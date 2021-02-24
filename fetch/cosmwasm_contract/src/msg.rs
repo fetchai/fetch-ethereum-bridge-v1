@@ -10,7 +10,6 @@ pub type Uint128 = cosmwasm_std::Uint128;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub cap: Uint128,
-    pub deposit: Uint128,
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
     pub swap_fee: Uint128,
@@ -43,6 +42,13 @@ pub enum HandleMsg {
         relay_eon: u64,
     },
 
+    RefundInFull {
+        id: u64,
+        to: HumanAddr,
+        amount: Uint128,
+        relay_eon: u64,
+    },
+
     Pause {
         since_block: u64,
     },
@@ -50,13 +56,15 @@ pub enum HandleMsg {
     NewRelayEon {},
 
     // admin
-    FreezeFunds {
-        // add funds to contracts from the owner
+    Deposit {},
+
+    Withdraw {
+        // withdrawal from contract supply to the owner
         amount: Uint128,
     },
 
-    UnFreezeFunds {
-        // withdrawal from contract to the owner
+    WithdrawFees {
+        // withdrawal from contract (account - supply) to the owner
         amount: Uint128,
     },
 
