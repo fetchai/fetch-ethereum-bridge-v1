@@ -2,78 +2,28 @@ FROM ubuntu:20.04 as base
 
 USER root
 
-WORKDIR /workdir
+WORKDIR /build
 
 SHELL [ "/bin/bash", "-c" ]
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get upgrade -y
 
+RUN apt install -y gcc curl jq 
 
-####################
-### dependencies ###
-####################
-
-ARG fetchd_version="0.6.0"
-ENV FETCHD_VER=${fetchd_version}
-
-ARG golang_version="1.15.7"
-ENV GOLANG_VER=${golang_version}
-
-
-# utils
-RUN apt install -y wget make curl git jq 
-
-# python 3.8.5
-RUN apt install -y python3 python3-pip
-ENV LC_ALL C.UTF-8
-ENV LANG C.UTF-8
-
-# golang
-RUN wget https://golang.org/dl/go${GOLANG_VER}.linux-amd64.tar.gz && \
-    tar -xzvf go${GOLANG_VER}.linux-amd64.tar.gz -C /usr/local && \
-    mkdir /root/go
-ENV PATH="${PATH}:/usr/local/go/bin:/root/go/bin"
-
-# rust latest
 RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf >rustup.rs && bash rustup.rs -y
 
 ENV PATH="$PATH:/root/.cargo/bin"
 RUN echo $PATH && ls $HOME && rustup default stable && cargo version && \
     rustup update stable
 
-# fetchd (https://docs.fetch.ai/ledger_v2/building/)
-RUN apt install -y libgmp-dev swig libboost-serialization1.67-dev
-RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz &&\
-    tar xvf v1.05.tar.gz && cd mcl-1.05 &&\
-    make install && ldconfig
-
-RUN git clone https://github.com/fetchai/fetchd.git && cd fetchd && \
-    make install && fetchd version
-
-
-##########################
-### setup cosmwasm env ###
-##########################
-
 RUN rustup target add wasm32-unknown-unknown
 
+ARG CONTRACT_MOUNT="/contract/"
+VOLUME ${CONTRACT_MOUNT}
+WORKDIR ${CONTRACT_MOUNT}
 
-########################
-### setup local node ###
-########################
+COPY ./scripts /scripts
 
-COPY ./docker /scripts_docker
-RUN chmod +x /scripts_docker/*.sh
-
-ARG wasmd_password="12345678"
-ENV PASSWORD=${wasmd_password}
-
-ARG token="ucosm"
-ENV TOKEN=${token}
-
-RUN /scripts_docker/00_setup_fetchd_local_v${FETCHD_VER}.sh
-
-EXPOSE 26657
-
-ENTRYPOINT ["/bin/bash", "/scripts_docker/entrypoint.sh"]
+ENTRYPOINT ["/scripts/compile.sh"]
+CMD ["/contract"] #FIXME(LR) use ARG var
