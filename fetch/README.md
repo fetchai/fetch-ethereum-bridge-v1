@@ -32,7 +32,7 @@ To compile the contract, run the following within the docker container
 ./scripts/compile.sh cosmwasm_contract/
 ```
 
-If successfully, this should produce `bridge.wasm` file in the current working directory (i.e. `cosmos`). 
+If successfully, this should produce `bridge.wasm` file in the current working directory (i.e. `fetch`). 
 This is the file to use for deployment.
 
 
@@ -41,8 +41,9 @@ This is the file to use for deployment.
 Assuming we are using the local cosmos blockchain, run the following to upload the contract
 
 ```bash
-RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm store bridge.wasm --from validator --gas="auto" -y)
+RES=$((echo "$PASSWORD"; echo "$PASSWORD") | fetchcli tx wasm store bridge.wasm --from validator --gas="auto" -y)
 CODE_ID=$(echo $RES | jq -r ".logs[0].events[0].attributes[-1].value")
+echo $CODE_ID
 
 ```
 
@@ -52,7 +53,7 @@ upon success `CODE_ID` env variable should contain an integer (`1` if first stor
 
 Once the contract is successfully uploaded, it can be instantiated as follow
 ```bash
-RES=$((echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm instantiate $CODE_ID '{"cap":"10000", "deposit":"500", "upper_swap_limit":"1000", "lower_swap_limit":"2", "swap_fee":"1"}' --from validator --label my-bridge-contract --amount 10000ucosm -y)
+RES=$((echo "$PASSWORD"; echo "$PASSWORD") | fetchcli tx wasm instantiate $CODE_ID '{"cap":"10000", "deposit":"500", "upper_swap_limit":"1000", "lower_swap_limit":"2", "swap_fee":"1"}' --from validator --label my-bridge-contract --amount 10000ucosm -y)
 CONTRACT_ADDRESS=$(echo $RES | jq -r ".logs[0].events[0].attributes[-1].value")
 echo $CONTRACT_ADDRESS > contract_address
 ```
@@ -77,18 +78,18 @@ Now, let's produce such events by requesting execution of `Swap` operation.
 Go back to the previous container shell and run the following:
 
 ```bash
-(echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
+(echo "$PASSWORD"; echo "$PASSWORD") | fetchcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
 ```
 
 ## Contract operations
 
 + `swap` 
   ```bash
-  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
+  (echo "$PASSWORD"; echo "$PASSWORD") | fetchcli tx wasm execute $CONTRACT_ADDRESS '{"swap": {"destination":"some-ether-address"}}' --amount 200ucosm --from validator -y
   ```
 + `reverse_swap`
   ```bash
-  (echo "$PASSWORD"; echo "$PASSWORD") | wasmcli tx wasm execute $CONTRACT_ADDRESS '{"reverse_swap": {"rid":10, "to":"cosmos1g5e4zzum7r3kp8fpt9zg43ed4hjwr0ajvz5gtr", "sender":"some-ethereum-address", "origin_tx_hash":"11111111", "amount":"10", "relay_eon": 0}}' --from validator -y
+  (echo "$PASSWORD"; echo "$PASSWORD") | fetchcli tx wasm execute $CONTRACT_ADDRESS '{"reverse_swap": {"rid":10, "to":"fetch1f8tcyaw6tkq5f6k527leclqp644lcmzv0rgdm9", "sender":"some-ethereum-address", "origin_tx_hash":"11111111", "amount":"10", "relay_eon": 0}}' --from validator -y
   ```
 
 

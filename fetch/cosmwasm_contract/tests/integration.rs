@@ -17,6 +17,7 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
+/*
 use cosmwasm_std::{coins, from_binary, HandleResponse, HandleResult, InitResponse, StdError};
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 
@@ -90,3 +91,4 @@ fn reset() {
     let value: CountResponse = from_binary(&res).unwrap();
     assert_eq!(value.count, 5);
 }
+*/
