@@ -19,16 +19,15 @@
 
 pragma solidity ^0.6.0 || ^0.7.0;
 
+import "./IBridgeCommon.sol";
+
 
 /**
  * @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2
  *
  * @notice Methods of this public interface is allow users to interact with Bridge contract.
  */
-interface IBridgePublic {
-
-    event Swap(uint64 indexed id, string indexed indexedTo, string to, uint256 amount);
-
+interface IBridgePublic is IBridgeCommon {
 
     /**
       * @notice Initiates swap, which will be relayed to the other blockchain.

@@ -19,6 +19,8 @@
 
 pragma solidity ^0.6.0 || ^0.7.0;
 
+import "./IBridgeCommon.sol";
+
 
 /**
  * @title *Administrative* interface of Bi-directional bridge for transfer of FET tokens between Ethereum
@@ -28,22 +30,7 @@ pragma solidity ^0.6.0 || ^0.7.0;
  *         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change
  *         supply transferred across the Bridge.
  */
-interface IBridgeAdmin {
-
-    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
-    event CapUpdate(uint256 value);
-    event Withdraw(address indexed targetAddress, uint256 amount);
-    event Deposit(address indexed fromAddress, uint256 amount);
-    event FeesWithdrawal(address indexed targetAddress, uint256 amount);
-    event DeleteContract(address targetAddress, uint256 amount);
-    // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract
-    //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to
-    //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can
-    //  identify events for mint, resp. burn, calls by filtering ERC20 Transfer events with `from == ZERO_ADDR  &&
-    //  to == Bridge.address` for MINT operation, resp `from == Bridge.address` and `to == ZERO_ADDR` for BURN operation.
-    //event Mint(uint256 amount);
-    //event Burn(uint256 amount);
-
+interface IBridgeAdmin is IBridgeCommon {
 
     /**
      * @notice Returns amount of excess FET ERC20 tokens which were sent to address of this contract via direct ERC20

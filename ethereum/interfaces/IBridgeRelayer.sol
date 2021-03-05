@@ -19,6 +19,9 @@
 
 pragma solidity ^0.6.0 || ^0.7.0;
 
+import "./IBridgeCommon.sol";
+
+
 /**
  * @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum
  *        and Fetch Mainnet-v2.
@@ -38,13 +41,7 @@ pragma solidity ^0.6.0 || ^0.7.0;
  *         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back
  *         to this contract.
  */
-interface IBridgeRelayer {
-
-    event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
-    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
-    event Pause(uint256 sinceBlock);
-    event NewRelayEon(uint64 eon);
-
+interface IBridgeRelayer is IBridgeCommon {
 
     /**
       * @notice Starts the new relay eon.

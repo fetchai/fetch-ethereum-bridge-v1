@@ -206,7 +206,7 @@ contract Bridge is IBridge, AccessControl {
         supply = supply.add(amount);
         require(cap >= supply, "Swap would exceed cap");
         token.transferFrom(msg.sender, address(this), amount);
-        emit Swap(nextSwapId, destinationAddress, destinationAddress, amount);
+        emit Swap(nextSwapId, msg.sender, destinationAddress, destinationAddress, amount);
         // NOTE(pb): No necessity to use SafeMath here:
         nextSwapId += 1;
     }
@@ -223,6 +223,21 @@ contract Bridge is IBridge, AccessControl {
         // NOTE(pb): This subtraction shall NEVER fail:
         return token.balanceOf(address(this)).sub(supply, "Critical err: balance < supply");
     }
+
+    function getDelegateRole() external view override returns(bytes32) {return DELEGATE_ROLE;}
+    function getRelayerRole() external view override returns(bytes32) {return RELAYER_ROLE;}
+
+    function getToken() external view override returns(address) {return address(token);}
+    function getEarliestDelete() external view override returns(uint256) {return earliestDelete;}
+    function getSupply() external view override returns(uint256) {return supply;}
+    function getNextSwapId() external view override returns(uint64) {return nextSwapId;}
+    function getRelayEon() external view override returns(uint64) {return relayEon;}
+    function getRefund(uint64 swap_id) external view override returns(uint256) {return refunds[swap_id];}
+    function getSwapMax() external view override returns(uint256) {return swapMax;}
+    function getSwapMin() external view override returns(uint256) {return swapMin;}
+    function getCap() external view override returns(uint256) {return cap;}
+    function getSwapFee() external view override returns(uint256) {return swapFee;}
+    function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
 
 
     // **********************************************************
