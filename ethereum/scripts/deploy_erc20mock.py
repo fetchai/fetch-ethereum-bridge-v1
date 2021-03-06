@@ -1,47 +1,54 @@
 #!/usr/bin/env python3
 
 from brownie import network, accounts, FetERC20Mock as Contract
+from .deployment_common import (
+    get_owner_account,
+    get_deployment_manifest_path,
+    load_network_manifest,
+    save_network_manifest,
+    NetworkManifest,
+    )
+from .deployment_manifest_schema import (
+    NetworkManifest,
+    )
+from eth_account.account import (
+    Account,
+    )
 import json
-import os
+
+
+def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
+    contract_manif = network_manifest.FetERC20Mock
+
+    constructor_params = contract_manif.constructor_parameters
+    contract = Contract.deploy(
+        constructor_params.name
+        , constructor_params.symbol
+        , constructor_params.initialSupply
+        , constructor_params.decimals_
+        , {'from': owner})
+    # , {'from': owner, 'gas_price': '20 gwei'})
+
+    contract_manif.contract_address = contract.address
+    contract_manif.deployer_address = owner.address
+    if hasattr(owner, 'public_key'):
+        contract_manif.deployer_public_key = owner.public_key.to_hex()
+    else:
+        contract_manif.deployer_public_key = ""
+        # contract_manif.pop("deployer_public_key", None)
+
+    return contract
 
 
 def main():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    deploument_manifest_filename = "deployment_manifest.json"
-    deployment_manifest_path = os.path.join(base_dir, deploument_manifest_filename)
-
-    priv_key_path_env_var = "PRIV_KEY_PATH"
-    if priv_key_path_env_var in os.environ:
-        # IF env var to key file is provided
-        private_key_file = os.environ.get(priv_key_path_env_var)
-        owner = accounts.load(private_key_file)
-    else:
-        # If not use default accounts
-        owner = accounts[0]
-
-    print(f"key: {owner}")
-    with open(deployment_manifest_path, mode="r") as f:
-        manifest = json.load(f)
-        network_manif = manifest[network.show_active()]
-        contract_manif = network_manif["FetERC20Mock"]
-    
+    owner = get_owner_account()
+    deployment_manifest_path = get_deployment_manifest_path()
+    manifest, network_manif = load_network_manifest(deployment_manifest_path)
     print(f'network manifest: {network_manif}')
-    constructor_params = contract_manif['constructor_parameters']
-    contract = Contract.deploy(
-          constructor_params['name']
-        , constructor_params['symbol']
-        , constructor_params['initialSupply']
-        , constructor_params['decimals_']
-        , {'from': owner})
-        #, {'from': owner, 'gas_price': '20 gwei'})
-    
-    contract_manif["contract_address"] = contract.address
-    contract_manif["deployer_address"] = owner.address
-    if hasattr(owner, 'public_key'):
-        contract_manif["deployer_public_key"] = owner.public_key.to_hex()
-    else:
-        contract_manif["deployer_public_key"] = ""
-        #contract_manif.pop("deployer_public_key", None)
-    
-    with open(deployment_manifest_path, mode='w') as f:
-        json.dump(manifest, f, indent=4)
+
+    deploy(network_manif, owner)
+    save_network_manifest(deployment_manifest_path, manifest, network_manif)
+
+
+if __name__ == "__main__":
+    main()
