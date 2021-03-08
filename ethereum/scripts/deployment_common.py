@@ -5,16 +5,26 @@ from dataclasses_json import dataclass_json
 from brownie import Bridge, network, accounts, web3
 from eth_account.account import (
     Account,
+    LocalAccount
     )
 from typing import Dict, Tuple
 from .deployment_manifest_schema import NetworkManifest
 
 
-def get_owner_account(priv_key_path_env_var: str = "PRIV_KEY_PATH"):
-    if priv_key_path_env_var in os.environ:
+def get_owner_account(
+        priv_key_path_env_var: str = "DEPLOYMENT_PRIV_KEY_PATH",
+        priv_key_pwd_env_var: str = "DEPLOYMENT_PRIV_KEY_PWD"):
+
+    priv_key_path = os.environ.get(priv_key_path_env_var, None)
+
+    if priv_key_path:
+        _priv_key_path = os.path.abspath(os.path.expanduser(os.path.expandvars(priv_key_path)))
         # IF env var to key file is provided
-        private_key_file = os.environ.get(priv_key_path_env_var)
-        owner = accounts.load(private_key_file)
+        priv_key_pwd = os.environ.get(priv_key_pwd_env_var, None)
+        with open(_priv_key_path) as f:
+            encr_pk_json = json.load(f)
+        pk = Account.decrypt(encr_pk_json, priv_key_pwd)
+        owner = accounts.add(pk)
     else:
         # If not use default accounts
         owner = accounts[0]

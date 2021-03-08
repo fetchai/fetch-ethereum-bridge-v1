@@ -6,16 +6,23 @@ services:
     command: --chainId 1337
     ports:
       - "8545:8545"
-  
+
   ethereum:
     build:
       context: ethereum
       dockerfile: docker/Dockerfile
-    entrypoint: sleep 7200
-    depends_on: 
-      - ganache
+    #entrypoint: ls -al /config
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 5
+        window: 60s
+    volumes:
+      - ./ethereum/scripts:/config:rw
     environment:
       LEDGERHOSTNAME: ganache
+
 
   fetch:
     build:
@@ -24,7 +31,7 @@ services:
     entrypoint: sleep 7200
     environment:
       FETCHMNEMONIC: "nut grocery slice visit barrel peanut tumble patch slim logic install evidence fiction shield rich brown around arrest fresh position animal butter forget cost"
-      
+
   fetchledger:
     build:
       context: fetch/ledger
@@ -34,3 +41,11 @@ services:
     ports:
       - "26657:26657"
       - "1317:1317"
+
+volumes:
+  test_config:
+    driver: local
+    driver_opts:
+      type: none
+      device: $PWD/ethereum/scripts
+      o: bind

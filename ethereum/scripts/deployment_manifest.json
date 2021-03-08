@@ -1,9 +1,9 @@
 {
     "development": {
         "FetERC20Mock": {
-            "deployer_address": "0xCB8b69c61DB78Dc926e0497cD7b5250BF2BB2d44",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "contract_address": "0xF79ef7271e3704f3Fe8f0dBfae48Dd689676D8b7",
+            "contract_address": "",
             "constructor_parameters": {
                 "name": "Fetch",
                 "symbol": "FET",
@@ -12,11 +12,11 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0xCB8b69c61DB78Dc926e0497cD7b5250BF2BB2d44",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "contract_address": "0x47FcF457b0e8A3f9d8947DED4EFa5922A55E845b",
+            "contract_address": "",
             "constructor_parameters": {
-                "ERC20Address": "0xF79ef7271e3704f3Fe8f0dBfae48Dd689676D8b7",
+                "ERC20Address": "",
                 "cap": 1000000,
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
@@ -24,8 +24,8 @@
                 "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
-            "admin_address": "0xDD1aF12397eF7C60C692AE8C641DD35dB07B20a6",
-            "relayer_address": "0xD87B027eef9e886df10efdD2e1DcD3ed8A0E1F5f"
+            "admin_address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
+            "relayer_address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae"
         }
     },
     "mainnet": {},
@@ -33,9 +33,9 @@
     "BSC": {},
     "docker": {
         "FetERC20Mock": {
-            "deployer_address": "0x0d64Bb606DF8F89B3281eF1C8b46E86D52254987",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "contract_address": "0x22eCA5fb3CA53C43fD04142A6492383bBd3199c1",
+            "contract_address": "",
             "constructor_parameters": {
                 "name": "Fetch",
                 "symbol": "FET",
@@ -44,20 +44,20 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0x0d64Bb606DF8F89B3281eF1C8b46E86D52254987",
-            "contract_address": "0xA3560140458051d19e1752C3963162CD75224272",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "admin_address": "0xDD1aF12397eF7C60C692AE8C641DD35dB07B20a6",
-            "relayer_address": "0xD87B027eef9e886df10efdD2e1DcD3ed8A0E1F5f",
+            "contract_address": "",
             "constructor_parameters": {
-                "ERC20Address": "0x22eCA5fb3CA53C43fD04142A6492383bBd3199c1",
+                "ERC20Address": "",
                 "cap": 1000000,
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
                 "swapFee": 100,
                 "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
-            }
+            },
+            "admin_address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
+            "relayer_address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae"
         }
     }
 }
