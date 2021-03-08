@@ -40,14 +40,27 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
     return contract
 
 
+def transfer_funds_to_bridge_admin(contract: Contract, network_manifest: NetworkManifest, owner: Account) -> int:
+    admin_address = network_manifest.Bridge.admin_address
+    if admin_address:
+        owner_funds = contract.balanceOf(owner)
+        contract.transfer(admin_address, owner_funds, {'from': owner})
+        print(f'FetERC20Mock{{{contract.address}}}.transfer({admin_address}, {owner_funds}, {{from: {owner.address}}})')
+        return owner_funds
+
+    return 0
+
+
 def main():
     owner = get_owner_account()
     deployment_manifest_path = get_deployment_manifest_path()
     manifest, network_manif = load_network_manifest(deployment_manifest_path)
     print(f'network manifest: {network_manif}')
 
-    deploy(network_manif, owner)
+    contract = deploy(network_manif, owner)
     save_network_manifest(deployment_manifest_path, manifest, network_manif)
+    #amount = transfer_funds_to_bridge_admin(contract=contract, network_manifest=network_manif, owner=owner)
+    #print(f'Transferred {amount} Canonical FET from owner to admin.')
 
 
 if __name__ == "__main__":

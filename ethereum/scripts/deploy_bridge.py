@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 from brownie import network, accounts, Bridge as Contract
-from .deploy_erc20mock import deploy as deploy_erc20mock
+from .deploy_erc20mock import (
+    deploy as deploy_erc20mock,
+    transfer_funds_to_bridge_admin
+    )
 from .deployment_common import (
     get_owner_account,
     get_deployment_manifest_path,
@@ -27,11 +30,13 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
         erc20mock_manif = network_manifest.FetERC20Mock
         erc20address = erc20mock_manif.contract_address
         if not erc20address:
-            deploy_erc20mock(network_manifest, owner)
+            fetERC20Contract = deploy_erc20mock(network_manifest, owner)
             erc20address = erc20mock_manif.contract_address
             if erc20address == "":
                 print("Deployment of ERC20 Mock contract failed.")
                 exit
+
+            transfer_funds_to_bridge_admin(fetERC20Contract, network_manifest=network_manifest, owner=owner)
 
         constructor_params.ERC20Address = erc20address
 
