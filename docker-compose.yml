@@ -11,7 +11,6 @@ services:
     build:
       context: ethereum
       dockerfile: docker/Dockerfile
-    #entrypoint: ls -al /config
     deploy:
       restart_policy:
         condition: on-failure
@@ -19,7 +18,7 @@ services:
         max_attempts: 5
         window: 60s
     volumes:
-      - ./ethereum/scripts:/config:rw
+      - test_config:/config:rw
     environment:
       LEDGERHOSTNAME: ganache
 
