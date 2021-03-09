@@ -5,6 +5,8 @@ fetchd init test-node --chain-id test
 sed -i 's/stake/atestfet/' ~/.fetchd/config/genesis.json
 # Enable rest
 sed -i 's/enable = false/enable = true/' ~/.fetchd/config/app.toml
+# Disable waiting for entropy
+sed -i 's/strict_tx_filtering = "true"/strict_tx_filtering = "false"/' ~/.fetchd/config/config.toml 
 
 fetchcli config keyring-backend test
 echo $FETCHMNEMONIC | fetchcli keys add validator --recover
