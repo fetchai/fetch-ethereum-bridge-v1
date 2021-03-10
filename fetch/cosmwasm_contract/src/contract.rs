@@ -499,7 +499,19 @@ fn try_grant_role<S: Storage, A: Api, Q: Querier>(
         &address,
         &AccessRole::from_str(role.as_str())?,
     )?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "grant_role"),
+        log("role", role.as_str()),
+        log("account", address.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
@@ -515,7 +527,19 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
         &address,
         &AccessRole::from_str(role.as_str())?,
     )?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "revoke_role"),
+        log("role", role.as_str()),
+        log("account", address.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
@@ -529,7 +553,19 @@ fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
     ac_revoke_role(&mut deps.storage, &env.message.sender, ac_role)?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "renounce_role"),
+        log("role", role.as_str()),
+        log("account", &env.message.sender.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 /* ***************************************************
