@@ -644,8 +644,8 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
 
 fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
     let state = config_read(storage).load()?;
-    if id < state.next_swap_id {
-        // FIXME(LR) <= ?
+    if id >= state.next_swap_id {
+        // FIXME(LR) >= ?
         return Err(StdError::generic_err("Invalid swap id"));
     }
     match refunds_have(id, storage) {
