@@ -1,56 +1,78 @@
 #!/usr/bin/env python3
 
 from brownie import network, accounts, Bridge as Contract
+from .deploy_erc20mock import (
+    deploy as deploy_erc20mock,
+    transfer_funds_to_bridge_admin
+    )
+from .deployment_common import (
+    get_owner_account,
+    get_deployment_manifest_path,
+    configure_bridge_contract,
+    load_network_manifest,
+    save_network_manifest,
+    )
+from .deployment_manifest_schema import (
+    NetworkManifest,
+    )
+from eth_account.account import (
+    Account,
+)
 import json
-import os
+from typing import Dict
 
 
-def main():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    deploument_manifest_filename = "deployment_manifest.json"
-    deployment_manifest_path = os.path.join(base_dir, deploument_manifest_filename)
+def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
+    bridge_manif = network_manifest.Bridge
 
-    priv_key_path_env_var = "PRIV_KEY_PATH"
-    if priv_key_path_env_var in os.environ:
-        # IF env var to key file is provided
-        private_key_file = os.environ.get(priv_key_path_env_var)
-        owner = accounts.load(private_key_file)
-    else:
-        # If not use default accounts
-        owner = accounts[0]
+    constructor_params = bridge_manif.constructor_parameters
+    if constructor_params.ERC20Address == "":
+        erc20mock_manif = network_manifest.FetERC20Mock
+        erc20address = erc20mock_manif.contract_address
+        if not erc20address:
+            fetERC20Contract = deploy_erc20mock(network_manifest, owner)
+            erc20address = erc20mock_manif.contract_address
+            if erc20address == "":
+                print("Deployment of ERC20 Mock contract failed.")
+                exit
 
-    print(f"key: {owner}")
-    with open(deployment_manifest_path, mode="r") as f:
-        manifest = json.load(f)
-        network_manif = manifest[network.show_active()]
-        erc20address = network_manif["FetERC20Mock"]["contract_address"]
-        if  erc20address == "" and network_manif["Bridge"]["constructor_parameters"]["ERC20Address"] == "":
-            print("Deploy run first deploy_erc20mock.py to deploy ERC20 contract")
-            exit
-        contract_manif = network_manif["Bridge"]
+            transfer_funds_to_bridge_admin(fetERC20Contract, network_manifest=network_manifest, owner=owner)
 
-    print(f'network manifest: {network_manif}')
-    constructor_params = contract_manif['constructor_parameters']
-    if constructor_params['ERC20Address'] == "":
-        constructor_params['ERC20Address'] = erc20address
+        constructor_params.ERC20Address = erc20address
+
     contract = Contract.deploy(
-          constructor_params['ERC20Address']
-        , constructor_params['cap']
-        , constructor_params['upperSwapLimit']
-        , constructor_params['lowerSwapLimit']
-        , constructor_params['swapFee']
-        , constructor_params['pausedSinceBlock']
-        , constructor_params['deleteProtectionPeriod']
+          constructor_params.ERC20Address
+        , constructor_params.cap
+        , constructor_params.upperSwapLimit
+        , constructor_params.lowerSwapLimit
+        , constructor_params.swapFee
+        , constructor_params.pausedSinceBlock
+        , constructor_params.deleteProtectionPeriod
         , {'from': owner})
         #, {'from': owner, 'gas_price': '20 gwei'})
 
-    contract_manif["contract_address"] = contract.address
-    contract_manif["deployer_address"] = owner.address
+    bridge_manif.contract_address = contract.address
+    bridge_manif.deployer_address = owner.address
     if hasattr(owner, 'public_key'):
-        contract_manif["deployer_public_key"] = owner.public_key.to_hex()
+        bridge_manif.deployer_public_key = owner.public_key.to_hex()
     else:
-        contract_manif["deployer_public_key"] = ""
+        bridge_manif.deployer_public_key = ""
         #contract_manif.pop("deployer_public_key", None)
 
-    with open(deployment_manifest_path, mode='w') as f:
-        json.dump(manifest, f, indent=4)
+    return contract
+
+
+def main():
+    owner = get_owner_account()
+    deployment_manifest_path = get_deployment_manifest_path()
+    manifest, network_manif = load_network_manifest(deployment_manifest_path)
+    print(f'network manifest: {network_manif}')
+
+    contract = deploy(network_manif, owner)
+
+    configure_bridge_contract(contract=contract, owner=owner, contract_manifest=network_manif.Bridge)
+    save_network_manifest(deployment_manifest_path, manifest, network_manif)
+
+
+if __name__ == "__main__":
+    main()
