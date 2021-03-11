@@ -499,7 +499,19 @@ fn try_grant_role<S: Storage, A: Api, Q: Querier>(
         &address,
         &AccessRole::from_str(role.as_str())?,
     )?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "grant_role"),
+        log("role", role.as_str()),
+        log("account", address.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
@@ -515,7 +527,19 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
         &address,
         &AccessRole::from_str(role.as_str())?,
     )?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "revoke_role"),
+        log("role", role.as_str()),
+        log("account", address.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
@@ -529,7 +553,19 @@ fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
     ac_revoke_role(&mut deps.storage, &env.message.sender, ac_role)?;
-    Ok(HandleResponse::default())
+
+    let log = vec![
+        log("action", "renounce_role"),
+        log("role", role.as_str()),
+        log("account", &env.message.sender.as_str()),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 /* ***************************************************
@@ -608,8 +644,8 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
 
 fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
     let state = config_read(storage).load()?;
-    if id < state.next_swap_id {
-        // FIXME(LR) <= ?
+    if id >= state.next_swap_id {
+        // FIXME(LR) >= ?
         return Err(StdError::generic_err("Invalid swap id"));
     }
     match refunds_have(id, storage) {
@@ -684,18 +720,18 @@ fn query_role<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
     use cosmwasm_std::{
-        coins, from_binary, Api, Coin, Extern, HumanAddr, InitResponse, Querier, ReadonlyStorage,
-        StdError,
+        coins, /*from_binary, Api, Coin,*/ Extern, HumanAddr, /*InitResponse, Querier, ReadonlyStorage,
+        StdError,*/
     };
 
-    use crate::contract::{handle, init, query};
-    use crate::msg::{HandleMsg, InitMsg, QueryMsg, Uint128};
+    use crate::contract::{/*handle,*/ init/*, query*/};
+    use crate::msg::{/*HandleMsg,*/ InitMsg, /*QueryMsg,*/ Uint128};
     use crate::state::{config_read, State};
 
     pub const DEFAULT_CREATOR: &str = "creator";
     pub const DEFAULT_DENUM: &str = "fet";
     pub const DEFAULT_CAP: u128 = 100000u128;
-    pub const DEFAULT_DEPOSIT: u128 = 10000u128;
+    //pub const DEFAULT_DEPOSIT: u128 = 10000u128;
     pub const DEFAULT_SWAP_UPPER_LIMIT: u128 = 1000u128;
     pub const DEFAULT_SWAP_LOWER_LIMIT: u128 = 10u128;
     pub const DEFAULT_SWAP_FEE: u128 = 9u128;
@@ -710,7 +746,7 @@ mod tests {
     fn _mock_init(
         mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
         cap: Option<Uint128>,
-        deposit: Option<Uint128>,
+        _deposit: Option<Uint128>,
         upper_swap_limit: Option<Uint128>,
         lower_swap_limit: Option<Uint128>,
         swap_fee: Option<Uint128>,
@@ -739,11 +775,11 @@ mod tests {
         mock_init(&mut deps);
 
         let env = mock_env(DEFAULT_CREATOR, &coins(1000, DEFAULT_DENUM));
-        let creator = HumanAddr::from(DEFAULT_CREATOR);
+        let _creator = HumanAddr::from(DEFAULT_CREATOR);
         //let contract_ha = deps.api.human_address(&env.contract.address).expect("");
         let expected_state = State {
-            supply: cu128!(DEFAULT_DEPOSIT),
-            refunds_fees_accrued: Uint128::from(0u128),
+            supply: cu128!(0u128),
+            fees_accrued: Uint128::from(0u128),
             next_swap_id: 0,
             sealed_reverse_swap_id: 0,
             relay_eon: 0,
