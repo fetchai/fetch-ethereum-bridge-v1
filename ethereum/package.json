@@ -1,5 +1,5 @@
 {
-  "scripts" : {
+  "scripts": {
     "ganache": "$(npm bin)/ganache-cli --chainId 1337",
     "ganache-w-mnem": "$(npm bin)/ganache-cli --chainId 1337 --mnemonic \"$(cat ~/.secrets_mnemonic_development)\""
   },

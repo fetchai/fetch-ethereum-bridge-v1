@@ -1,9 +1,9 @@
 {
     "development": {
         "FetERC20Mock": {
-            "deployer_address": "",
+            "deployer_address": "0xD6422219D6585124BD8D707ff490fb68A828af44",
             "deployer_public_key": "",
-            "contract_address": "",
+            "contract_address": "0x42239aC7a1A981aC70dFF091c1620ee17386c2C0",
             "constructor_parameters": {
                 "name": "Fetch",
                 "symbol": "FET",
@@ -12,11 +12,11 @@
             }
         },
         "Bridge": {
-            "deployer_address": "",
+            "deployer_address": "0xD6422219D6585124BD8D707ff490fb68A828af44",
             "deployer_public_key": "",
-            "contract_address": "",
+            "contract_address": "0x52Cc288b5b6B96350200106Bdc5FB25914c3E172",
             "constructor_parameters": {
-                "ERC20Address": "",
+                "ERC20Address": "0x42239aC7a1A981aC70dFF091c1620ee17386c2C0",
                 "cap": 1000000,
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
@@ -24,8 +24,14 @@
                 "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
-            "admin_address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
-            "relayer_address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae"
+            "admin_wallet": {
+                "address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
+                "funding": 10000000000000000000
+            },
+            "relayer_wallet": {
+                "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            }
         }
     },
     "mainnet": {},
@@ -56,8 +62,14 @@
                 "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
-            "admin_address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
-            "relayer_address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae"
+            "admin_wallet": {
+                "address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
+                "funding": 10000000000000000000
+            },
+            "relayer_wallet": {
+                "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            }
         }
     }
 }

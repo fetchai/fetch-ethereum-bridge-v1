@@ -2,13 +2,26 @@ import os
 import json
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from brownie import Bridge, network, accounts, web3
+from brownie import (
+    Bridge,
+    FetERC20Mock,
+    network,
+    accounts,
+    web3
+    )
 from eth_account.account import (
     Account,
     LocalAccount
     )
-from typing import Dict, Tuple
-from .deployment_manifest_schema import NetworkManifest
+from typing import (
+    Dict,
+    Tuple
+    )
+from .deployment_manifest_schema import (
+    NetworkManifest,
+    BridgeParams,
+    Account as ManifestAccount,
+    )
 
 
 def get_owner_account(
@@ -78,9 +91,9 @@ def save_network_manifest(
         json.dump(manifest, f, indent=4)
 
 
-def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: dict):
-    admin = contract_manifest.admin_address
-    relayer = contract_manifest.relayer_address
+def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: BridgeParams):
+    admin = contract_manifest.admin_wallet.address
+    relayer = contract_manifest.relayer_wallet.address
 
     adminRole: bytes = 0
     relayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
@@ -91,3 +104,41 @@ def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifes
     if admin and web3.isAddress(admin) and admin != owner.address:
         contract.grantRole(adminRole, admin, {'from': owner})
         contract.renounceRole(adminRole, owner, {'from': owner})
+
+    transfer_eth_funds_to_admin_and_relayer(contract_manifest, owner)
+
+
+def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner: Account) -> int:
+    def fund_wallet(wallet: ManifestAccount, wallet_name):
+        necessary_amount = 0
+
+        if wallet and wallet.funding:
+            wallet_orig_eth_balance = web3.eth.getBalance(wallet.address)
+            if wallet_orig_eth_balance < wallet.funding:
+                necessary_amount = wallet.funding - wallet_orig_eth_balance
+                web3.eth.sendTransaction({
+                    'from': owner.address,
+                    'to': wallet.address,
+                    'value': necessary_amount})
+                print(f'Owner {{{owner.address}}} transferred {necessary_amount} [1e-18 x ETH] to {wallet.address} "{wallet_name}" wallet.')
+        return necessary_amount
+
+    admin_wallet = bridge_manifest.admin_wallet
+    relayer_wallet = bridge_manifest.relayer_wallet
+    admin_added_funds = fund_wallet(admin_wallet, "admin_wallet")
+    relayer_added_funds = fund_wallet(relayer_wallet, "relayer_wallet")
+
+    return admin_added_funds, relayer_added_funds
+
+
+def transfer_all_fet_tokens_to_bridge_admin(contract: FetERC20Mock, bridge_manifest: BridgeParams, owner: Account) -> int:
+    admin_wallet = bridge_manifest.admin_wallet
+    if admin_wallet:
+        if not admin_wallet.address:
+            raise ValueError(f'Mandatory address value not set for the "admin_wallet".')
+        owner_funds = contract.balanceOf(owner)
+        contract.transfer(admin_wallet.address, owner_funds, {'from': owner})
+        print(f'FetERC20Mock{{{contract.address}}}.transfer({admin_wallet.address}, {owner_funds}, {{from: {owner.address}}})')
+        return owner_funds
+
+    return 0

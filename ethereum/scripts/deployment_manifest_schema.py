@@ -51,9 +51,16 @@ class BridgeConstructorParams(ContractConstructorParamsBase):
 
 @dataclass_json
 @dataclass
+class Account:
+    address: str
+    funding: Optional[int] = None
+
+
+@dataclass_json
+@dataclass
 class BridgeParams(ContractParamsBase):
-    admin_address: Optional[str]
-    relayer_address: Optional[str]
+    admin_wallet: Account
+    relayer_wallet: Account
     constructor_parameters: BridgeConstructorParams
 
 
