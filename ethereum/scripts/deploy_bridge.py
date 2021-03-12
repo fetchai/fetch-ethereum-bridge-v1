@@ -3,7 +3,6 @@
 from brownie import network, accounts, Bridge as Contract
 from .deploy_erc20mock import (
     deploy as deploy_erc20mock,
-    transfer_funds_to_bridge_admin
     )
 from .deployment_common import (
     get_owner_account,
@@ -11,6 +10,8 @@ from .deployment_common import (
     configure_bridge_contract,
     load_network_manifest,
     save_network_manifest,
+    transfer_all_fet_tokens_to_bridge_admin,
+    transfer_eth_funds_to_admin_and_relayer,
     )
 from .deployment_manifest_schema import (
     NetworkManifest,
@@ -36,7 +37,7 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
                 print("Deployment of ERC20 Mock contract failed.")
                 exit
 
-            transfer_funds_to_bridge_admin(fetERC20Contract, network_manifest=network_manifest, owner=owner)
+            transfer_all_fet_tokens_to_bridge_admin(fetERC20Contract, bridge_manifest=network_manifest.Bridge, owner=owner)
 
         constructor_params.ERC20Address = erc20address
 
