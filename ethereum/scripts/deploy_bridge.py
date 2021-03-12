@@ -20,8 +20,10 @@ from eth_account.account import (
     Account,
 )
 import json
+import os
 from typing import Dict
 
+OUTPUT_MANIFEST_ENV= "ETH_CONTRACT_DEPLOYMENT_MANIFEST_PATH_OUTPUT"
 
 def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
     bridge_manif = network_manifest.Bridge
@@ -72,6 +74,9 @@ def main():
     contract = deploy(network_manif, owner)
 
     configure_bridge_contract(contract=contract, owner=owner, contract_manifest=network_manif.Bridge)
+    
+    if OUTPUT_MANIFEST_ENV in os.environ:
+        deployment_manifest_path = os.environ[OUTPUT_MANIFEST_ENV]
     save_network_manifest(deployment_manifest_path, manifest, network_manif)
 
 
