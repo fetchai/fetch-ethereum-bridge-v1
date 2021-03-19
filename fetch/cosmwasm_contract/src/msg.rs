@@ -13,6 +13,7 @@ pub struct InitMsg {
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
     pub swap_fee: Uint128,
+    pub aggregated_reverse_amount_limit: Uint128,
     pub paused_since_block: Option<u64>,
     pub delete_protection_period: Option<u64>,
 }
@@ -69,6 +70,10 @@ pub enum HandleMsg {
     },
 
     SetCap {
+        amount: Uint128,
+    },
+
+    SetAggregatedReverseLimit {
         amount: Uint128,
     },
 

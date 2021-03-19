@@ -46,6 +46,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         relay_eon: 0,
         upper_swap_limit: msg.upper_swap_limit,
         lower_swap_limit: msg.lower_swap_limit,
+        aggregated_reverse_amount_limit: msg.aggregated_reverse_amount_limit,
+        aggregated_reverse_amount: Uint128::zero(),
         cap: msg.cap,
         swap_fee: msg.swap_fee,
         paused_since_block,
@@ -111,6 +113,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Withdraw { amount } => try_withdraw(deps, &env, &state, amount),
         HandleMsg::WithdrawFees { amount } => try_withdraw_fees(deps, &env, &state, amount),
         HandleMsg::SetCap { amount } => try_set_cap(deps, &env, amount),
+        HandleMsg::SetAggregatedReverseLimit { amount } => try_set_aggregated_reverse_amount_limit(deps, &env, amount),
         HandleMsg::SetLimits {
             swap_min,
             swap_max,
@@ -118,7 +121,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => try_set_limits(deps, &env, swap_min, swap_max, swap_fee),
         HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, role, address),
         HandleMsg::RevokeRole { role, address } => try_revoke_role(deps, &env, role, address),
-        HandleMsg::RenounceRole { role } => try_renouce_role(deps, &env, role),
+        HandleMsg::RenounceRole { role } => try_renounce_role(deps, &env, role),
     }
 }
 
@@ -171,8 +174,9 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    verify_tx_relay_eon(relay_eon, state)?;
     only_relayer(env, &deps.storage)?;
+    verify_tx_relay_eon(relay_eon, state)?;
+    verify_aggregated_reverse_amount_limit(amount, state)?;
 
     if amount > state.swap_fee {
         // NOTE(LR) when amount == fee, amount will still be consumed
@@ -258,6 +262,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     only_relayer(env, &deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
+    verify_aggregated_reverse_amount_limit(amount, state)?;
 
     if amount > fee {
         let new_supply = (state.supply - amount)?;
@@ -358,7 +363,15 @@ fn try_pause<S: Storage, A: Api, Q: Querier>(
         state.paused_since_block = pause_since_block;
         Ok(state)
     })?;
-    Ok(HandleResponse::default())
+
+    let log = vec![log("action", "pause"), log("since_block", pause_since_block)];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
 }
 
 fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
@@ -486,6 +499,28 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
     Ok(r)
 }
 
+fn try_set_aggregated_reverse_amount_limit<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    amount: Uint128,
+) -> StdResult<HandleResponse> {
+    only_admin(env, &deps.storage)?;
+
+    config(&mut deps.storage).update(|mut state| {
+        state.aggregated_reverse_amount_limit = amount;
+        Ok(state)
+    })?;
+
+    let log = vec![log("action", "set_aggregated_reverse_amount_limit"), log("limit", amount)];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
+}
+
 fn try_set_limits<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
@@ -576,7 +611,7 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
     Ok(r)
 }
 
-fn try_renouce_role<S: Storage, A: Api, Q: Querier>(
+fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
     role: String,
@@ -671,6 +706,15 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
         Err(StdError::generic_err("Amount bellow lower limit"))
     } else if amount > state.upper_swap_limit {
         Err(StdError::generic_err("Amount exceeds upper limit"))
+    } else {
+        Ok(HandleResponse::default())
+    }
+}
+
+fn verify_aggregated_reverse_amount_limit(amount: Uint128, state: &State) -> HandleResult {
+    let new_aggregated_amount = state.aggregated_reverse_amount + amount;
+    if new_aggregated_amount > state.aggregated_reverse_amount_limit {
+        Err(StdError::generic_err("Amount would exceed aggregated reverse amount limit"))
     } else {
         Ok(HandleResponse::default())
     }
