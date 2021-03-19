@@ -181,7 +181,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         let effective_amount = (amount - swap_fee)?;
         let to_canonical = deps.api.canonical_address(&to)?;
         let rtx =
-            send_tokens_from_contract(&deps.api, &state, &to_canonical, amount, "reverse_swap")?;
+            send_tokens_from_contract(&deps.api, &state, &to_canonical, effective_amount, "reverse_swap")?;
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
             state.fees_accrued += swap_fee;
@@ -210,6 +210,13 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
         let effective_amount = Uint128::zero();
+        
+        config(&mut deps.storage).update(|mut state| {
+            state.supply = (state.supply - amount)?;
+            state.fees_accrued += swap_fee;
+            //state.sealed_reverse_swap_id = rid; // TODO(LR)
+            Ok(state)
+        })?;
 
         let log = vec![
             log("action", "reverse_swap"),
@@ -252,36 +259,63 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     verify_tx_relay_eon(relay_eon, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
 
-    // NOTE(LR) No need to compare amount against fee
-    //  as swap ensures that amount < swap_lower_limit < swap_fee
-    let new_supply = (state.supply - amount)?;
-    let effective_amount = (amount - fee)?;
-    let to_canonical = deps.api.canonical_address(&to)?;
-    let rtx =
-        send_tokens_from_contract(&deps.api, &state, &to_canonical, effective_amount, "refund")?;
+    if amount > fee {
+        let new_supply = (state.supply - amount)?;
+        let effective_amount = (amount - fee)?;
+        let to_canonical = deps.api.canonical_address(&to)?;
+        let rtx =
+            send_tokens_from_contract(&deps.api, &state, &to_canonical, effective_amount, "refund")?;
 
-    config(&mut deps.storage).update(|mut state| {
-        state.supply = new_supply;
+        config(&mut deps.storage).update(|mut state| {
+            state.supply = new_supply;
             state.fees_accrued += fee;
-        Ok(state)
-    })?;
+            Ok(state)
+        })?;
 
-    refunds_add(id, &mut deps.storage);
+        refunds_add(id, &mut deps.storage);
 
-    let log = vec![
-        log("action", "refund"),
-        log("destination", to),
-        log("swap_id", id),
-        log("amount", effective_amount),
-        log("swap_fee", state.swap_fee),
-    ];
+        let log = vec![
+            log("action", "refund"),
+            log("destination", to),
+            log("swap_id", id),
+            log("amount", effective_amount),
+            log("refund_fee", fee),
+        ];
 
-    let r = HandleResponse {
-        messages: rtx.messages,
-        log,
-        data: None,
-    };
-    Ok(r)
+        let r = HandleResponse {
+            messages: rtx.messages,
+            log,
+            data: None,
+        };
+        Ok(r)
+    } else {
+        let refund_fee = amount;
+        let new_supply = (state.supply - amount)?;
+        let effective_amount = Uint128::zero();
+
+        config(&mut deps.storage).update(|mut state| {
+            state.supply = new_supply;
+            state.fees_accrued += refund_fee;
+            Ok(state)
+        })?;
+
+        refunds_add(id, &mut deps.storage);
+
+        let log = vec![
+            log("action", "refund"),
+            log("destination", to),
+            log("swap_id", id),
+            log("amount", effective_amount),
+            log("refund_fee", refund_fee),
+        ];
+
+        let r = HandleResponse {
+            messages: vec![],
+            log,
+            data: None,
+        };
+        Ok(r)
+    }
 }
 
 fn try_refund<S: Storage, A: Api, Q: Querier>(
