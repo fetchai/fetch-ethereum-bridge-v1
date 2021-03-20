@@ -21,7 +21,7 @@ pub struct State {
     pub relay_eon: u64,
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
-    pub aggregated_reverse_amount_limit: Uint128,
+    pub aggregated_reverse_limit: Uint128,
     pub aggregated_reverse_amount: Uint128,
     pub cap: Uint128,
     pub swap_fee: Uint128,

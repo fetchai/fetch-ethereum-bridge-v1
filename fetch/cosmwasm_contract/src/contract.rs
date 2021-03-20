@@ -46,7 +46,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         relay_eon: 0,
         upper_swap_limit: msg.upper_swap_limit,
         lower_swap_limit: msg.lower_swap_limit,
-        aggregated_reverse_amount_limit: msg.aggregated_reverse_amount_limit,
+        aggregated_reverse_limit: msg.aggregated_reverse_limit,
         aggregated_reverse_amount: Uint128::zero(),
         cap: msg.cap,
         swap_fee: msg.swap_fee,
@@ -110,10 +110,18 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Pause { since_block } => try_pause(deps, &env, since_block),
         HandleMsg::NewRelayEon {} => try_new_relay_eon(deps, &env, &state),
         HandleMsg::Deposit {} => try_deposit(deps, &env, &state),
-        HandleMsg::Withdraw { amount } => try_withdraw(deps, &env, &state, amount),
-        HandleMsg::WithdrawFees { amount } => try_withdraw_fees(deps, &env, &state, amount),
+        HandleMsg::Withdraw {
+            amount,
+            destination,
+        } => try_withdraw(deps, &env, &state, amount, destination),
+        HandleMsg::WithdrawFees {
+            amount,
+            destination,
+        } => try_withdraw_fees(deps, &env, &state, amount, destination),
         HandleMsg::SetCap { amount } => try_set_cap(deps, &env, amount),
-        HandleMsg::SetAggregatedReverseLimit { amount } => try_set_aggregated_reverse_amount_limit(deps, &env, amount),
+        HandleMsg::SetAggregatedReverseLimit { amount } => {
+            try_set_aggregated_reverse_limit(deps, &env, amount)
+        }
         HandleMsg::SetLimits {
             swap_min,
             swap_max,
@@ -176,7 +184,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     only_relayer(env, &deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
-    verify_aggregated_reverse_amount_limit(amount, state)?;
+    verify_aggregated_reverse_limit(amount, state)?;
 
     if amount > state.swap_fee {
         // NOTE(LR) when amount == fee, amount will still be consumed
@@ -184,8 +192,13 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         let swap_fee = state.swap_fee;
         let effective_amount = (amount - swap_fee)?;
         let to_canonical = deps.api.canonical_address(&to)?;
-        let rtx =
-            send_tokens_from_contract(&deps.api, &state, &to_canonical, effective_amount, "reverse_swap")?;
+        let rtx = send_tokens_from_contract(
+            &deps.api,
+            &state,
+            &to_canonical,
+            effective_amount,
+            "reverse_swap",
+        )?;
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
             state.fees_accrued += swap_fee;
@@ -214,7 +227,6 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
         let effective_amount = Uint128::zero();
-        
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
             state.fees_accrued += swap_fee;
@@ -262,14 +274,19 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     only_relayer(env, &deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
-    verify_aggregated_reverse_amount_limit(amount, state)?;
+    verify_aggregated_reverse_limit(amount, state)?;
 
     if amount > fee {
         let new_supply = (state.supply - amount)?;
         let effective_amount = (amount - fee)?;
         let to_canonical = deps.api.canonical_address(&to)?;
-        let rtx =
-            send_tokens_from_contract(&deps.api, &state, &to_canonical, effective_amount, "refund")?;
+        let rtx = send_tokens_from_contract(
+            &deps.api,
+            &state,
+            &to_canonical,
+            effective_amount,
+            "refund",
+        )?;
 
         config(&mut deps.storage).update(|mut state| {
             state.supply = new_supply;
@@ -364,7 +381,10 @@ fn try_pause<S: Storage, A: Api, Q: Querier>(
         Ok(state)
     })?;
 
-    let log = vec![log("action", "pause"), log("since_block", pause_since_block)];
+    let log = vec![
+        log("action", "pause"),
+        log("since_block", pause_since_block),
+    ];
 
     let r = HandleResponse {
         messages: vec![],
@@ -429,6 +449,7 @@ fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     state: &State,
     amount: Uint128,
+    destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
     only_admin(env, &deps.storage)?;
 
@@ -440,7 +461,11 @@ fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     let owner = deps.api.canonical_address(&ac_get_owner(&deps.storage)?)?;
     let wtx = send_tokens_from_contract(&deps.api, &state, &owner, amount, "withdraw")?;
 
-    let log = vec![log("action", "withdraw"), log("amount", amount)];
+    let log = vec![
+        log("action", "withdraw"),
+        log("amount", amount),
+        log("destination", destination.as_str()),
+    ];
 
     let r = HandleResponse {
         messages: wtx.messages,
@@ -455,6 +480,7 @@ fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     state: &State,
     amount: Uint128,
+    destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
     only_admin(env, &deps.storage)?;
 
@@ -467,7 +493,11 @@ fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
     let owner = deps.api.canonical_address(&ac_get_owner(&deps.storage)?)?;
     let wtx = send_tokens_from_contract(&deps.api, &state, &owner, amount, "withdraw_fees")?;
 
-    let log = vec![log("action", "withdraw_fees"), log("amount", amount)];
+    let log = vec![
+        log("action", "withdraw_fees"),
+        log("amount", amount),
+        log("destination", destination.as_str()),
+    ];
 
     let r = HandleResponse {
         messages: wtx.messages,
@@ -499,7 +529,7 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
     Ok(r)
 }
 
-fn try_set_aggregated_reverse_amount_limit<S: Storage, A: Api, Q: Querier>(
+fn try_set_aggregated_reverse_limit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
     amount: Uint128,
@@ -507,11 +537,14 @@ fn try_set_aggregated_reverse_amount_limit<S: Storage, A: Api, Q: Querier>(
     only_admin(env, &deps.storage)?;
 
     config(&mut deps.storage).update(|mut state| {
-        state.aggregated_reverse_amount_limit = amount;
+        state.aggregated_reverse_limit = amount;
         Ok(state)
     })?;
 
-    let log = vec![log("action", "set_aggregated_reverse_amount_limit"), log("limit", amount)];
+    let log = vec![
+        log("action", "set_aggregated_reverse_limit"),
+        log("limit", amount),
+    ];
 
     let r = HandleResponse {
         messages: vec![],
@@ -711,10 +744,12 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
     }
 }
 
-fn verify_aggregated_reverse_amount_limit(amount: Uint128, state: &State) -> HandleResult {
+fn verify_aggregated_reverse_limit(amount: Uint128, state: &State) -> HandleResult {
     let new_aggregated_amount = state.aggregated_reverse_amount + amount;
-    if new_aggregated_amount > state.aggregated_reverse_amount_limit {
-        Err(StdError::generic_err("Amount would exceed aggregated reverse amount limit"))
+    if new_aggregated_amount > state.aggregated_reverse_limit {
+        Err(StdError::generic_err(
+            "Amount would exceed aggregated reverse amount limit",
+        ))
     } else {
         Ok(HandleResponse::default())
     }
@@ -727,7 +762,7 @@ fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
         return Err(StdError::generic_err("Invalid swap id"));
     }
     match refunds_have(id, storage) {
-        true => Err(StdError::generic_err("Refund was alreay processed")),
+        true => Err(StdError::generic_err("Refund was already processed")),
         false => Ok(HandleResponse::default()),
     }
 }
@@ -737,7 +772,7 @@ fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
  * ***************************************************/
 
 fn only_admin<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Admin, env, storage).or(_only_original_owner(env, storage))
+    _only_role(&AccessRole::Admin, env, storage) //.or(_only_original_owner(env, storage))
 }
 
 fn only_relayer<S: Storage>(env: &Env, storage: &S) -> HandleResult {
@@ -755,6 +790,7 @@ fn _only_role<S: Storage>(role: &AccessRole, env: &Env, storage: &S) -> HandleRe
     }
 }
 
+/*
 fn _only_original_owner<S: Storage>(env: &Env, storage: &S) -> HandleResult {
     let owner = ac_get_owner(storage).unwrap_or(HumanAddr::from(""));
     if owner == env.message.sender {
@@ -763,10 +799,10 @@ fn _only_original_owner<S: Storage>(env: &Env, storage: &S) -> HandleResult {
         Err(StdError::unauthorized())
     }
 }
+*/
 
 fn can_pause<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    only_relayer(env, storage)
-        .or(only_delegate(env, storage).or(_only_original_owner(env, storage)))
+    only_relayer(env, storage).or(only_delegate(env, storage)) //.or(_only_original_owner(env, storage)))
 }
 
 /* ***************************************************
@@ -798,11 +834,12 @@ fn query_role<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
     use cosmwasm_std::{
-        coins, /*from_binary, Api, Coin,*/ Extern, HumanAddr, /*InitResponse, Querier, ReadonlyStorage,
-        StdError,*/
+        coins, /*from_binary, Api, Coin,*/ Extern,
+        HumanAddr, /*InitResponse, Querier, ReadonlyStorage,
+                  StdError,*/
     };
 
-    use crate::contract::{/*handle,*/ init/*, query*/};
+    use crate::contract::init;
     use crate::msg::{/*HandleMsg,*/ InitMsg, /*QueryMsg,*/ Uint128};
     use crate::state::{config_read, State};
 

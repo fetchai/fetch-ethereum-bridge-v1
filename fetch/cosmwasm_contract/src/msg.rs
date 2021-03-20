@@ -13,7 +13,7 @@ pub struct InitMsg {
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
     pub swap_fee: Uint128,
-    pub aggregated_reverse_amount_limit: Uint128,
+    pub aggregated_reverse_limit: Uint128,
     pub paused_since_block: Option<u64>,
     pub delete_protection_period: Option<u64>,
 }
@@ -60,13 +60,15 @@ pub enum HandleMsg {
     Deposit {},
 
     Withdraw {
-        // withdrawal from contract supply to the owner
+        // withdrawal from contract supply to destination
         amount: Uint128,
+        destination: HumanAddr,
     },
 
     WithdrawFees {
-        // withdrawal from contract (account - supply) to the owner
+        // withdrawal from contract (account - supply) to destination
         amount: Uint128,
+        destination: HumanAddr,
     },
 
     SetCap {
