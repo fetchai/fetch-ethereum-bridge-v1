@@ -13,6 +13,7 @@ pub struct InitMsg {
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
     pub swap_fee: Uint128,
+    pub reverse_aggregated_allowance: Uint128,
     pub paused_since_block: Option<u64>,
     pub delete_protection_period: Option<u64>,
 }
@@ -59,16 +60,22 @@ pub enum HandleMsg {
     Deposit {},
 
     Withdraw {
-        // withdrawal from contract supply to the owner
+        // withdrawal from contract supply to destination
         amount: Uint128,
+        destination: HumanAddr,
     },
 
     WithdrawFees {
-        // withdrawal from contract (account - supply) to the owner
+        // withdrawal from contract (account - supply) to destination
         amount: Uint128,
+        destination: HumanAddr,
     },
 
     SetCap {
+        amount: Uint128,
+    },
+
+    SetReverseAggregatedAllowance {
         amount: Uint128,
     },
 
@@ -97,12 +104,29 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // Access Control
-    HasRole { role: u64, address: HumanAddr },
+    HasRole { role: String, address: HumanAddr },
+    RelayEon {},
+    Supply {},
+    ReverseAggregatedAllowance {},
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct RoleResponse {
     pub has_role: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct RelayEonResponse {
+    pub eon: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SupplyResponse {
+    pub amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ReverseAggregatedAllowanceResponse {
+    pub amount: Uint128,
 }

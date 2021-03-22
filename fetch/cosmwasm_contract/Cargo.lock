@@ -104,6 +104,7 @@ dependencies = [
  "schemars",
  "serde",
  "snafu",
+ "thiserror",
 ]
 
 [[package]]
