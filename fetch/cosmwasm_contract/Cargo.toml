@@ -40,6 +40,7 @@ cosmwasm-storage = { version = "0.10.0" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 snafu = { version = "0.6.3" }
+thiserror = { version = "1.0.23" }
 
 [dev-dependencies]
 cosmwasm-vm = { version = "0.10.0", default-features = false }

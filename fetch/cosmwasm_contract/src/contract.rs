@@ -46,8 +46,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         relay_eon: 0,
         upper_swap_limit: msg.upper_swap_limit,
         lower_swap_limit: msg.lower_swap_limit,
-        aggregated_reverse_limit: msg.aggregated_reverse_limit,
-        aggregated_reverse_amount: Uint128::zero(),
+        reverse_aggregated_allowance: msg.reverse_aggregated_allowance,
         cap: msg.cap,
         swap_fee: msg.swap_fee,
         paused_since_block,
@@ -119,8 +118,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             destination,
         } => try_withdraw_fees(deps, &env, &state, amount, destination),
         HandleMsg::SetCap { amount } => try_set_cap(deps, &env, amount),
-        HandleMsg::SetAggregatedReverseLimit { amount } => {
-            try_set_aggregated_reverse_limit(deps, &env, amount)
+        HandleMsg::SetReverseAggregatedAllowance { amount } => {
+            try_set_reverse_aggregated_allowance(deps, &env, amount)
         }
         HandleMsg::SetLimits {
             swap_min,
@@ -184,7 +183,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     only_relayer(env, &deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
-    verify_aggregated_reverse_limit(amount, state)?;
+    verify_aggregated_reverse_allowance(amount, state)?;
 
     if amount > state.swap_fee {
         // NOTE(LR) when amount == fee, amount will still be consumed
@@ -201,6 +200,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         )?;
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
+            state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += swap_fee;
             //state.sealed_reverse_swap_id = rid; // TODO(LR)
             Ok(state)
@@ -229,6 +229,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         let effective_amount = Uint128::zero();
         config(&mut deps.storage).update(|mut state| {
             state.supply = (state.supply - amount)?;
+            state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += swap_fee;
             //state.sealed_reverse_swap_id = rid; // TODO(LR)
             Ok(state)
@@ -274,7 +275,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     only_relayer(env, &deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
-    verify_aggregated_reverse_limit(amount, state)?;
+    verify_aggregated_reverse_allowance(amount, state)?;
 
     if amount > fee {
         let new_supply = (state.supply - amount)?;
@@ -290,6 +291,8 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
 
         config(&mut deps.storage).update(|mut state| {
             state.supply = new_supply;
+            state.reverse_aggregated_allowance =
+                (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += fee;
             Ok(state)
         })?;
@@ -316,6 +319,8 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
         let effective_amount = Uint128::zero();
 
         config(&mut deps.storage).update(|mut state| {
+            state.reverse_aggregated_allowance =
+                (state.reverse_aggregated_allowance - amount)?;
             state.supply = new_supply;
             state.fees_accrued += refund_fee;
             Ok(state)
@@ -529,7 +534,7 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
     Ok(r)
 }
 
-fn try_set_aggregated_reverse_limit<S: Storage, A: Api, Q: Querier>(
+fn try_set_reverse_aggregated_allowance<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
     amount: Uint128,
@@ -537,12 +542,12 @@ fn try_set_aggregated_reverse_limit<S: Storage, A: Api, Q: Querier>(
     only_admin(env, &deps.storage)?;
 
     config(&mut deps.storage).update(|mut state| {
-        state.aggregated_reverse_limit = amount;
+        state.reverse_aggregated_allowance = amount;
         Ok(state)
     })?;
 
     let log = vec![
-        log("action", "set_aggregated_reverse_limit"),
+        log("action", "set_reverse_aggregated_allowance"),
         log("limit", amount),
     ];
 
@@ -744,11 +749,10 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
     }
 }
 
-fn verify_aggregated_reverse_limit(amount: Uint128, state: &State) -> HandleResult {
-    let new_aggregated_amount = state.aggregated_reverse_amount + amount;
-    if new_aggregated_amount > state.aggregated_reverse_limit {
+fn verify_aggregated_reverse_allowance(amount: Uint128, state: &State) -> HandleResult {
+    if state.reverse_aggregated_allowance < amount {
         Err(StdError::generic_err(
-            "Amount would exceed aggregated reverse amount limit",
+            "Amount would exceed aggregated reverse amount allowance",
         ))
     } else {
         Ok(HandleResponse::default())
