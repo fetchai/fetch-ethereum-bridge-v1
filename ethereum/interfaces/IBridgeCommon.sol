@@ -34,7 +34,7 @@ interface IBridgeCommon {
 
     event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
     event CapUpdate(uint256 value);
-    event ReverseAggregateCapUpdate(uint256);
+    event ReverseAggregateAllowanceUpdate(uint256);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
     event FeesWithdrawal(address indexed targetAddress, uint256 amount);
@@ -61,6 +61,5 @@ interface IBridgeCommon {
     function getCap() external view returns(uint256);
     function getSwapFee() external view returns(uint256);
     function getPausedSinceBlock() external view returns(uint256);
-    function getReverseAggregate() external view returns(uint256);
-    function getReverseAggregateCap() external view returns(uint256);
+    function getReverseAggregateAllowance() external view returns(uint256);
 }

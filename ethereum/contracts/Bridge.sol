@@ -70,8 +70,7 @@ contract Bridge is IBridge, AccessControl {
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
-    uint256 public reverseAggregate;
-    uint256 public reverseAggregateCap;
+    uint256 public reverseAggregateAllowance;
 
 
     /* Only callable by owner */
@@ -142,6 +141,7 @@ contract Bridge is IBridge, AccessControl {
     constructor(
           address ERC20Address
         , uint256 cap_
+        , uint256 reverseAggregateAllowance_
         , uint256 swapMax_
         , uint256 swapMin_
         , uint256 swapFee_
@@ -162,6 +162,7 @@ contract Bridge is IBridge, AccessControl {
         relayEon = type(uint64).max;
 
         _setCap(cap_);
+        _setReverseAggregateAllowance(reverseAggregateAllowance_);
         _setLimits(swapMax_, swapMin_, swapFee_);
         _pauseSince(pausedSinceBlock_);
     }
@@ -240,8 +241,7 @@ contract Bridge is IBridge, AccessControl {
     function getCap() external view override returns(uint256) {return cap;}
     function getSwapFee() external view override returns(uint256) {return swapFee;}
     function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
-    function getReverseAggregate() external view override returns(uint256) {return reverseAggregate;}
-    function getReverseAggregateCap() external view override returns(uint256) {return reverseAggregateCap;}
+    function getReverseAggregateAllowance() external view override returns(uint256) {return reverseAggregateAllowance;}
 
     // **********************************************************
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
@@ -295,7 +295,7 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
-        _updateReverseAggregate(amount);
+        _updateReverseAggregateAllowance(amount);
 
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
@@ -354,7 +354,7 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
-        _updateReverseAggregate(amount);
+        _updateReverseAggregateAllowance(amount);
 
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
@@ -410,7 +410,7 @@ contract Bridge is IBridge, AccessControl {
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
-         _updateReverseAggregate(amount);
+         _updateReverseAggregateAllowance(amount);
 
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
@@ -501,17 +501,18 @@ contract Bridge is IBridge, AccessControl {
 
 
     /**
-     * @notice Sets cap (max) value of `reverseAggregate`
-     *         This cap affects(limits) operations which *decrease* contract's `supply` value via **RELAYER**
-     *          authored (= `reverseSwap(...)` and `refund(...)`). It does **NOT** limit `withdraw` & `burn` operations.
+     * @notice Sets value of `reverseAggregateAllowance` state variable.
+     *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
+     *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
+     *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
      * @param value - new cap value.
      */
-    function setReverseAggregateCap(uint256 value)
+    function setReverseAggregateAllowance(uint256 value)
         external
         override
         onlyOwner
     {
-        _setReverseAggregateCap(value);
+        _setReverseAggregateAllowance(value);
     }
 
 
@@ -663,15 +664,14 @@ contract Bridge is IBridge, AccessControl {
     }
 
 
-    function _setReverseAggregateCap(uint256 value) internal
+    function _setReverseAggregateAllowance(uint256 allowance) internal
     {
-        reverseAggregateCap = value;
-        emit ReverseAggregateCapUpdate(reverseAggregateCap);
+        reverseAggregateAllowance = allowance;
+        emit ReverseAggregateAllowanceUpdate(reverseAggregateAllowance);
     }
 
 
-    function _updateReverseAggregate(uint256 amount) internal {
-        reverseAggregate += amount;
-        require(reverseAggregate <= reverseAggregateCap, "Operation exceeds reverse aggregated cap");
+    function _updateReverseAggregateAllowance(uint256 amount) internal {
+        reverseAggregateAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
     }
 }
