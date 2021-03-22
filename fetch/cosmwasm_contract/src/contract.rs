@@ -776,7 +776,7 @@ fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
  * ***************************************************/
 
 fn only_admin<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Admin, env, storage) //.or(_only_original_owner(env, storage))
+    _only_role(&AccessRole::Admin, env, storage)
 }
 
 fn only_relayer<S: Storage>(env: &Env, storage: &S) -> HandleResult {
@@ -794,19 +794,8 @@ fn _only_role<S: Storage>(role: &AccessRole, env: &Env, storage: &S) -> HandleRe
     }
 }
 
-/*
-fn _only_original_owner<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    let owner = ac_get_owner(storage).unwrap_or(HumanAddr::from(""));
-    if owner == env.message.sender {
-        Ok(HandleResponse::default())
-    } else {
-        Err(StdError::unauthorized())
-    }
-}
-*/
-
 fn can_pause<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    only_relayer(env, storage).or(only_delegate(env, storage)) //.or(_only_original_owner(env, storage)))
+    only_relayer(env, storage).or(only_delegate(env, storage))
 }
 
 /* ***************************************************
