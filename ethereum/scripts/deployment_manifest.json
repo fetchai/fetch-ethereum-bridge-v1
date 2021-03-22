@@ -1,9 +1,9 @@
 {
     "development": {
         "FetERC20Mock": {
-            "deployer_address": "0x9110DcC1B85F0A3F5bCB3F831EF26E1d40339399",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "contract_address": "0x0eF443D31a0D13a621048f5384a6A8490CD3cDF9",
+            "contract_address": "",
             "constructor_parameters": {
                 "name": "Fetch",
                 "symbol": "FET",
@@ -12,13 +12,13 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0x9110DcC1B85F0A3F5bCB3F831EF26E1d40339399",
+            "deployer_address": "",
             "deployer_public_key": "",
-            "contract_address": "0xAc2EF90c305a97d383b6304235c36B662c48F9Df",
+            "contract_address": "",
             "constructor_parameters": {
-                "ERC20Address": "0x0eF443D31a0D13a621048f5384a6A8490CD3cDF9",
+                "ERC20Address": "",
                 "cap": 1000000,
-                "reverseAggregateAllowance": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "reverseAggregateAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
                 "swapFee": 100,
