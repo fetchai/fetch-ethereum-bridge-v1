@@ -27,6 +27,7 @@ class EventType(AutoNameEnum):
     Pause = auto()
     LimitsUpdate = auto()
     CapUpdate = auto()
+    ReverseAggregateAllowanceUpdate = auto()
     NewRelayEon = auto()
     Withdraw = auto()
     Deposit = auto()
@@ -68,6 +69,7 @@ class UsersSetup:
 class BridgeSetup:
     token: InitVar[TokenSetup]
     cap: int = None
+    reverseAggregatedAllowance = None
     swapMax: int = None
     swapMin: int = None
     swapFee: int = None
@@ -79,6 +81,7 @@ class BridgeSetup:
 
     def __post_init__(self, token):
         self.cap = token.toCanonical(1000)
+        self.reverseAggregatedAllowance = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         self.swapMax = token.toCanonical(100)
         self.swapMin = token.toCanonical(10)
         self.swapFee = token.toCanonical(5)
@@ -456,7 +459,6 @@ class BridgeTest:
 
         return tx
 
-
     def setCap(self,
                cap: int,
                caller = None):
@@ -468,6 +470,20 @@ class BridgeTest:
 
         e = tx.events[str(EventType.CapUpdate)]
         assert e['value'] == cap
+
+        return tx
+
+    def setReverseAggregateAllowance(self,
+               allowance: int,
+               caller = None):
+        caller = caller or self.users.owner
+
+        tx = self.b.setReverseAggregateAllowance(allowance, {'from': caller})
+
+        assert allowance == self.b.getReverseAggregateAllowance()
+
+        e = tx.events[str(EventType.ReverseAggregateAllowanceUpdate)]
+        assert e['value'] == allowance
 
         return tx
 
@@ -507,6 +523,7 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
         contract = Bridge.deploy(
             test.t.address,
             b.cap,
+            b.reverseAggregatedAllowance,
             b.swapMax,
             b.swapMin,
             b.swapFee,
@@ -641,7 +658,8 @@ def test_reverseSwap_basic(bridgeFactory):
 
 def test_reverseSwap_amount_smaller_than_fee(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test: BridgeTest = bridgeFactory()
+    test = BridgeTest()
+    bridgeFactory(test)
     user = test.users.users[0]
     swapFee = test.b.swapFee()
     amount = test.bridge.swapMin + swapFee
@@ -848,7 +866,7 @@ def test_set_cap_basic(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
-    orig_cap = test.b.cap()
+    orig_cap = test.b.getCap()
     new_cap = orig_cap + 1
 
     for u in test.users.notOwners:
@@ -866,7 +884,7 @@ def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFa
     # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
 
-    orig_supply = test.b.supply()
+    orig_supply = test.b.getSupply()
     room = test.vals.amount
     test.setCap(orig_supply + room)
     amount = room + 1
@@ -883,6 +901,89 @@ def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFa
 
     # ===   THEN / VERIFICATION:  =========================
     # Verification is done by `brownie.reverts(...)` above
+
+
+def test_set_reverse_aggregate_allowance_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    test.bridge.reverseAggregatedAllowance = test.token.toCanonical(10000)
+    test = bridgeFactory(test)
+
+    orig_allowance = test.b.getReverseAggregateAllowance()
+    new_allowance = orig_allowance + 1
+
+    for u in test.users.notOwners:
+        with brownie.reverts(revert_msg="Caller must be owner"):
+            test.setReverseAggregateAllowance(new_allowance, caller=u)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.setReverseAggregateAllowance(new_allowance)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_set_reverse_aggregate_allowance_refund(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.refund(id=tx0.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    assert 0 == test.b.getReverseAggregateAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=False)
+
+
+def test_set_reverse_aggregate_allowance_refund_in_full(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.refund(id=tx0.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+    assert 0 == test.b.getReverseAggregateAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=True)
+
+
+def test_set_reverse_aggregate_allowance_reverse_swap(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+    assert 0 == test.b.getReverseAggregateAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.reverseSwap(rid=1, to_user=user, amount=1)
 
 
 def test_fees_accrued(bridgeFactory):

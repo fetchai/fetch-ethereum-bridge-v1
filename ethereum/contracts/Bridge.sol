@@ -295,10 +295,10 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
         _updateReverseAggregateAllowance(amount);
 
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
@@ -354,10 +354,10 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
         _updateReverseAggregateAllowance(amount);
 
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         token.transfer(to, amount);
@@ -410,10 +410,10 @@ contract Bridge is IBridge, AccessControl {
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
-         _updateReverseAggregateAllowance(amount);
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
+        _updateReverseAggregateAllowance(amount);
 
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         if (amount > swapFee) {
@@ -672,6 +672,6 @@ contract Bridge is IBridge, AccessControl {
 
 
     function _updateReverseAggregateAllowance(uint256 amount) internal {
-        reverseAggregateAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
+        reverseAggregateAllowance = reverseAggregateAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
     }
 }

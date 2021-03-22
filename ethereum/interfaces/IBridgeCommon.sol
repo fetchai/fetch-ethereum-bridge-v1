@@ -34,7 +34,7 @@ interface IBridgeCommon {
 
     event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
     event CapUpdate(uint256 value);
-    event ReverseAggregateAllowanceUpdate(uint256);
+    event ReverseAggregateAllowanceUpdate(uint256 value);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
     event FeesWithdrawal(address indexed targetAddress, uint256 amount);
