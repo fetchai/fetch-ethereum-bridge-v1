@@ -70,6 +70,8 @@ contract Bridge is IBridge, AccessControl {
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
+    uint256 public reverseAggregate;
+    uint256 public reverseAggregateCap;
 
 
     /* Only callable by owner */
@@ -238,7 +240,8 @@ contract Bridge is IBridge, AccessControl {
     function getCap() external view override returns(uint256) {return cap;}
     function getSwapFee() external view override returns(uint256) {return swapFee;}
     function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
-
+    function getReverseAggregate() external view override returns(uint256) {return reverseAggregate;}
+    function getReverseAggregateCap() external view override returns(uint256) {return reverseAggregateCap;}
 
     // **********************************************************
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
@@ -292,6 +295,8 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
+        _updateReverseAggregate(amount);
+
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
@@ -349,6 +354,8 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
+        _updateReverseAggregate(amount);
+
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
@@ -403,6 +410,8 @@ contract Bridge is IBridge, AccessControl {
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
+         _updateReverseAggregate(amount);
+
         // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
         //  operations bellow.
         supply = supply.sub(amount, "Amount exceeds contract supply");
@@ -488,6 +497,21 @@ contract Bridge is IBridge, AccessControl {
         onlyOwner
     {
         _setCap(value);
+    }
+
+
+    /**
+     * @notice Sets cap (max) value of `reverseAggregate`
+     *         This cap affects(limits) operations which *decrease* contract's `supply` value via **RELAYER**
+     *          authored (= `reverseSwap(...)` and `refund(...)`). It does **NOT** limit `withdraw` & `burn` operations.
+     * @param value - new cap value.
+     */
+    function setReverseAggregateCap(uint256 value)
+        external
+        override
+        onlyOwner
+    {
+        _setReverseAggregateCap(value);
     }
 
 
@@ -636,5 +660,18 @@ contract Bridge is IBridge, AccessControl {
     {
         cap = cap_;
         emit CapUpdate(cap);
+    }
+
+
+    function _setReverseAggregateCap(uint256 value) internal
+    {
+        reverseAggregateCap = value;
+        emit ReverseAggregateCapUpdate(reverseAggregateCap);
+    }
+
+
+    function _updateReverseAggregate(uint256 amount) internal {
+        reverseAggregate += amount;
+        require(reverseAggregate <= reverseAggregateCap, "Operation exceeds reverse aggregated cap");
     }
 }

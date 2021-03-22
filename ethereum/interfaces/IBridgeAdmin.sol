@@ -66,6 +66,13 @@ interface IBridgeAdmin is IBridgeCommon {
      * @param value - new cap value.
      */
     function setCap(uint256 value) external;
+    /**
+     * @notice Sets cap (max) value of `reverseAggregate`
+     *         This cap affects(limits) operations which *decrease* contract's `supply` value via **RELAYER**
+     *          authored (= `reverseSwap(...)` and `refund(...)`). It does **NOT** limit `withdraw` & `burn` operations.
+     * @param value - new cap value.
+     */
+    function setReverseAggregateCap(uint256 value) external;
 
 
     /**
