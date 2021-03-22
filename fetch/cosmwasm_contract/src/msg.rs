@@ -104,12 +104,29 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // Access Control
-    HasRole { role: u64, address: HumanAddr },
+    HasRole { role: String, address: HumanAddr },
+    RelayEon {},
+    Supply {},
+    ReverseAggregatedAllowance {},
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct RoleResponse {
     pub has_role: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct RelayEonResponse {
+    pub eon: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SupplyResponse {
+    pub amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ReverseAggregatedAllowanceResponse {
+    pub amount: Uint128,
 }

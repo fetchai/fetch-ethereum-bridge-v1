@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::access_control::{
     ac_add_role, ac_get_owner, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole,
 };
-use crate::msg::{HandleMsg, InitMsg, QueryMsg, RoleResponse, Uint128};
+use crate::msg::{HandleMsg, InitMsg, QueryMsg, RoleResponse, Uint128, RelayEonResponse, ReverseAggregatedAllowanceResponse, SupplyResponse};
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
 /* ***************************************************
@@ -806,17 +806,24 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
+    let state = config_read(&deps.storage).load()?;
     match msg {
         QueryMsg::HasRole { role, address } => to_binary(&query_role(deps, role, address)?),
+        QueryMsg::RelayEon {} => to_binary(&RelayEonResponse{eon: state.relay_eon}),
+        QueryMsg::Supply {} => to_binary(&SupplyResponse{amount: state.supply}),
+        QueryMsg::ReverseAggregatedAllowance {} => to_binary(&ReverseAggregatedAllowanceResponse{amount: state.reverse_aggregated_allowance}),
     }
 }
 
 fn query_role<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
-    _role: u64,
-    _address: HumanAddr,
+    deps: &Extern<S, A, Q>,
+    role: String,
+    address: HumanAddr,
 ) -> StdResult<RoleResponse> {
-    Ok(RoleResponse { has_role: true })
+    match ac_have_role(&deps.storage, &address, &AccessRole::from_str(role.as_str())?) {
+        Ok(_) => Ok(RoleResponse{has_role : true}),
+        Err(_) => Ok(RoleResponse{has_role: false}),
+    }
 }
 
 /* ***************************************************
