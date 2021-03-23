@@ -70,6 +70,7 @@ contract Bridge is IBridge, AccessControl {
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
+    uint256 public reverseAggregatedAllowance;
 
 
     /* Only callable by owner */
@@ -140,6 +141,7 @@ contract Bridge is IBridge, AccessControl {
     constructor(
           address ERC20Address
         , uint256 cap_
+        , uint256 reverseAggregatedAllowance_
         , uint256 swapMax_
         , uint256 swapMin_
         , uint256 swapFee_
@@ -160,6 +162,7 @@ contract Bridge is IBridge, AccessControl {
         relayEon = type(uint64).max;
 
         _setCap(cap_);
+        _setReverseAggregatedAllowance(reverseAggregatedAllowance_);
         _setLimits(swapMax_, swapMin_, swapFee_);
         _pauseSince(pausedSinceBlock_);
     }
@@ -238,7 +241,7 @@ contract Bridge is IBridge, AccessControl {
     function getCap() external view override returns(uint256) {return cap;}
     function getSwapFee() external view override returns(uint256) {return swapFee;}
     function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
-
+    function getReverseAggregatedAllowance() external view override returns(uint256) {return reverseAggregatedAllowance;}
 
     // **********************************************************
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
@@ -292,8 +295,10 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
+        _updateReverseAggregatedAllowance(amount);
+
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
@@ -349,8 +354,10 @@ contract Bridge is IBridge, AccessControl {
         onlyRelayer
         verifyRefundSwapId(id)
     {
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
+        _updateReverseAggregatedAllowance(amount);
+
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         token.transfer(to, amount);
@@ -403,8 +410,10 @@ contract Bridge is IBridge, AccessControl {
         verifyTxRelayEon(relayEon_)
         onlyRelayer
     {
-        // NOTE(pb): Fail as early as possible - withdrawal from supply is most likely to fail comparing to rest of the
-        //  operations bellow.
+        // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
+        //  to rest of the operations bellow.
+        _updateReverseAggregatedAllowance(amount);
+
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
         if (amount > swapFee) {
@@ -488,6 +497,22 @@ contract Bridge is IBridge, AccessControl {
         onlyOwner
     {
         _setCap(value);
+    }
+
+
+    /**
+     * @notice Sets value of `reverseAggregatedAllowance` state variable.
+     *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
+     *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
+     *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
+     * @param value - new cap value.
+     */
+    function setReverseAggregatedAllowance(uint256 value)
+        external
+        override
+        onlyOwner
+    {
+        _setReverseAggregatedAllowance(value);
     }
 
 
@@ -585,7 +610,7 @@ contract Bridge is IBridge, AccessControl {
         override
         onlyOwner
     {
-        require(earliestDelete >= block.number, "Earliest delete not reached");
+        require(earliestDelete <= block.number, "Earliest delete not reached");
         require(targetAddress != address(this), "pay addr == this contract addr");
         uint256 contractBalance = token.balanceOf(address(this));
         token.transfer(targetAddress, contractBalance);
@@ -636,5 +661,17 @@ contract Bridge is IBridge, AccessControl {
     {
         cap = cap_;
         emit CapUpdate(cap);
+    }
+
+
+    function _setReverseAggregatedAllowance(uint256 allowance) internal
+    {
+        reverseAggregatedAllowance = allowance;
+        emit ReverseAggregatedAllowanceUpdate(reverseAggregatedAllowance);
+    }
+
+
+    function _updateReverseAggregatedAllowance(uint256 amount) internal {
+        reverseAggregatedAllowance = reverseAggregatedAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
     }
 }

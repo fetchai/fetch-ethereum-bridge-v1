@@ -69,6 +69,16 @@ interface IBridgeAdmin is IBridgeCommon {
 
 
     /**
+     * @notice Sets value of `reverseAggregatedAllowance` state variable.
+     *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
+     *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
+     *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
+     * @param value - new cap value.
+     */
+    function setReverseAggregatedAllowance(uint256 value) external;
+
+
+    /**
      * @notice Sets limits for swap amount
      *         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`
      * @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)

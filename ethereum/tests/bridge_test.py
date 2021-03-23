@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
-import pprint
 import pytest
 import brownie
 from brownie import FetERC20Mock, Bridge
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, InitVar, field
 from enum import Enum, auto
 from typing import Type
 
@@ -27,6 +26,7 @@ class EventType(AutoNameEnum):
     Pause = auto()
     LimitsUpdate = auto()
     CapUpdate = auto()
+    ReverseAggregatedAllowanceUpdate = auto()
     NewRelayEon = auto()
     Withdraw = auto()
     Deposit = auto()
@@ -57,17 +57,22 @@ class UsersSetup:
     delegate = None
     users = None
     adminRole: bytes = 0
-    relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-    delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
+    relayerRole: bytes = None
+    delegateRole: bytes = None
 
     notOwners = None
     notRelayers = None
+
+    def __post_init__(self):
+        self.relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+        self.delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
 
 
 @dataclass
 class BridgeSetup:
     token: InitVar[TokenSetup]
     cap: int = None
+    reverseAggregatedAllowance = None
     swapMax: int = None
     swapMin: int = None
     swapFee: int = None
@@ -79,6 +84,7 @@ class BridgeSetup:
 
     def __post_init__(self, token):
         self.cap = token.toCanonical(1000)
+        self.reverseAggregatedAllowance = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         self.swapMax = token.toCanonical(100)
         self.swapMin = token.toCanonical(10)
         self.swapFee = token.toCanonical(5)
@@ -88,34 +94,45 @@ class BridgeSetup:
 class ValuesSetup:
     bridge: InitVar[BridgeSetup]
     amount: int = None
-    dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
-    dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [dest_swap_address])
-    src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
+    dest_swap_address = None
+    dest_swap_address_hash = None
+    src_tx_hash = None
 
     def __post_init__(self, bridge):
         self.amount = bridge.swapMin
+        self.dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
+        self.dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [self.dest_swap_address])
+        self.src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
 
 
 @dataclass
 class Setup__:
-    users: UsersSetup = UsersSetup()
-    token: TokenSetup = TokenSetup()
+    users: UsersSetup = None
+    token: TokenSetup = None
     bridge: BridgeSetup = None
     vals: ValuesSetup = None
 
     def __post_init__(self):
+        self.users = UsersSetup()
+        self.token = TokenSetup()
         self.bridge = BridgeSetup(self.token)
         self.vals = ValuesSetup(self.bridge)
 
 
-@dataclass()
+@dataclass
 class BridgeTest:
-    users: UsersSetup = UsersSetup()
-    token: TokenSetup = TokenSetup()
-    bridge: BridgeSetup = BridgeSetup(token)
-    vals: ValuesSetup = ValuesSetup(bridge)
+    users: UsersSetup = None # field(default_factory=UsersSetup)
+    token: TokenSetup = None # field(default_factory=TokenSetup)
+    bridge: BridgeSetup = None # field(default_factory=lambda: BridgeSetup(BridgeTest.token))
+    vals: ValuesSetup = None # field(default_factory=lambda: ValuesSetup(BridgeTest.bridge))
     t: FetERC20Mock = None
     b: Bridge = None
+
+    def __post_init__(self):
+        self.users = UsersSetup()
+        self.token = TokenSetup()
+        self.bridge = BridgeSetup(self.token)
+        self.vals = ValuesSetup(self.bridge)
 
     def standard_setup(self,
                        user=None,
@@ -401,10 +418,11 @@ class BridgeTest:
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
         expected_resulting_target_address_balance = orig_target_address_balance + orig_bridge_balance
+        contract_address = self.b.address
 
         tx = self.b.deleteContract(target_address, {'from': caller})
 
-        assert self.t.balanceOf(self.b) == 0
+        assert self.t.balanceOf(contract_address) == 0
         assert self.t.balanceOf(target_address) == expected_resulting_target_address_balance
 
         e_transfer = tx.events[str(EventType.DeleteContract)]
@@ -412,7 +430,7 @@ class BridgeTest:
         assert e_transfer['amount'] == orig_bridge_balance
 
         e_transfer = tx.events['Transfer']
-        assert e_transfer['from'] == self.b
+        assert e_transfer['from'] == contract_address
         assert e_transfer['to'] == target_address
         assert e_transfer['value'] == orig_bridge_balance
 
@@ -456,7 +474,6 @@ class BridgeTest:
 
         return tx
 
-
     def setCap(self,
                cap: int,
                caller = None):
@@ -468,6 +485,20 @@ class BridgeTest:
 
         e = tx.events[str(EventType.CapUpdate)]
         assert e['value'] == cap
+
+        return tx
+
+    def setReverseAggregatedAllowance(self,
+               allowance: int,
+               caller = None):
+        caller = caller or self.users.owner
+
+        tx = self.b.setReverseAggregatedAllowance(allowance, {'from': caller})
+
+        assert allowance == self.b.getReverseAggregatedAllowance()
+
+        e = tx.events[str(EventType.ReverseAggregatedAllowanceUpdate)]
+        assert e['value'] == allowance
 
         return tx
 
@@ -507,6 +538,7 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
         contract = Bridge.deploy(
             test.t.address,
             b.cap,
+            b.reverseAggregatedAllowance,
             b.swapMax,
             b.swapMin,
             b.swapFee,
@@ -641,7 +673,8 @@ def test_reverseSwap_basic(bridgeFactory):
 
 def test_reverseSwap_amount_smaller_than_fee(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test: BridgeTest = bridgeFactory()
+    test = BridgeTest()
+    bridgeFactory(test)
     user = test.users.users[0]
     swapFee = test.b.swapFee()
     amount = test.bridge.swapMin + swapFee
@@ -848,7 +881,7 @@ def test_set_cap_basic(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
-    orig_cap = test.b.cap()
+    orig_cap = test.b.getCap()
     new_cap = orig_cap + 1
 
     for u in test.users.notOwners:
@@ -866,7 +899,7 @@ def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFa
     # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
 
-    orig_supply = test.b.supply()
+    orig_supply = test.b.getSupply()
     room = test.vals.amount
     test.setCap(orig_supply + room)
     amount = room + 1
@@ -885,13 +918,95 @@ def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFa
     # Verification is done by `brownie.reverts(...)` above
 
 
+def test_set_reverse_aggregated_allowance_basic(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    test.bridge.reverseAggregatedAllowance = test.token.toCanonical(10000)
+    test = bridgeFactory(test)
+
+    orig_allowance = test.b.getReverseAggregatedAllowance()
+    new_allowance = orig_allowance + 1
+
+    for u in test.users.notOwners:
+        with brownie.reverts(revert_msg="Caller must be owner"):
+            test.setReverseAggregatedAllowance(new_allowance, caller=u)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.setReverseAggregatedAllowance(new_allowance)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_set_reverse_aggregated_allowance_refund(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.refund(id=tx0.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    assert 0 == test.b.getReverseAggregatedAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=False)
+
+
+def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.refund(id=tx0.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+    assert 0 == test.b.getReverseAggregatedAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=True)
+
+
+def test_set_reverse_aggregated_allowance_reverse_swap(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest()
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    test.bridge.reverseAggregatedAllowance = amount
+    bridgeFactory(test)
+    user = test.users.users[0]
+
+    # adding supply
+    tx0 = test.swap(user=user, amount=amount)
+    tx1 = test.swap(user=user, amount=amount)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+    assert 0 == test.b.getReverseAggregatedAllowance()
+
+    with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
+        test.reverseSwap(rid=1, to_user=user, amount=1)
+
+
 def test_fees_accrued(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     test = bridgeFactory()
     user = test.users.users[0]
     amount = test.bridge.swapMax
-
     swap_fee = test.b.swapFee()
     orig_supply = test.b.supply()
     orig_fees_accrued = test.b.getFeesAccrued()
@@ -1070,22 +1185,72 @@ def test_withdraw_fees(bridgeFactory):
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_fees_accrued
 
 
-def test_delete_contract_basic(bridgeFactory):
+def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
-    test: BridgeTest = bridgeFactory()
+    delete_protection_period = 20
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
     user = test.users.users[0]
     target_to_user = test.users.users[1]
     amount = test.bridge.swapMax
 
-    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
 
-    orig_contract_balance = test.t.balanceOf(test.b)
-    orig_target_to_user_balance = test.t.balanceOf(target_to_user)
+    # Negative test
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Earliest delete not reached"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.deleteContract(target_to_user)
+
+
+def test_delete_contract_reverts_due_to_access_rights(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    excess_amount = 1234
+    delete_protection_period = 20
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
+    user = test.users.users[0]
+    target_to_user = test.users.users[1]
+    amount = test.bridge.swapMax
+
+    #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    brownie.chain.mine(delete_protection_period)
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
 
     for u in test.users.notOwners:
+        # ===   THEN / VERIFICATION:  =========================
         with brownie.reverts(revert_msg="Caller must be owner"):
+            # ===   WHEN / TEST SUBJECT  ==========================
             test.deleteContract(target_to_user, caller=u)
+
+
+def test_delete_contract_passes_when_protection_period_reached(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    excess_amount = 1234
+    delete_protection_period = 20
+
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
+
+    user = test.users.users[0]
+    target_to_user = test.users.users[1]
+    amount = test.bridge.swapMax
+    contract_address = test.b.address
+
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
+
+    orig_contract_balance = test.t.balanceOf(contract_address)
+    orig_target_to_user_balance = test.t.balanceOf(target_to_user)
+    assert orig_contract_balance > 0
+
+    brownie.chain.mine(delete_protection_period)
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
 
     # ===   WHEN / TEST SUBJECT  ==========================
     test.deleteContract(target_to_user)
@@ -1093,5 +1258,5 @@ def test_delete_contract_basic(bridgeFactory):
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
     # Just repeating basic check here again to make it explicit and visible:
-    assert test.t.balanceOf(test.b) == 0
+    assert test.t.balanceOf(contract_address) == 0
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_contract_balance

@@ -3,6 +3,15 @@ from dataclasses_json import dataclass_json, config
 from typing import Optional
 
 
+int_hex_metadata_config = config(
+            encoder=lambda value: hex(value),
+            decoder=lambda value: value if isinstance(value, int) else int(value, 0)
+        )
+
+int_int_metadata_config = config(
+            decoder=lambda value: value if isinstance(value, int) else int(value, 0)
+        )
+
 @dataclass_json
 @dataclass
 class ContractConstructorParamsBase:
@@ -23,7 +32,8 @@ class ContractParamsBase:
 class FetERC20MockConstructorParams(ContractConstructorParamsBase):
     name: str
     symbol: str
-    initialSupply: int
+    initialSupply: int = field(
+        metadata=int_int_metadata_config)
     decimals_: int
 
 
@@ -38,22 +48,34 @@ class FetERC20MockParams(ContractParamsBase):
 class BridgeConstructorParams(ContractConstructorParamsBase):
     ERC20Address: str
     cap: int
-    upperSwapLimit: int
-    lowerSwapLimit: int
-    swapFee: int
+    reverseAggregatedAllowance: int = field(
+        metadata=int_int_metadata_config)
+
+    upperSwapLimit: int = field(
+        metadata=int_int_metadata_config)
+
+    lowerSwapLimit: int = field(
+        metadata=int_int_metadata_config)
+
+    swapFee: int = field(
+        metadata=int_int_metadata_config)
+
     pausedSinceBlock: int = field(
-        metadata=config(
-            encoder=lambda value: hex(value),
-            decoder=lambda value: int(value, 0)
-        ))
-    deleteProtectionPeriod: int
+        metadata=int_hex_metadata_config)
+
+    deleteProtectionPeriod: int = field(
+        metadata=int_int_metadata_config)
+
 
 
 @dataclass_json
 @dataclass
 class Account:
     address: str
-    funding: Optional[int] = None
+    funding: Optional[int] = field(
+        default=None,
+        metadata=int_int_metadata_config)
+
 
 
 @dataclass_json

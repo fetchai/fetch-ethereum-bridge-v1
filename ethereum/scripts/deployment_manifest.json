@@ -18,6 +18,7 @@
             "constructor_parameters": {
                 "ERC20Address": "",
                 "cap": 1000000,
+                "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
                 "swapFee": 100,
@@ -56,6 +57,7 @@
             "constructor_parameters": {
                 "ERC20Address": "",
                 "cap": 1000000,
+                "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "upperSwapLimit": 1000,
                 "lowerSwapLimit": 100,
                 "swapFee": 100,
