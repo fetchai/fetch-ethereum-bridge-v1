@@ -610,7 +610,7 @@ contract Bridge is IBridge, AccessControl {
         override
         onlyOwner
     {
-        require(earliestDelete >= block.number, "Earliest delete not reached");
+        require(earliestDelete <= block.number, "Earliest delete not reached");
         require(targetAddress != address(this), "pay addr == this contract addr");
         uint256 contractBalance = token.balanceOf(address(this));
         token.transfer(targetAddress, contractBalance);

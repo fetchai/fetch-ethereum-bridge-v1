@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
-import pprint
 import pytest
 import brownie
 from brownie import FetERC20Mock, Bridge
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, InitVar, field
 from enum import Enum, auto
 from typing import Type
 
@@ -58,11 +57,15 @@ class UsersSetup:
     delegate = None
     users = None
     adminRole: bytes = 0
-    relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-    delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
+    relayerRole: bytes = None
+    delegateRole: bytes = None
 
     notOwners = None
     notRelayers = None
+
+    def __post_init__(self):
+        self.relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+        self.delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
 
 
 @dataclass
@@ -91,34 +94,45 @@ class BridgeSetup:
 class ValuesSetup:
     bridge: InitVar[BridgeSetup]
     amount: int = None
-    dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
-    dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [dest_swap_address])
-    src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
+    dest_swap_address = None
+    dest_swap_address_hash = None
+    src_tx_hash = None
 
     def __post_init__(self, bridge):
         self.amount = bridge.swapMin
+        self.dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
+        self.dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [self.dest_swap_address])
+        self.src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
 
 
 @dataclass
 class Setup__:
-    users: UsersSetup = UsersSetup()
-    token: TokenSetup = TokenSetup()
+    users: UsersSetup = None
+    token: TokenSetup = None
     bridge: BridgeSetup = None
     vals: ValuesSetup = None
 
     def __post_init__(self):
+        self.users = UsersSetup()
+        self.token = TokenSetup()
         self.bridge = BridgeSetup(self.token)
         self.vals = ValuesSetup(self.bridge)
 
 
-@dataclass()
+@dataclass
 class BridgeTest:
-    users: UsersSetup = UsersSetup()
-    token: TokenSetup = TokenSetup()
-    bridge: BridgeSetup = BridgeSetup(token)
-    vals: ValuesSetup = ValuesSetup(bridge)
+    users: UsersSetup = None # field(default_factory=UsersSetup)
+    token: TokenSetup = None # field(default_factory=TokenSetup)
+    bridge: BridgeSetup = None # field(default_factory=lambda: BridgeSetup(BridgeTest.token))
+    vals: ValuesSetup = None # field(default_factory=lambda: ValuesSetup(BridgeTest.bridge))
     t: FetERC20Mock = None
     b: Bridge = None
+
+    def __post_init__(self):
+        self.users = UsersSetup()
+        self.token = TokenSetup()
+        self.bridge = BridgeSetup(self.token)
+        self.vals = ValuesSetup(self.bridge)
 
     def standard_setup(self,
                        user=None,
@@ -404,10 +418,11 @@ class BridgeTest:
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_target_address_balance = self.t.balanceOf(target_address)
         expected_resulting_target_address_balance = orig_target_address_balance + orig_bridge_balance
+        contract_address = self.b.address
 
         tx = self.b.deleteContract(target_address, {'from': caller})
 
-        assert self.t.balanceOf(self.b) == 0
+        assert self.t.balanceOf(contract_address) == 0
         assert self.t.balanceOf(target_address) == expected_resulting_target_address_balance
 
         e_transfer = tx.events[str(EventType.DeleteContract)]
@@ -415,7 +430,7 @@ class BridgeTest:
         assert e_transfer['amount'] == orig_bridge_balance
 
         e_transfer = tx.events['Transfer']
-        assert e_transfer['from'] == self.b
+        assert e_transfer['from'] == contract_address
         assert e_transfer['to'] == target_address
         assert e_transfer['value'] == orig_bridge_balance
 
@@ -992,7 +1007,6 @@ def test_fees_accrued(bridgeFactory):
     test = bridgeFactory()
     user = test.users.users[0]
     amount = test.bridge.swapMax
-
     swap_fee = test.b.swapFee()
     orig_supply = test.b.supply()
     orig_fees_accrued = test.b.getFeesAccrued()
@@ -1171,22 +1185,72 @@ def test_withdraw_fees(bridgeFactory):
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_fees_accrued
 
 
-def test_delete_contract_basic(bridgeFactory):
+def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
-    test: BridgeTest = bridgeFactory()
+    delete_protection_period = 20
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
     user = test.users.users[0]
     target_to_user = test.users.users[1]
     amount = test.bridge.swapMax
 
-    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
 
-    orig_contract_balance = test.t.balanceOf(test.b)
-    orig_target_to_user_balance = test.t.balanceOf(target_to_user)
+    # Negative test
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Earliest delete not reached"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.deleteContract(target_to_user)
+
+
+def test_delete_contract_reverts_due_to_access_rights(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    excess_amount = 1234
+    delete_protection_period = 20
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
+    user = test.users.users[0]
+    target_to_user = test.users.users[1]
+    amount = test.bridge.swapMax
+
+    #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    brownie.chain.mine(delete_protection_period)
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
 
     for u in test.users.notOwners:
+        # ===   THEN / VERIFICATION:  =========================
         with brownie.reverts(revert_msg="Caller must be owner"):
+            # ===   WHEN / TEST SUBJECT  ==========================
             test.deleteContract(target_to_user, caller=u)
+
+
+def test_delete_contract_passes_when_protection_period_reached(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    excess_amount = 1234
+    delete_protection_period = 20
+
+    test = BridgeTest()
+    test.bridge.deleteProtectionPeriod = delete_protection_period
+    bridgeFactory(test)
+
+    user = test.users.users[0]
+    target_to_user = test.users.users[1]
+    amount = test.bridge.swapMax
+    contract_address = test.b.address
+
+    test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
+    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
+
+    orig_contract_balance = test.t.balanceOf(contract_address)
+    orig_target_to_user_balance = test.t.balanceOf(target_to_user)
+    assert orig_contract_balance > 0
+
+    brownie.chain.mine(delete_protection_period)
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
 
     # ===   WHEN / TEST SUBJECT  ==========================
     test.deleteContract(target_to_user)
@@ -1194,5 +1258,5 @@ def test_delete_contract_basic(bridgeFactory):
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
     # Just repeating basic check here again to make it explicit and visible:
-    assert test.t.balanceOf(test.b) == 0
+    assert test.t.balanceOf(contract_address) == 0
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_contract_balance
