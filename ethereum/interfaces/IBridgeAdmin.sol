@@ -69,13 +69,13 @@ interface IBridgeAdmin is IBridgeCommon {
 
 
     /**
-     * @notice Sets value of `reverseAggregateAllowance` state variable.
+     * @notice Sets value of `reverseAggregatedAllowance` state variable.
      *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
      *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
      *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
      * @param value - new cap value.
      */
-    function setReverseAggregateAllowance(uint256 value) external;
+    function setReverseAggregatedAllowance(uint256 value) external;
 
 
     /**

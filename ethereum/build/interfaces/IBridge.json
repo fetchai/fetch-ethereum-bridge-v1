@@ -125,6 +125,19 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReverseAggregatedAllowanceUpdate",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "uint64",
           "name": "rid",
@@ -415,6 +428,19 @@
     },
     {
       "inputs": [],
+      "name": "getReverseAggregatedAllowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getSupply",
       "outputs": [
         {
@@ -645,6 +671,19 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "setReverseAggregatedAllowance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
         },
@@ -698,16 +737,16 @@
         12
       ],
       "IBridgeAdmin": [
-        79
+        85
       ],
       "IBridgeCommon": [
-        230
-      ],
-      "IBridgePublic": [
         245
       ],
+      "IBridgePublic": [
+        260
+      ],
       "IBridgeRelayer": [
-        302
+        317
       ]
     },
     "id": 13,
@@ -735,7 +774,7 @@
         "id": 2,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 246,
+        "sourceUnit": 261,
         "src": "855:29:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -746,7 +785,7 @@
         "id": 3,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 303,
+        "sourceUnit": 318,
         "src": "885:30:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -757,7 +796,7 @@
         "id": 4,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 80,
+        "sourceUnit": 86,
         "src": "916:28:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -770,10 +809,10 @@
               "id": 6,
               "name": "IBridgePublic",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 245,
+              "referencedDeclaration": 260,
               "src": "2841:13:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgePublic_$245",
+                "typeIdentifier": "t_contract$_IBridgePublic_$260",
                 "typeString": "contract IBridgePublic"
               }
             },
@@ -786,10 +825,10 @@
               "id": 8,
               "name": "IBridgeRelayer",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 302,
+              "referencedDeclaration": 317,
               "src": "2856:14:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeRelayer_$302",
+                "typeIdentifier": "t_contract$_IBridgeRelayer_$317",
                 "typeString": "contract IBridgeRelayer"
               }
             },
@@ -802,10 +841,10 @@
               "id": 10,
               "name": "IBridgeAdmin",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 79,
+              "referencedDeclaration": 85,
               "src": "2872:12:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeAdmin_$79",
+                "typeIdentifier": "t_contract$_IBridgeAdmin_$85",
                 "typeString": "contract IBridgeAdmin"
               }
             },
@@ -815,10 +854,10 @@
           }
         ],
         "contractDependencies": [
-          79,
-          230,
+          85,
           245,
-          302
+          260,
+          317
         ],
         "contractKind": "interface",
         "documentation": {
@@ -831,10 +870,10 @@
         "id": 12,
         "linearizedBaseContracts": [
           12,
-          79,
-          302,
-          245,
-          230
+          85,
+          317,
+          260,
+          245
         ],
         "name": "IBridge",
         "nodeType": "ContractDefinition",

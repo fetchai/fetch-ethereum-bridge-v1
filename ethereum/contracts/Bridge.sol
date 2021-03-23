@@ -70,7 +70,7 @@ contract Bridge is IBridge, AccessControl {
     uint256 public cap;
     uint256 public swapFee;
     uint256 public pausedSinceBlock;
-    uint256 public reverseAggregateAllowance;
+    uint256 public reverseAggregatedAllowance;
 
 
     /* Only callable by owner */
@@ -141,7 +141,7 @@ contract Bridge is IBridge, AccessControl {
     constructor(
           address ERC20Address
         , uint256 cap_
-        , uint256 reverseAggregateAllowance_
+        , uint256 reverseAggregatedAllowance_
         , uint256 swapMax_
         , uint256 swapMin_
         , uint256 swapFee_
@@ -162,7 +162,7 @@ contract Bridge is IBridge, AccessControl {
         relayEon = type(uint64).max;
 
         _setCap(cap_);
-        _setReverseAggregateAllowance(reverseAggregateAllowance_);
+        _setReverseAggregatedAllowance(reverseAggregatedAllowance_);
         _setLimits(swapMax_, swapMin_, swapFee_);
         _pauseSince(pausedSinceBlock_);
     }
@@ -241,7 +241,7 @@ contract Bridge is IBridge, AccessControl {
     function getCap() external view override returns(uint256) {return cap;}
     function getSwapFee() external view override returns(uint256) {return swapFee;}
     function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
-    function getReverseAggregateAllowance() external view override returns(uint256) {return reverseAggregateAllowance;}
+    function getReverseAggregatedAllowance() external view override returns(uint256) {return reverseAggregatedAllowance;}
 
     // **********************************************************
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
@@ -297,7 +297,7 @@ contract Bridge is IBridge, AccessControl {
     {
         // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
         //  to rest of the operations bellow.
-        _updateReverseAggregateAllowance(amount);
+        _updateReverseAggregatedAllowance(amount);
 
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
@@ -356,7 +356,7 @@ contract Bridge is IBridge, AccessControl {
     {
         // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
         //  to rest of the operations bellow.
-        _updateReverseAggregateAllowance(amount);
+        _updateReverseAggregatedAllowance(amount);
 
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
@@ -412,7 +412,7 @@ contract Bridge is IBridge, AccessControl {
     {
         // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
         //  to rest of the operations bellow.
-        _updateReverseAggregateAllowance(amount);
+        _updateReverseAggregatedAllowance(amount);
 
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
@@ -501,18 +501,18 @@ contract Bridge is IBridge, AccessControl {
 
 
     /**
-     * @notice Sets value of `reverseAggregateAllowance` state variable.
+     * @notice Sets value of `reverseAggregatedAllowance` state variable.
      *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
      *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
      *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
      * @param value - new cap value.
      */
-    function setReverseAggregateAllowance(uint256 value)
+    function setReverseAggregatedAllowance(uint256 value)
         external
         override
         onlyOwner
     {
-        _setReverseAggregateAllowance(value);
+        _setReverseAggregatedAllowance(value);
     }
 
 
@@ -664,14 +664,14 @@ contract Bridge is IBridge, AccessControl {
     }
 
 
-    function _setReverseAggregateAllowance(uint256 allowance) internal
+    function _setReverseAggregatedAllowance(uint256 allowance) internal
     {
-        reverseAggregateAllowance = allowance;
-        emit ReverseAggregateAllowanceUpdate(reverseAggregateAllowance);
+        reverseAggregatedAllowance = allowance;
+        emit ReverseAggregatedAllowanceUpdate(reverseAggregatedAllowance);
     }
 
 
-    function _updateReverseAggregateAllowance(uint256 amount) internal {
-        reverseAggregateAllowance = reverseAggregateAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
+    function _updateReverseAggregatedAllowance(uint256 amount) internal {
+        reverseAggregatedAllowance = reverseAggregatedAllowance.sub(amount, "Operation exceeds reverse aggregated allowance");
     }
 }

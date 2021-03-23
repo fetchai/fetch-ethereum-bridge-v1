@@ -46,7 +46,7 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
     contract = Contract.deploy(
           constructor_params.ERC20Address
         , constructor_params.cap
-        , constructor_params.reverseAggregateAllowance
+        , constructor_params.reverseAggregatedAllowance
         , constructor_params.upperSwapLimit
         , constructor_params.lowerSwapLimit
         , constructor_params.swapFee

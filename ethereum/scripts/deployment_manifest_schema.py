@@ -48,7 +48,7 @@ class FetERC20MockParams(ContractParamsBase):
 class BridgeConstructorParams(ContractConstructorParamsBase):
     ERC20Address: str
     cap: int
-    reverseAggregateAllowance: int = field(
+    reverseAggregatedAllowance: int = field(
         metadata=int_int_metadata_config)
 
     upperSwapLimit: int = field(
