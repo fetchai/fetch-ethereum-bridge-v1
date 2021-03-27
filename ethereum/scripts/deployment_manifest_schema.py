@@ -48,14 +48,20 @@ class FetERC20MockParams(ContractParamsBase):
 @dataclass
 class BridgeConstructorParams(ContractConstructorParamsBase):
     ERC20Address: str
-    cap: int
+
+    cap: int = field(
+        metadata=int_int_metadata_config)
+
     reverseAggregatedAllowance: int = field(
         metadata=int_int_metadata_config)
 
-    upperSwapLimit: int = field(
+    reverseAggregatedAllowanceApproverCap: int = field(
         metadata=int_int_metadata_config)
 
-    lowerSwapLimit: int = field(
+    swapMax: int = field(
+        metadata=int_int_metadata_config)
+
+    swapMin: int = field(
         metadata=int_int_metadata_config)
 
     swapFee: int = field(
@@ -64,9 +70,11 @@ class BridgeConstructorParams(ContractConstructorParamsBase):
     pausedSinceBlockPublicApi: int = field(
         metadata=int_hex_metadata_config)
 
+    pausedSinceBlockRelayerApi: int = field(
+        metadata=int_hex_metadata_config)
+
     deleteProtectionPeriod: int = field(
         metadata=int_int_metadata_config)
-
 
 
 @dataclass_json
@@ -76,7 +84,6 @@ class Account:
     funding: Optional[int] = field(
         default=None,
         metadata=int_int_metadata_config)
-
 
 
 @dataclass_json
