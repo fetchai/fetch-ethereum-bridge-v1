@@ -23,7 +23,7 @@ class EventType(AutoNameEnum):
     Swap = auto()
     SwapRefund = auto()
     ReverseSwap = auto()
-    Pause = auto()
+    PausePublicApi = auto()
     LimitsUpdate = auto()
     CapUpdate = auto()
     ReverseAggregatedAllowanceUpdate = auto()
@@ -65,7 +65,7 @@ class UsersSetup:
 
     def __post_init__(self):
         self.relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-        self.delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
+        self.delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
 
 
 @dataclass
@@ -445,9 +445,9 @@ class BridgeTest:
         tx = self.b.pauseSince(blockNumber, {'from': caller})
 
         effective_paused_since_block = tx.block_number if tx.block_number > blockNumber else blockNumber
-        assert self.b.pausedSinceBlock() == effective_paused_since_block
+        assert self.b.pausedSinceBlockPublicApi() == effective_paused_since_block
 
-        e = tx.events[str(EventType.Pause)]
+        e = tx.events[str(EventType.PausePublicApi)]
         assert e['sinceBlock'] == effective_paused_since_block
 
         return tx
@@ -550,7 +550,7 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
         b.pauseSinceBlockEffective = b.pauseSinceBlock if b.pauseSinceBlock > b.deploymentBlockNumber else b.deploymentBlockNumber
         b.earliestDelete = b.deploymentBlockNumber + b.deleteProtectionPeriod
 
-        assert contract.pausedSinceBlock() == b.pauseSinceBlockEffective
+        assert contract.pausedSinceBlockPublicApi() == b.pauseSinceBlockEffective
         assert contract.earliestDelete() == b.earliestDelete
 
         contract.grantRole(u.relayerRole, u.relayer, {'from': u.owner})
@@ -577,7 +577,7 @@ def test_initial_state(bridgeFactory):
     assert test.b.getFeesAccrued() == 0
     assert test.b.token() == test.t.address
     assert test.b.earliestDelete() == test.bridge.deploymentBlockNumber + test.bridge.deleteProtectionPeriod
-    assert test.b.pausedSinceBlock() == test.bridge.pauseSinceBlockEffective
+    assert test.b.pausedSinceBlockPublicApi() == test.bridge.pauseSinceBlockEffective
     assert test.b.getFeesAccrued() == 0
 
 
@@ -593,7 +593,7 @@ def test_initial_state_non_trivial_pause_since_0(bridgeFactory):
 
     # ===   THEN / VERIFICATION:  =========================
     assert test.bridge.deploymentBlockNumber < expectedPauseSince
-    assert test.b.pausedSinceBlock() == expectedPauseSince
+    assert test.b.pausedSinceBlockPublicApi() == expectedPauseSince
 
 
 def test_initial_state_non_trivial_pause_since_1(bridgeFactory):
@@ -607,8 +607,8 @@ def test_initial_state_non_trivial_pause_since_1(bridgeFactory):
     test = bridgeFactory(test)
 
     # ===   THEN / VERIFICATION:  =========================
-    assert int(n / 2) < test.b.pausedSinceBlock()
-    assert test.b.pausedSinceBlock() == test.bridge.deploymentBlockNumber
+    assert int(n / 2) < test.b.pausedSinceBlockPublicApi()
+    assert test.b.pausedSinceBlockPublicApi() == test.bridge.deploymentBlockNumber
 
 
 def test_initial_state_non_trivial_earliest_delete(bridgeFactory):

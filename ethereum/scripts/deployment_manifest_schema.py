@@ -61,7 +61,7 @@ class BridgeConstructorParams(ContractConstructorParamsBase):
     swapFee: int = field(
         metadata=int_int_metadata_config)
 
-    pausedSinceBlock: int = field(
+    pausedSinceBlockPublicApi: int = field(
         metadata=int_hex_metadata_config)
 
     deleteProtectionPeriod: int = field(

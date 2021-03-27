@@ -29,12 +29,14 @@ interface IBridgeCommon {
 
     event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);
     event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);
-    event Pause(uint256 sinceBlock);
+    event PausePublicApi(uint256 sinceBlock);
+    event PauseRelayerApi(uint256 sinceBlock);
     event NewRelayEon(uint64 eon);
 
     event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
     event CapUpdate(uint256 value);
     event ReverseAggregatedAllowanceUpdate(uint256 value);
+    event ReverseAggregatedAllowanceApproverCapUpdate(uint256 value);
     event Withdraw(address indexed targetAddress, uint256 amount);
     event Deposit(address indexed fromAddress, uint256 amount);
     event FeesWithdrawal(address indexed targetAddress, uint256 amount);
@@ -47,7 +49,8 @@ interface IBridgeCommon {
     //event Mint(uint256 amount);
     //event Burn(uint256 amount);
 
-    function getDelegateRole() external view returns(bytes32);
+    function getApproverRole() external view returns(bytes32);
+    function getMonitorRole() external view returns(bytes32);
     function getRelayerRole() external view returns(bytes32);
 
     function getToken() external view returns(address);
@@ -60,6 +63,9 @@ interface IBridgeCommon {
     function getSwapMin() external view returns(uint256);
     function getCap() external view returns(uint256);
     function getSwapFee() external view returns(uint256);
-    function getPausedSinceBlock() external view returns(uint256);
+    function getPausedSinceBlockPublicApi() external view returns(uint256);
+    function getPausedSinceBlockRelayerApi() external view returns(uint256);
     function getReverseAggregatedAllowance() external view returns(uint256);
+    function getReverseAggregatedAllowanceApproverCap() external view returns(uint256);
+
 }

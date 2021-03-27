@@ -57,7 +57,7 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> network.contrac
         , constructor_params.upperSwapLimit
         , constructor_params.lowerSwapLimit
         , constructor_params.swapFee
-        , constructor_params.pausedSinceBlock
+        , constructor_params.pausedSinceBlockPublicApi
         , constructor_params.deleteProtectionPeriod
         , deployment_params)
         #, publish_source=bridge_manif.publish_source)

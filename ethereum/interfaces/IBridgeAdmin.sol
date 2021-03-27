@@ -20,6 +20,7 @@
 pragma solidity ^0.6.0 || ^0.7.0;
 
 import "./IBridgeCommon.sol";
+import "./IBridgeMonitor.sol";
 
 
 /**
@@ -30,7 +31,7 @@ import "./IBridgeCommon.sol";
  *         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change
  *         supply transferred across the Bridge.
  */
-interface IBridgeAdmin is IBridgeCommon {
+interface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {
 
     /**
      * @notice Returns amount of excess FET ERC20 tokens which were sent to address of this contract via direct ERC20
@@ -76,6 +77,13 @@ interface IBridgeAdmin is IBridgeCommon {
      * @param value - new cap value.
      */
     function setReverseAggregatedAllowance(uint256 value) external;
+
+    /**
+     * @notice Sets value of `reverseAggregatedAllowanceCap` state variable.
+     *         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.
+     * @param value - new cap value (absolute)
+     */
+    function setReverseAggregatedAllowanceApproverCap(uint256 value) external;
 
 
     /**

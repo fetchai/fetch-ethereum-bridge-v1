@@ -54,7 +54,8 @@ contract Bridge is IBridge, AccessControl {
     using SafeMath for uint256;
 
     /// @notice **********    CONSTANTS    ***********
-    bytes32 public constant DELEGATE_ROLE = keccak256("DELEGATE_ROLE");
+    bytes32 public constant APPROVER_ROLE = keccak256("APPROVER_ROLE");
+    bytes32 public constant MONITOR_ROLE = keccak256("MONITOR_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /// @notice *******    IMMUTABLE STATE    ********
@@ -69,8 +70,10 @@ contract Bridge is IBridge, AccessControl {
     uint256 public swapMin;
     uint256 public cap;
     uint256 public swapFee;
-    uint256 public pausedSinceBlock;
+    uint256 public pausedSinceBlockPublicApi;
+    uint256 public pausedSinceBlockRelayerApi;
     uint256 public reverseAggregatedAllowance;
+    uint256 public reverseAggregatedAllowanceApproverCap;
 
 
     /* Only callable by owner */
@@ -79,19 +82,8 @@ contract Bridge is IBridge, AccessControl {
         _;
     }
 
-    /* Only callable by owner or delegate */
-    modifier onlyDelegate() {
-        require(hasRole(DELEGATE_ROLE, msg.sender) || _isOwner(), "Caller must be owner or delegate");
-        _;
-    }
-
     modifier onlyRelayer() {
         require(hasRole(RELAYER_ROLE, msg.sender), "Caller must be relayer");
-        _;
-    }
-
-    modifier canPause() {
-        require(hasRole(RELAYER_ROLE, msg.sender) || _isOwner() || hasRole(DELEGATE_ROLE, msg.sender), "Only relayer, admin or delegate");
         _;
     }
 
@@ -100,8 +92,38 @@ contract Bridge is IBridge, AccessControl {
         _;
     }
 
-    modifier verifyNotPaused() {
-        require(pausedSinceBlock > block.number, "Contract has been paused");
+    modifier canPause(uint256 pauseSinceBlockNumber) {
+        if (pauseSinceBlockNumber > block.number) // Checking UN-pausing (the most critical operation)
+        {
+            require(_isOwner(), "Must have admin role");
+        }
+        else
+        {
+            require(hasRole(MONITOR_ROLE, msg.sender) || _isOwner(), "Must have admin or monitor role");
+        }
+        _;
+    }
+
+    modifier canSetReverseAggregatedAllowance(uint256 allowance) {
+        if (allowance > reverseAggregatedAllowanceApproverCap) // Check for going over the approver cap (the most critical operation)
+        {
+            require(_isOwner(), "Must have admin role");
+        }
+        else
+        {
+            require(hasRole(APPROVER_ROLE, msg.sender) || _isOwner(), "Must have admin or monitor role");
+        }
+        _;
+    }
+
+    modifier verifyPublicAPINotPaused() {
+        require(pausedSinceBlockPublicApi > block.number, "Contract has been paused");
+        _verifyRelayerApiNotPaused();
+        _;
+    }
+
+    modifier verifyRelayerApiNotPaused() {
+        _verifyRelayerApiNotPaused();
         _;
     }
 
@@ -110,6 +132,11 @@ contract Bridge is IBridge, AccessControl {
         //  against `swapMin` only, which is ensured to be `>= swapFee` (by `_setLimits(...)` function).
         //require(amount > swapFee, "Amount must be higher than fee");
         require(amount >= swapMin, "Amount bellow lower limit");
+        require(amount <= swapMax, "Amount exceeds upper limit");
+        _;
+    }
+
+    modifier verifyReverseSwapAmount(uint256 amount) {
         require(amount <= swapMax, "Amount exceeds upper limit");
         _;
     }
@@ -134,7 +161,7 @@ contract Bridge is IBridge, AccessControl {
      * @param swapMax_ - value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
      * @param swapMin_ - value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
      * @param swapFee_ - represents fee which user has to pay for swap execution,
-     * @param pausedSinceBlock_ - block number since which the contract will be paused for all user-level actions
+     * @param pausedSinceBlockPublicApi_ - block number since which the contract will be paused for all user-level actions
      * @param deleteProtectionPeriod_ - number of blocks(from contract deployment block) during which contract can
      *                                  NOT be deleted
      */
@@ -142,10 +169,12 @@ contract Bridge is IBridge, AccessControl {
           address ERC20Address
         , uint256 cap_
         , uint256 reverseAggregatedAllowance_
+        , uint256 reverseAggregatedAllowanceApproverCap_
         , uint256 swapMax_
         , uint256 swapMin_
         , uint256 swapFee_
-        , uint256 pausedSinceBlock_
+        , uint256 pausedSinceBlockPublicApi_
+        , uint256 pausedSinceBlockRelayerApi_
         , uint256 deleteProtectionPeriod_)
     {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -163,8 +192,10 @@ contract Bridge is IBridge, AccessControl {
 
         _setCap(cap_);
         _setReverseAggregatedAllowance(reverseAggregatedAllowance_);
+        _setReverseAggregatedAllowanceApproverCap(reverseAggregatedAllowanceApproverCap_);
         _setLimits(swapMax_, swapMin_, swapFee_);
-        _pauseSince(pausedSinceBlock_);
+        _pausePublicApiSince(pausedSinceBlockPublicApi_);
+        _pauseRelayerApiSince(pausedSinceBlockRelayerApi_);
     }
 
 
@@ -203,7 +234,7 @@ contract Bridge is IBridge, AccessControl {
         )
         external
         override
-        verifyNotPaused
+        verifyPublicAPINotPaused
         verifySwapAmount(amount)
     {
         supply = supply.add(amount);
@@ -227,7 +258,8 @@ contract Bridge is IBridge, AccessControl {
         return token.balanceOf(address(this)).sub(supply, "Critical err: balance < supply");
     }
 
-    function getDelegateRole() external view override returns(bytes32) {return DELEGATE_ROLE;}
+    function getApproverRole() external view override returns(bytes32) {return APPROVER_ROLE;}
+    function getMonitorRole() external view override returns(bytes32) {return MONITOR_ROLE;}
     function getRelayerRole() external view override returns(bytes32) {return RELAYER_ROLE;}
 
     function getToken() external view override returns(address) {return address(token);}
@@ -240,8 +272,11 @@ contract Bridge is IBridge, AccessControl {
     function getSwapMin() external view override returns(uint256) {return swapMin;}
     function getCap() external view override returns(uint256) {return cap;}
     function getSwapFee() external view override returns(uint256) {return swapFee;}
-    function getPausedSinceBlock() external view override returns(uint256) {return pausedSinceBlock;}
+    function getPausedSinceBlockPublicApi() external view override returns(uint256) {return pausedSinceBlockPublicApi;}
+    function getPausedSinceBlockRelayerApi() external view override returns(uint256) {return pausedSinceBlockRelayerApi;}
     function getReverseAggregatedAllowance() external view override returns(uint256) {return reverseAggregatedAllowance;}
+    function getReverseAggregatedAllowanceApproverCap() external view override returns(uint256) {return reverseAggregatedAllowanceApproverCap;}
+
 
     // **********************************************************
     // ***********    RELAYER-LEVEL ACCESS METHODS    ***********
@@ -256,6 +291,7 @@ contract Bridge is IBridge, AccessControl {
     function newRelayEon()
         external
         override
+        verifyRelayerApiNotPaused
         onlyRelayer
     {
         // NOTE(pb): No need for safe math for this increment, since the MAX_LIMIT<uint64> is huge number (~10^19),
@@ -291,7 +327,9 @@ contract Bridge is IBridge, AccessControl {
         )
         external
         override
+        verifyRelayerApiNotPaused
         verifyTxRelayEon(relayEon_)
+        verifyReverseSwapAmount(amount)
         onlyRelayer
         verifyRefundSwapId(id)
     {
@@ -350,7 +388,9 @@ contract Bridge is IBridge, AccessControl {
         )
         external
         override
+        verifyRelayerApiNotPaused
         verifyTxRelayEon(relayEon_)
+        verifyReverseSwapAmount(amount)
         onlyRelayer
         verifyRefundSwapId(id)
     {
@@ -407,7 +447,9 @@ contract Bridge is IBridge, AccessControl {
         )
         external
         override
+        verifyRelayerApiNotPaused
         verifyTxRelayEon(relayEon_)
+        verifyReverseSwapAmount(amount)
         onlyRelayer
     {
         // NOTE(pb): Fail as early as possible - withdrawal from aggregated allowance is most likely to fail comparing
@@ -429,22 +471,38 @@ contract Bridge is IBridge, AccessControl {
 
 
     // **********************************************************
-    // ****   RELAYER/DELEGATE/ADMIN-LEVEL ACCESS METHODS   *****
+    // ****   MONITOR/ADMIN-LEVEL ACCESS METHODS   *****
 
 
     /**
-     * @notice Pauses all NON-administrative interaction with the contract since the specified block number
-     * @param blockNumber block number since which non-admin interaction will be paused (for all
+     * @notice Pauses Public API since the specified block number
+     * @param blockNumber block number since which public interaction will be paused (for all
      *        block.number >= blockNumber).
      * @dev Delegate only
      *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.
      */
-    function pauseSince(uint256 blockNumber)
+    function pausePublicApiSince(uint256 blockNumber)
         external
         override
-        canPause
+        canPause(blockNumber)
     {
-        _pauseSince(blockNumber);
+        _pausePublicApiSince(blockNumber);
+    }
+
+
+    /**
+     * @notice Pauses Relayer API since the specified block number
+     * @param blockNumber block number since which Relayer API interaction will be paused (for all
+     *        block.number >= blockNumber).
+     * @dev Delegate only
+     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.
+     */
+    function pauseRelayerApiSince(uint256 blockNumber)
+        external
+        override
+        canPause(blockNumber)
+    {
+        _pausePublicApiSince(blockNumber);
     }
 
 
@@ -505,14 +563,28 @@ contract Bridge is IBridge, AccessControl {
      *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored
      *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored
      *         supply decrease operations (= `withdraw(...)` & `burn(...)`).
-     * @param value - new cap value.
+     * @param value - new allowance value (absolute)
      */
     function setReverseAggregatedAllowance(uint256 value)
         external
         override
-        onlyOwner
+        canSetReverseAggregatedAllowance(value)
     {
         _setReverseAggregatedAllowance(value);
+    }
+
+
+    /**
+     * @notice Sets value of `reverseAggregatedAllowanceApproverCap` state variable.
+     *         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.
+     * @param value - new cap value (absolute)
+     */
+    function setReverseAggregatedAllowanceApproverCap(uint256 value)
+        external
+        override
+        onlyOwner
+    {
+        _setReverseAggregatedAllowanceApproverCap(value);
     }
 
 
@@ -627,16 +699,31 @@ contract Bridge is IBridge, AccessControl {
         return hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    function _verifyRelayerApiNotPaused() internal view {
+        require(pausedSinceBlockRelayerApi > block.number, "Contract has been paused");
+    }
 
     /**
-     * @notice Pauses all NON-administrative interaction with the contract since the specidfed block number
-     * @param blockNumber - block number since which non-admin interaction will be paused (for all
+     * @notice Pauses Public API since the specified block number
+     * @param blockNumber - block number since which interaction with Public API will be paused (for all
      *                      block.number >= blockNumber)
      */
-    function _pauseSince(uint256 blockNumber) internal
+    function _pausePublicApiSince(uint256 blockNumber) internal
     {
-        pausedSinceBlock = blockNumber < block.number ? block.number : blockNumber;
-        emit Pause(pausedSinceBlock);
+        pausedSinceBlockPublicApi = blockNumber < block.number ? block.number : blockNumber;
+        emit PausePublicApi(pausedSinceBlockPublicApi);
+    }
+
+
+    /**
+     * @notice Pauses Relayer API since the specified block number
+     * @param blockNumber - block number since which interaction with Relayer API will be paused (for all
+     *                      block.number >= blockNumber)
+     */
+    function _pauseRelayerApiSince(uint256 blockNumber) internal
+    {
+        pausedSinceBlockRelayerApi = blockNumber < block.number ? block.number : blockNumber;
+        emit PauseRelayerApi(pausedSinceBlockRelayerApi);
     }
 
 
@@ -668,6 +755,13 @@ contract Bridge is IBridge, AccessControl {
     {
         reverseAggregatedAllowance = allowance;
         emit ReverseAggregatedAllowanceUpdate(reverseAggregatedAllowance);
+    }
+
+
+    function _setReverseAggregatedAllowanceApproverCap(uint256 value) internal
+    {
+        reverseAggregatedAllowanceApproverCap = value;
+        emit ReverseAggregatedAllowanceApproverCapUpdate(reverseAggregatedAllowanceApproverCap);
     }
 
 
