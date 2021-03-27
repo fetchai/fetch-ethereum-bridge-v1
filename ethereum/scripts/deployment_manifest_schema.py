@@ -24,6 +24,7 @@ class ContractParamsBase:
     deployer_address: Optional[str]
     deployer_public_key: Optional[str]
     contract_address: Optional[str]
+    publish_source: Optional[bool]
     constructor_parameters: ContractConstructorParamsBase
 
 

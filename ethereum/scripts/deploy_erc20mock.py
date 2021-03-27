@@ -6,8 +6,7 @@ from .deployment_common import (
     get_deployment_manifest_path,
     load_network_manifest,
     save_network_manifest,
-    NetworkManifest,
-
+    publish_contract_if_required,
     )
 from .deployment_manifest_schema import (
     NetworkManifest,
@@ -19,7 +18,7 @@ from eth_account.account import (
 import json
 
 
-def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
+def deploy(network_manifest: NetworkManifest, owner: Account) -> network.contract.ProjectContract:
     contract_manif = network_manifest.FetERC20Mock
 
     constructor_params = contract_manif.constructor_parameters
@@ -50,6 +49,11 @@ def main():
 
     contract = deploy(network_manif, owner)
     save_network_manifest(deployment_manifest_path, manifest, network_manif)
+
+    publish_contract_if_required(contract_container=Contract,
+                                 contract=contract,
+                                 contract_manifest=network_manif.Bridge,
+                                 throw_exception=False)
 
 
 if __name__ == "__main__":
