@@ -53,7 +53,7 @@
         "Bridge": {
             "deployer_address": "0xC2e109Affd2FefD5B313350a4B2AdC75EC2e96B1",
             "deployer_public_key": "0x44dcd1e5e29add8d93c4c0ca6e1ef4b02871481c6b5212cd590cd4b7b5c9350802f213314f6b674c0dd7319cc51ed85d3132be7095bdc2929901ad921fcdf1dc",
-            "contract_address": "0xD02B8009d1C39A265d464230DeB3ed65D97347EB",
+            "contract_address": "0x4d3033C0F894142a6D50B90da652b80Ca19D9884",
             "publish_source": true,
             "constructor_parameters": {
                 "ERC20Address": "0x6D7fF49d5fC4E9dD868F66Bd95B8BD24e0f9dCc9",
@@ -67,11 +67,11 @@
             },
             "admin_wallet": {
                 "address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
-                "funding": 0
+                "funding": 100000000000000000
             },
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
-                "funding": 0
+                "funding": 100000000000000000
             }
         }
     },
@@ -97,7 +97,6 @@
             "contract_address": "",
             "publish_source": false,
             "constructor_parameters": {
-                "publish_source": true,
                 "ERC20Address": "",
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
