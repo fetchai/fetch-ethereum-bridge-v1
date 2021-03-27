@@ -158,10 +158,15 @@ contract Bridge is IBridge, AccessControl {
      *
      * @param ERC20Address - address of FET ERC20 token contract
      * @param cap_ - limits contract `supply` value from top
+     * @param reverseAggregatedAllowance_ - allowance value which limits how much can refund & reverseSwap transfer
+     *                                      in aggregated form
+     * @param reverseAggregatedAllowanceApproverCap_ - limits allowance value up to which can APPROVER_ROLE set
+     *                                                 the allowance
      * @param swapMax_ - value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
      * @param swapMin_ - value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
      * @param swapFee_ - represents fee which user has to pay for swap execution,
-     * @param pausedSinceBlockPublicApi_ - block number since which the contract will be paused for all user-level actions
+     * @param pausedSinceBlockPublicApi_ - block number since which the Public API of the contract will be paused
+     * @param pausedSinceBlockRelayerApi_ - block number since which the Relayer API of the contract will be paused
      * @param deleteProtectionPeriod_ - number of blocks(from contract deployment block) during which contract can
      *                                  NOT be deleted
      */
