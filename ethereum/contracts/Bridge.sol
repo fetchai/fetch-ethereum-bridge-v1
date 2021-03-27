@@ -507,7 +507,7 @@ contract Bridge is IBridge, AccessControl {
         override
         canPause(blockNumber)
     {
-        _pausePublicApiSince(blockNumber);
+        _pauseRelayerApiSince(blockNumber);
     }
 
 
