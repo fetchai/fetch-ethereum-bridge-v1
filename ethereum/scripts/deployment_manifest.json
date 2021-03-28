@@ -13,9 +13,9 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0x2f3F186b46fb4A8f31E037f6417FA4e755c6f18A",
+            "deployer_address": "0x736C8F5d78DC0cAC65DF4Ac050166894cB48d316",
             "deployer_public_key": "",
-            "contract_address": "0xC62C781bBA127b0809B1c0cadD77C64458500964",
+            "contract_address": "0x27DA932B108f0225686F05cEb94D52ef717e3d51",
             "publish_source": false,
             "constructor_parameters": {
                 "ERC20Address": "0xc92AbB92C1351CdDE790972050816b759c73822b",
@@ -35,6 +35,14 @@
             },
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
                 "funding": 10000000000000000000
             }
         }
@@ -77,6 +85,14 @@
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
                 "funding": 100000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
+                "funding": 10000000000000000000
             }
         }
     },
@@ -120,6 +136,14 @@
             },
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
                 "funding": 10000000000000000000
             }
         }

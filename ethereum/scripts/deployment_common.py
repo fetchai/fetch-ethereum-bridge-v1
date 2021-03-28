@@ -14,7 +14,8 @@ from eth_account.account import (
     )
 from typing import (
     Dict,
-    Tuple
+    Tuple,
+    Union
     )
 from .deployment_manifest_schema import (
     NetworkManifest,
@@ -25,6 +26,11 @@ from .deployment_manifest_schema import (
 
 
 Address = str
+
+AdminRole: bytes = (0).to_bytes(32, byteorder='big')
+RelayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+MonitorRole: bytes = web3.solidityKeccak(['string'], ["MONITOR_ROLE"])
+ApproverRole: bytes = web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
 
 
 def get_owner_account(
@@ -97,23 +103,27 @@ def save_network_manifest(
 
 
 def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: BridgeParams):
-    admin = contract_manifest.admin_wallet.address if contract_manifest.admin_wallet else None
-    relayer = contract_manifest.relayer_wallet.address if contract_manifest.admin_wallet else None
+    def grantRole(role: bytes, wallet: ManifestAccount) -> Address:
+        address = wallet.address if wallet else None
+        address = address if web3.isAddress(address) else None
 
-    adminRole: bytes = 0
-    relayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+        if address:
+            contract.grantRole(role, address, {'from': owner})
 
-    if relayer and web3.isAddress(relayer):
-        contract.grantRole(relayerRole, relayer, {'from': owner})
+        return address
 
-    if admin and web3.isAddress(admin) and admin != owner.address:
-        contract.grantRole(adminRole, admin, {'from': owner})
-        contract.renounceRole(adminRole, owner, {'from': owner})
+    grantRole(RelayerRole, contract_manifest.relayer_wallet)
+    grantRole(MonitorRole, contract_manifest.monitor_wallet)
+    grantRole(ApproverRole, contract_manifest.approver_wallet)
+    admin_addr = grantRole(AdminRole, contract_manifest.admin_wallet)
+
+    if admin_addr and admin_addr != owner.address:
+        contract.renounceRole(AdminRole, owner, {'from': owner})
 
     transfer_eth_funds_to_admin_and_relayer(contract_manifest, owner)
 
 
-def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner: Account) -> int:
+def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner: Account) -> (int, int, int, int):
     def fund_wallet(wallet: ManifestAccount, wallet_name):
         necessary_amount = 0
 
@@ -127,10 +137,15 @@ def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner
 
     admin_wallet = bridge_manifest.admin_wallet
     relayer_wallet = bridge_manifest.relayer_wallet
+    approver_wallet = bridge_manifest.approver_wallet
+    monitor_wallet = bridge_manifest.monitor_wallet
+
     admin_added_funds = fund_wallet(admin_wallet, "admin_wallet")
     relayer_added_funds = fund_wallet(relayer_wallet, "relayer_wallet")
+    approver_added_funds = fund_wallet(approver_wallet, "approver_wallet")
+    monitor_added_funds = fund_wallet(monitor_wallet, "monitor_wallet")
 
-    return admin_added_funds, relayer_added_funds
+    return admin_added_funds, relayer_added_funds, approver_added_funds, monitor_added_funds
 
 
 def verify_etherscan_api_token_is_set(throw_exception: bool = True) -> bool:

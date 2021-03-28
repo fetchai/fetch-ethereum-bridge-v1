@@ -118,7 +118,33 @@
           "type": "uint256"
         }
       ],
-      "name": "Pause",
+      "name": "PausePublicApi",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sinceBlock",
+          "type": "uint256"
+        }
+      ],
+      "name": "PauseRelayerApi",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReverseAggregatedAllowanceApproverCapUpdate",
       "type": "event"
     },
     {
@@ -305,12 +331,12 @@
     },
     {
       "inputs": [],
-      "name": "getCap",
+      "name": "getApproverRole",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "bytes32",
           "name": "",
-          "type": "uint256"
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -318,12 +344,12 @@
     },
     {
       "inputs": [],
-      "name": "getDelegateRole",
+      "name": "getCap",
       "outputs": [
         {
-          "internalType": "bytes32",
+          "internalType": "uint256",
           "name": "",
-          "type": "bytes32"
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -357,6 +383,19 @@
     },
     {
       "inputs": [],
+      "name": "getMonitorRole",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getNextSwapId",
       "outputs": [
         {
@@ -370,7 +409,20 @@
     },
     {
       "inputs": [],
-      "name": "getPausedSinceBlock",
+      "name": "getPausedSinceBlockPublicApi",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPausedSinceBlockRelayerApi",
       "outputs": [
         {
           "internalType": "uint256",
@@ -429,6 +481,19 @@
     {
       "inputs": [],
       "name": "getReverseAggregatedAllowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getReverseAggregatedAllowanceApproverCap",
       "outputs": [
         {
           "internalType": "uint256",
@@ -532,7 +597,20 @@
           "type": "uint256"
         }
       ],
-      "name": "pauseSince",
+      "name": "pausePublicApiSince",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "name": "pauseRelayerApiSince",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -684,6 +762,19 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "setReverseAggregatedAllowanceApproverCap",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
         },
@@ -737,16 +828,19 @@
         12
       ],
       "IBridgeAdmin": [
-        85
+        94
       ],
       "IBridgeCommon": [
-        245
+        277
+      ],
+      "IBridgeMonitor": [
+        296
       ],
       "IBridgePublic": [
-        260
+        311
       ],
       "IBridgeRelayer": [
-        317
+        362
       ]
     },
     "id": 13,
@@ -774,7 +868,7 @@
         "id": 2,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 261,
+        "sourceUnit": 312,
         "src": "855:29:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -785,7 +879,7 @@
         "id": 3,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 318,
+        "sourceUnit": 363,
         "src": "885:30:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -796,7 +890,7 @@
         "id": 4,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 86,
+        "sourceUnit": 95,
         "src": "916:28:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -809,10 +903,10 @@
               "id": 6,
               "name": "IBridgePublic",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 260,
+              "referencedDeclaration": 311,
               "src": "2841:13:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgePublic_$260",
+                "typeIdentifier": "t_contract$_IBridgePublic_$311",
                 "typeString": "contract IBridgePublic"
               }
             },
@@ -825,10 +919,10 @@
               "id": 8,
               "name": "IBridgeRelayer",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 317,
+              "referencedDeclaration": 362,
               "src": "2856:14:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeRelayer_$317",
+                "typeIdentifier": "t_contract$_IBridgeRelayer_$362",
                 "typeString": "contract IBridgeRelayer"
               }
             },
@@ -841,10 +935,10 @@
               "id": 10,
               "name": "IBridgeAdmin",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 85,
+              "referencedDeclaration": 94,
               "src": "2872:12:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeAdmin_$85",
+                "typeIdentifier": "t_contract$_IBridgeAdmin_$94",
                 "typeString": "contract IBridgeAdmin"
               }
             },
@@ -854,10 +948,11 @@
           }
         ],
         "contractDependencies": [
-          85,
-          245,
-          260,
-          317
+          94,
+          277,
+          296,
+          311,
+          362
         ],
         "contractKind": "interface",
         "documentation": {
@@ -870,10 +965,11 @@
         "id": 12,
         "linearizedBaseContracts": [
           12,
-          85,
-          317,
-          260,
-          245
+          94,
+          296,
+          362,
+          311,
+          277
         ],
         "name": "IBridge",
         "nodeType": "ContractDefinition",
@@ -888,6 +984,7 @@
   "dependencies": [
     "IBridgeAdmin",
     "IBridgeCommon",
+    "IBridgeMonitor",
     "IBridgePublic",
     "IBridgeRelayer"
   ],

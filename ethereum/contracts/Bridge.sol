@@ -78,12 +78,12 @@ contract Bridge is IBridge, AccessControl {
 
     /* Only callable by owner */
     modifier onlyOwner() {
-        require(_isOwner(), "Caller must be owner");
+        require(_isOwner(), "Only admin role");
         _;
     }
 
     modifier onlyRelayer() {
-        require(hasRole(RELAYER_ROLE, msg.sender), "Caller must be relayer");
+        require(hasRole(RELAYER_ROLE, msg.sender), "Only relayer role");
         _;
     }
 
@@ -95,11 +95,11 @@ contract Bridge is IBridge, AccessControl {
     modifier canPause(uint256 pauseSinceBlockNumber) {
         if (pauseSinceBlockNumber > block.number) // Checking UN-pausing (the most critical operation)
         {
-            require(_isOwner(), "Must have admin role");
+            require(_isOwner(), "Only admin role");
         }
         else
         {
-            require(hasRole(MONITOR_ROLE, msg.sender) || _isOwner(), "Must have admin or monitor role");
+            require(hasRole(MONITOR_ROLE, msg.sender) || _isOwner(), "Only admin or monitor role");
         }
         _;
     }
@@ -107,11 +107,11 @@ contract Bridge is IBridge, AccessControl {
     modifier canSetReverseAggregatedAllowance(uint256 allowance) {
         if (allowance > reverseAggregatedAllowanceApproverCap) // Check for going over the approver cap (the most critical operation)
         {
-            require(_isOwner(), "Must have admin role");
+            require(_isOwner(), "Only admin role");
         }
         else
         {
-            require(hasRole(APPROVER_ROLE, msg.sender) || _isOwner(), "Must have admin or monitor role");
+            require(hasRole(APPROVER_ROLE, msg.sender) || _isOwner(), "Only admin or approver role");
         }
         _;
     }
@@ -137,7 +137,7 @@ contract Bridge is IBridge, AccessControl {
     }
 
     modifier verifyReverseSwapAmount(uint256 amount) {
-        require(amount <= swapMax, "Amount exceeds upper limit");
+        require(amount <= swapMax, "Amount exceeds swap max limit");
         _;
     }
 

@@ -89,8 +89,10 @@ class Account:
 @dataclass_json
 @dataclass
 class BridgeParams(ContractParamsBase):
-    admin_wallet: Account
-    relayer_wallet: Account
+    admin_wallet: Optional[Account]
+    relayer_wallet: Optional[Account]
+    monitor_wallet: Optional[Account]
+    approver_wallet: Optional[Account]
     constructor_parameters: BridgeConstructorParams
 
 
