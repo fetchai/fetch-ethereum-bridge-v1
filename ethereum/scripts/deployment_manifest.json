@@ -96,7 +96,34 @@
             }
         }
     },
-    "mainnet": {},
+    "mainnet": {
+        "FetERC20Mock": null,
+        "Bridge": {
+            "deployer_address": "0xC2e109Affd2FefD5B313350a4B2AdC75EC2e96B1",
+            "deployer_public_key": "0x44dcd1e5e29add8d93c4c0ca6e1ef4b02871481c6b5212cd590cd4b7b5c9350802f213314f6b674c0dd7319cc51ed85d3132be7095bdc2929901ad921fcdf1dc",
+            "contract_address": "0x947872ad4d95e89E513d7202550A810aC1B626cC",
+            "publish_source": true,
+            "constructor_parameters": {
+                "ERC20Address": "0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85",
+                "cap": 30000000000000000000000000,
+                "reverseAggregatedAllowance": 1000000000000000000000000,
+                "reverseAggregatedAllowanceApproverCap": 1000000000000000000000000,
+                "swapMax": 3000000000000000000000000,
+                "swapMin": 100000000000000000000,
+                "swapFee": 50000000000000000000,
+                "pausedSinceBlockPublicApi": "0xfffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockRelayerApi": "0xfffffffffffffffffffffffffffffffffff",
+                "deleteProtectionPeriod": 2427508
+            },
+            "admin_wallet": {
+                "address": "0x5a8de252ea228deCe61638C336fE43ac8166166a",
+                "funding": 0
+            },
+            "relayer_wallet": null,
+            "monitor_wallet": null,
+            "approver_wallet": null
+        }
+    },
     "BSC-test": {},
     "BSC": {},
     "docker": {
