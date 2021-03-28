@@ -1,9 +1,9 @@
 {
     "development": {
         "FetERC20Mock": {
-            "deployer_address": "",
+            "deployer_address": "0x2f3F186b46fb4A8f31E037f6417FA4e755c6f18A",
             "deployer_public_key": "",
-            "contract_address": "",
+            "contract_address": "0xc92AbB92C1351CdDE790972050816b759c73822b",
             "publish_source": false,
             "constructor_parameters": {
                 "name": "Fetch",
@@ -13,18 +13,20 @@
             }
         },
         "Bridge": {
-            "deployer_address": "",
+            "deployer_address": "0x736C8F5d78DC0cAC65DF4Ac050166894cB48d316",
             "deployer_public_key": "",
-            "contract_address": "",
+            "contract_address": "0x27DA932B108f0225686F05cEb94D52ef717e3d51",
             "publish_source": false,
             "constructor_parameters": {
-                "ERC20Address": "",
+                "ERC20Address": "0xc92AbB92C1351CdDE790972050816b759c73822b",
                 "cap": 1000000,
-                "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "upperSwapLimit": 1000,
-                "lowerSwapLimit": 100,
+                "reverseAggregatedAllowance": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "reverseAggregatedAllowanceApproverCap": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "swapMax": 1000,
+                "swapMin": 101,
                 "swapFee": 100,
-                "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockPublicApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockRelayerApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
             "admin_wallet": {
@@ -33,6 +35,14 @@
             },
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
                 "funding": 10000000000000000000
             }
         }
@@ -58,11 +68,14 @@
             "constructor_parameters": {
                 "ERC20Address": "0x6D7fF49d5fC4E9dD868F66Bd95B8BD24e0f9dCc9",
                 "cap": 1000000,
-                "reverseAggregatedAllowance": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "upperSwapLimit": 1000,
-                "lowerSwapLimit": 110,
+                "swapMax": 1000,
+                "swapMin": 101,
                 "swapFee": 100,
-                "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockPublicApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockRelayerApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
             "admin_wallet": {
@@ -72,6 +85,14 @@
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
                 "funding": 100000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
+                "funding": 10000000000000000000
             }
         }
     },
@@ -100,10 +121,13 @@
                 "ERC20Address": "",
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "upperSwapLimit": 1000,
-                "lowerSwapLimit": 100,
+                "swapMax": 1000,
+                "swapMin": 101,
                 "swapFee": 100,
-                "pausedSinceBlock": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockPublicApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockRelayerApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 10
             },
             "admin_wallet": {
@@ -112,6 +136,14 @@
             },
             "relayer_wallet": {
                 "address": "0x0fFd3Ca03965C1e4040B2A12A638f215CE3842ae",
+                "funding": 10000000000000000000
+            },
+            "monitor_wallet": {
+                "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
+                "funding": 10000000000000000000
+            },
+            "approver_wallet": {
+                "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
                 "funding": 10000000000000000000
             }
         }

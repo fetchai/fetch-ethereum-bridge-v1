@@ -54,10 +54,12 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> network.contrac
           constructor_params.ERC20Address
         , constructor_params.cap
         , constructor_params.reverseAggregatedAllowance
-        , constructor_params.upperSwapLimit
-        , constructor_params.lowerSwapLimit
+        , constructor_params.reverseAggregatedAllowanceApproverCap
+        , constructor_params.swapMax
+        , constructor_params.swapMin
         , constructor_params.swapFee
-        , constructor_params.pausedSinceBlock
+        , constructor_params.pausedSinceBlockPublicApi
+        , constructor_params.pausedSinceBlockRelayerApi
         , constructor_params.deleteProtectionPeriod
         , deployment_params)
         #, publish_source=bridge_manif.publish_source)

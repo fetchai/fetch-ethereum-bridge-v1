@@ -118,7 +118,33 @@
           "type": "uint256"
         }
       ],
-      "name": "Pause",
+      "name": "PausePublicApi",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sinceBlock",
+          "type": "uint256"
+        }
+      ],
+      "name": "PauseRelayerApi",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReverseAggregatedAllowanceApproverCapUpdate",
       "type": "event"
     },
     {
@@ -266,12 +292,12 @@
     },
     {
       "inputs": [],
-      "name": "getCap",
+      "name": "getApproverRole",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "bytes32",
           "name": "",
-          "type": "uint256"
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -279,12 +305,12 @@
     },
     {
       "inputs": [],
-      "name": "getDelegateRole",
+      "name": "getCap",
       "outputs": [
         {
-          "internalType": "bytes32",
+          "internalType": "uint256",
           "name": "",
-          "type": "bytes32"
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -305,6 +331,19 @@
     },
     {
       "inputs": [],
+      "name": "getMonitorRole",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getNextSwapId",
       "outputs": [
         {
@@ -318,7 +357,20 @@
     },
     {
       "inputs": [],
-      "name": "getPausedSinceBlock",
+      "name": "getPausedSinceBlockPublicApi",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPausedSinceBlockRelayerApi",
       "outputs": [
         {
           "internalType": "uint256",
@@ -377,6 +429,19 @@
     {
       "inputs": [],
       "name": "getReverseAggregatedAllowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getReverseAggregatedAllowanceApproverCap",
       "outputs": [
         {
           "internalType": "uint256",
@@ -455,19 +520,6 @@
     {
       "inputs": [],
       "name": "newRelayEon",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "blockNumber",
-          "type": "uint256"
-        }
-      ],
-      "name": "pauseSince",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -571,18 +623,18 @@
     "absolutePath": "interfaces/IBridgeRelayer.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        245
+        277
       ],
       "IBridgeRelayer": [
-        317
+        362
       ]
     },
-    "id": 318,
+    "id": 363,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 262,
+        "id": 313,
         "literals": [
           "solidity",
           "^",
@@ -594,16 +646,16 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "820:33:4"
+        "src": "820:33:5"
       },
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 263,
+        "id": 314,
         "nodeType": "ImportDirective",
-        "scope": 318,
-        "sourceUnit": 246,
-        "src": "855:29:4",
+        "scope": 363,
+        "sourceUnit": 278,
+        "src": "855:29:5",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -612,98 +664,98 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 265,
+              "id": 316,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 245,
-              "src": "2103:13:4",
+              "referencedDeclaration": 277,
+              "src": "2103:13:5",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$245",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$277",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 266,
+            "id": 317,
             "nodeType": "InheritanceSpecifier",
-            "src": "2103:13:4"
+            "src": "2103:13:5"
           }
         ],
         "contractDependencies": [
-          245
+          277
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 264,
+          "id": 315,
           "nodeType": "StructuredDocumentation",
-          "src": "887:1187:4",
+          "src": "887:1187:5",
           "text": " @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n         the Bridge contract.\n         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n         across chains.\n @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n         In the case of a refund, user will be charged a swap fee configured in this contract.\n         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n         to this contract."
         },
         "fullyImplemented": false,
-        "id": 317,
+        "id": 362,
         "linearizedBaseContracts": [
-          317,
-          245
+          362,
+          277
         ],
         "name": "IBridgeRelayer",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 267,
+              "id": 318,
               "nodeType": "StructuredDocumentation",
-              "src": "2124:328:4",
+              "src": "2124:328:5",
               "text": " @notice Starts the new relay eon.\n @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      relayer svc and the current one."
             },
             "functionSelector": "c533c4c9",
-            "id": 270,
+            "id": 321,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "newRelayEon",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 268,
+              "id": 319,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2477:2:4"
+              "src": "2477:2:5"
             },
             "returnParameters": {
-              "id": 269,
+              "id": 320,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2488:0:4"
+              "src": "2488:0:5"
             },
-            "scope": 317,
-            "src": "2457:32:4",
+            "scope": 362,
+            "src": "2457:32:5",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
             "documentation": {
-              "id": 271,
+              "id": 322,
               "nodeType": "StructuredDocumentation",
-              "src": "2496:802:4",
+              "src": "2496:802:5",
               "text": " @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n         back to the user (this is by-design).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 withdrawn\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e779e30a",
-            "id": 282,
+            "id": 333,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "refund",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 280,
+              "id": 331,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 273,
+                  "id": 324,
                   "mutability": "mutable",
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 282,
-                  "src": "3319:9:4",
+                  "scope": 333,
+                  "src": "3319:9:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -711,10 +763,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 272,
+                    "id": 323,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3319:6:4",
+                    "src": "3319:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -724,12 +776,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 275,
+                  "id": 326,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 282,
-                  "src": "3330:10:4",
+                  "scope": 333,
+                  "src": "3330:10:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -737,10 +789,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 274,
+                    "id": 325,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3330:7:4",
+                    "src": "3330:7:5",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -751,12 +803,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 277,
+                  "id": 328,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 282,
-                  "src": "3342:14:4",
+                  "scope": 333,
+                  "src": "3342:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -764,10 +816,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 276,
+                    "id": 327,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3342:7:4",
+                    "src": "3342:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -777,12 +829,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 279,
+                  "id": 330,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 282,
-                  "src": "3358:16:4",
+                  "scope": 333,
+                  "src": "3358:16:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -790,10 +842,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 278,
+                    "id": 329,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3358:6:4",
+                    "src": "3358:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -802,46 +854,46 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3318:57:4"
+              "src": "3318:57:5"
             },
             "returnParameters": {
-              "id": 281,
+              "id": 332,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3384:0:4"
+              "src": "3384:0:5"
             },
-            "scope": 317,
-            "src": "3303:82:4",
+            "scope": 362,
+            "src": "3303:82:5",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
             "documentation": {
-              "id": 283,
+              "id": 334,
               "nodeType": "StructuredDocumentation",
-              "src": "3392:1422:4",
+              "src": "3392:1422:5",
               "text": " @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n         back to the user (= swap fee is waived = user will receive full `amount`).\n         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n         period of time, etc. ...).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 waived = user will receive whole `amount` value.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "ab2235a3",
-            "id": 294,
+            "id": 345,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "refundInFull",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 292,
+              "id": 343,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 285,
+                  "id": 336,
                   "mutability": "mutable",
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 294,
-                  "src": "4841:9:4",
+                  "scope": 345,
+                  "src": "4841:9:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -849,10 +901,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 284,
+                    "id": 335,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4841:6:4",
+                    "src": "4841:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -862,12 +914,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 287,
+                  "id": 338,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 294,
-                  "src": "4852:10:4",
+                  "scope": 345,
+                  "src": "4852:10:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -875,10 +927,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 286,
+                    "id": 337,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4852:7:4",
+                    "src": "4852:7:5",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -889,12 +941,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 289,
+                  "id": 340,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 294,
-                  "src": "4864:14:4",
+                  "scope": 345,
+                  "src": "4864:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -902,10 +954,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 288,
+                    "id": 339,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4864:7:4",
+                    "src": "4864:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -915,12 +967,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 291,
+                  "id": 342,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 294,
-                  "src": "4880:16:4",
+                  "scope": 345,
+                  "src": "4880:16:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -928,10 +980,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 290,
+                    "id": 341,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4880:6:4",
+                    "src": "4880:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -940,46 +992,46 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4840:57:4"
+              "src": "4840:57:5"
             },
             "returnParameters": {
-              "id": 293,
+              "id": 344,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4906:0:4"
+              "src": "4906:0:5"
             },
-            "scope": 317,
-            "src": "4819:88:4",
+            "scope": 362,
+            "src": "4819:88:5",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
             "documentation": {
-              "id": 295,
+              "id": 346,
               "nodeType": "StructuredDocumentation",
-              "src": "4914:2009:4",
+              "src": "4914:2009:5",
               "text": " @notice Finalises swap initiated by counterpart contract on the other blockchain.\n         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n         blockchain.\n @dev Callable exclusively by `relayer` role\n @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n              to users (on the other blockchain).\n @param to - address where the refund will be transferred in to\n @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n               for purposes of quick querying of events on this blockchain.\n @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n                       create strong bond between this and other blockchain.\n @param amount - original amount specified in associated swap initiated on the other blockchain.\n                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e5c119ca",
-            "id": 310,
+            "id": 361,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "reverseSwap",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 308,
+              "id": 359,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 297,
+                  "id": 348,
                   "mutability": "mutable",
                   "name": "rid",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "6958:10:4",
+                  "scope": 361,
+                  "src": "6958:10:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -987,10 +1039,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 296,
+                    "id": 347,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6958:6:4",
+                    "src": "6958:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -1000,12 +1052,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 299,
+                  "id": 350,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "6978:10:4",
+                  "scope": 361,
+                  "src": "6978:10:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1013,10 +1065,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 298,
+                    "id": 349,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6978:7:4",
+                    "src": "6978:7:5",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1027,12 +1079,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 301,
+                  "id": 352,
                   "mutability": "mutable",
                   "name": "from",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "6998:20:4",
+                  "scope": 361,
+                  "src": "6998:20:5",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -1040,10 +1092,10 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 300,
+                    "id": 351,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6998:6:4",
+                    "src": "6998:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -1053,12 +1105,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 303,
+                  "id": 354,
                   "mutability": "mutable",
                   "name": "originTxHash",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "7028:20:4",
+                  "scope": 361,
+                  "src": "7028:20:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1066,10 +1118,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 302,
+                    "id": 353,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7028:7:4",
+                    "src": "7028:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -1079,12 +1131,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 305,
+                  "id": 356,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "7058:14:4",
+                  "scope": 361,
+                  "src": "7058:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1092,10 +1144,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 304,
+                    "id": 355,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7058:7:4",
+                    "src": "7058:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1105,12 +1157,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 307,
+                  "id": 358,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "7082:16:4",
+                  "scope": 361,
+                  "src": "7082:16:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1118,10 +1170,10 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 306,
+                    "id": 357,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7082:6:4",
+                    "src": "7082:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -1130,85 +1182,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6948:160:4"
+              "src": "6948:160:5"
             },
             "returnParameters": {
-              "id": 309,
+              "id": 360,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "7125:0:4"
+              "src": "7125:0:5"
             },
-            "scope": 317,
-            "src": "6928:198:4",
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "documentation": {
-              "id": 311,
-              "nodeType": "StructuredDocumentation",
-              "src": "7133:395:4",
-              "text": " @notice Pauses all NON-administrative interaction with the contract since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
-            },
-            "functionSelector": "48b2f13f",
-            "id": 316,
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "pauseSince",
-            "nodeType": "FunctionDefinition",
-            "parameters": {
-              "id": 314,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 313,
-                  "mutability": "mutable",
-                  "name": "blockNumber",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 316,
-                  "src": "7553:19:4",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 312,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "7553:7:4",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "7552:21:4"
-            },
-            "returnParameters": {
-              "id": 315,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "7582:0:4"
-            },
-            "scope": 317,
-            "src": "7533:50:4",
+            "scope": 362,
+            "src": "6928:198:5",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 318,
-        "src": "2075:5510:4"
+        "scope": 363,
+        "src": "2075:5053:5"
       }
     ],
-    "src": "820:6766:4"
+    "src": "820:6309:5"
   },
   "contractName": "IBridgeRelayer",
   "dependencies": [
@@ -1216,9 +1209,9 @@
   ],
   "offset": [
     2075,
-    7585
+    7128
   ],
-  "sha1": "f2926d66a0201ef87f3650da506663d176e1750e",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n *         the Bridge contract.\n *         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n *         across chains.\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n *         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n *         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n *         to this contract.\n */\ninterface IBridgeRelayer is IBridgeCommon {\n\n    /**\n      * @notice Starts the new relay eon.\n      * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      *      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      *      relayer svc and the current one.\n      */\n    function newRelayEon() external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n      *         back to the user (this is by-design).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 withdrawn\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refund(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n      *         back to the user (= swap fee is waived = user will receive full `amount`).\n      *         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n      *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n      *         period of time, etc. ...).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 waived = user will receive whole `amount` value.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refundInFull(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Finalises swap initiated by counterpart contract on the other blockchain.\n      *         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n      *         blockchain.\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n      *              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n      *              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n      *              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n      *              to users (on the other blockchain).\n      * @param to - address where the refund will be transferred in to\n      * @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n      *               for purposes of quick querying of events on this blockchain.\n      * @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n      *                       create strong bond between this and other blockchain.\n      * @param amount - original amount specified in associated swap initiated on the other blockchain.\n      *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function reverseSwap(\n        uint64 rid,\n        address to,\n        string calldata from,\n        bytes32 originTxHash,\n        uint256 amount,\n        uint64 relayEon_\n        )\n        external;\n\n\n    /**\n     * @notice Pauses all NON-administrative interaction with the contract since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pauseSince(uint256 blockNumber) external;\n}\n",
+  "sha1": "d798b7446bd4c181d8e4f5c9996283d870aedb3c",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n *         the Bridge contract.\n *         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n *         across chains.\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n *         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n *         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n *         to this contract.\n */\ninterface IBridgeRelayer is IBridgeCommon {\n\n    /**\n      * @notice Starts the new relay eon.\n      * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      *      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      *      relayer svc and the current one.\n      */\n    function newRelayEon() external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n      *         back to the user (this is by-design).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 withdrawn\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refund(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n      *         back to the user (= swap fee is waived = user will receive full `amount`).\n      *         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n      *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n      *         period of time, etc. ...).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 waived = user will receive whole `amount` value.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refundInFull(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Finalises swap initiated by counterpart contract on the other blockchain.\n      *         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n      *         blockchain.\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n      *              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n      *              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n      *              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n      *              to users (on the other blockchain).\n      * @param to - address where the refund will be transferred in to\n      * @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n      *               for purposes of quick querying of events on this blockchain.\n      * @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n      *                       create strong bond between this and other blockchain.\n      * @param amount - original amount specified in associated swap initiated on the other blockchain.\n      *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function reverseSwap(\n        uint64 rid,\n        address to,\n        string calldata from,\n        bytes32 originTxHash,\n        uint256 amount,\n        uint64 relayEon_\n        )\n        external;\n}\n",
   "type": "interface"
 }

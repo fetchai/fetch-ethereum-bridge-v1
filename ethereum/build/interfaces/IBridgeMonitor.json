@@ -521,37 +521,45 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "amount",
+          "name": "blockNumber",
           "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "destinationAddress",
-          "type": "string"
         }
       ],
-      "name": "swap",
+      "name": "pausePublicApiSince",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "name": "pauseRelayerApiSince",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     }
   ],
   "ast": {
-    "absolutePath": "interfaces/IBridgePublic.sol",
+    "absolutePath": "interfaces/IBridgeMonitor.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
         277
       ],
-      "IBridgePublic": [
-        311
+      "IBridgeMonitor": [
+        296
       ]
     },
-    "id": 312,
+    "id": 297,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 298,
+        "id": 279,
         "literals": [
           "solidity",
           "^",
@@ -563,16 +571,16 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "820:33:4"
+        "src": "821:33:3"
       },
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 299,
+        "id": 280,
         "nodeType": "ImportDirective",
-        "scope": 312,
+        "scope": 297,
         "sourceUnit": 278,
-        "src": "855:29:4",
+        "src": "856:29:3",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -581,19 +589,19 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 301,
+              "id": 282,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
               "referencedDeclaration": 277,
-              "src": "1125:13:4",
+              "src": "1200:13:3",
               "typeDescriptions": {
                 "typeIdentifier": "t_contract$_IBridgeCommon_$277",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 302,
+            "id": 283,
             "nodeType": "InheritanceSpecifier",
-            "src": "1125:13:4"
+            "src": "1200:13:3"
           }
         ],
         "contractDependencies": [
@@ -601,46 +609,46 @@
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 300,
+          "id": 281,
           "nodeType": "StructuredDocumentation",
-          "src": "887:210:4",
-          "text": " @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n @notice Methods of this public interface is allow users to interact with Bridge contract."
+          "src": "888:283:3",
+          "text": " @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n         the Bridge contract."
         },
         "fullyImplemented": false,
-        "id": 311,
+        "id": 296,
         "linearizedBaseContracts": [
-          311,
+          296,
           277
         ],
-        "name": "IBridgePublic",
+        "name": "IBridgeMonitor",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 303,
+              "id": 284,
               "nodeType": "StructuredDocumentation",
-              "src": "1146:2061:4",
-              "text": " @notice Initiates swap, which will be relayed to the other blockchain.\n         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n         in desc. for `refund(...)` call.\n @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      on the other blockchain.\n      Callable by anyone.\n @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n                             in to.\n                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n                             The **CORRECT** means, in this context, that address is valid *AND* user really\n                             intended this particular address value as destination = that address is NOT lets say\n                             copy-paste mistake made by user. Reason being that when user provided valid address\n                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n                             the swap will be relayed to the other blockchain!\n                             The **VALID** means that provided value successfully passes consistency checks of\n                             valid address of **OTHER** blockchain. In the case when user provides invalid\n                             address value, relayer will execute refund - please see desc. for `refund()` call\n                             for more details."
+              "src": "1220:353:3",
+              "text": " @notice Pauses Public API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
-            "functionSelector": "deb4a6d2",
-            "id": 310,
+            "functionSelector": "432944c0",
+            "id": 289,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "swap",
+            "name": "pausePublicApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 308,
+              "id": 287,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 305,
+                  "id": 286,
                   "mutability": "mutable",
-                  "name": "amount",
+                  "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "3226:14:4",
+                  "scope": 289,
+                  "src": "1607:19:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -648,74 +656,107 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 304,
+                    "id": 285,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3226:7:4",
+                    "src": "1607:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
                   "visibility": "internal"
-                },
+                }
+              ],
+              "src": "1606:21:3"
+            },
+            "returnParameters": {
+              "id": 288,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1636:0:3"
+            },
+            "scope": 296,
+            "src": "1578:59:3",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 290,
+              "nodeType": "StructuredDocumentation",
+              "src": "1643:354:3",
+              "text": " @notice Pauses Relayer API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
+            },
+            "functionSelector": "9f2c88bf",
+            "id": 295,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "pauseRelayerApiSince",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 293,
+              "nodeType": "ParameterList",
+              "parameters": [
                 {
                   "constant": false,
-                  "id": 307,
+                  "id": 292,
                   "mutability": "mutable",
-                  "name": "destinationAddress",
+                  "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
-                  "src": "3242:34:4",
+                  "scope": 295,
+                  "src": "2032:19:3",
                   "stateVariable": false,
-                  "storageLocation": "calldata",
+                  "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_string_calldata_ptr",
-                    "typeString": "string"
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 306,
-                    "name": "string",
+                    "id": 291,
+                    "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3242:6:4",
+                    "src": "2032:7:3",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_string_storage_ptr",
-                      "typeString": "string"
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
                     }
                   },
                   "visibility": "internal"
                 }
               ],
-              "src": "3225:52:4"
+              "src": "2031:21:3"
             },
             "returnParameters": {
-              "id": 309,
+              "id": 294,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3286:0:4"
+              "src": "2061:0:3"
             },
-            "scope": 311,
-            "src": "3212:75:4",
+            "scope": 296,
+            "src": "2002:60:3",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 312,
-        "src": "1098:2191:4"
+        "scope": 297,
+        "src": "1172:892:3"
       }
     ],
-    "src": "820:2470:4"
+    "src": "821:1244:3"
   },
-  "contractName": "IBridgePublic",
+  "contractName": "IBridgeMonitor",
   "dependencies": [
     "IBridgeCommon"
   ],
   "offset": [
-    1098,
-    3289
+    1172,
+    2064
   ],
-  "sha1": "6414e3afe4a549cd13e1cbffcbd15b38aeda6772",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n *\n * @notice Methods of this public interface is allow users to interact with Bridge contract.\n */\ninterface IBridgePublic is IBridgeCommon {\n\n    /**\n      * @notice Initiates swap, which will be relayed to the other blockchain.\n      *         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n      *         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n      *         in desc. for `refund(...)` call.\n      *\n      * @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      *      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      *      on the other blockchain.\n      *      Callable by anyone.\n      *\n      * @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n      *                             in to.\n      *                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n      *                             The **CORRECT** means, in this context, that address is valid *AND* user really\n      *                             intended this particular address value as destination = that address is NOT lets say\n      *                             copy-paste mistake made by user. Reason being that when user provided valid address\n      *                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n      *                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n      *                             the swap will be relayed to the other blockchain!\n      *                             The **VALID** means that provided value successfully passes consistency checks of\n      *                             valid address of **OTHER** blockchain. In the case when user provides invalid\n      *                             address value, relayer will execute refund - please see desc. for `refund()` call\n      *                             for more details.\n      */\n    function swap(uint256 amount, string calldata destinationAddress) external;\n}\n",
+  "sha1": "a6f11b2813e00d20b468feee41f27d93439c2c4a",
+  "source": "\n// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n *         the Bridge contract.\n *\n */\ninterface IBridgeMonitor is IBridgeCommon {\n    /**\n     * @notice Pauses Public API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pausePublicApiSince(uint256 blockNumber) external;\n\n    /**\n     * @notice Pauses Relayer API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pauseRelayerApiSince(uint256 blockNumber) external;\n}\n",
   "type": "interface"
 }

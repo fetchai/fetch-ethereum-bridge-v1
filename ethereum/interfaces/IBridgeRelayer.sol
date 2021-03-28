@@ -126,14 +126,4 @@ interface IBridgeRelayer is IBridgeCommon {
         uint64 relayEon_
         )
         external;
-
-
-    /**
-     * @notice Pauses all NON-administrative interaction with the contract since the specified block number
-     * @param blockNumber block number since which non-admin interaction will be paused (for all
-     *        block.number >= blockNumber).
-     * @dev Delegate only
-     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.
-     */
-    function pauseSince(uint256 blockNumber) external;
 }
