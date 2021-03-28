@@ -1,7 +1,6 @@
+import getpass
 import os
 import json
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from brownie import (
     Bridge,
     FetERC20Mock,
@@ -19,9 +18,13 @@ from typing import (
     )
 from .deployment_manifest_schema import (
     NetworkManifest,
+    ContractParamsBase,
     BridgeParams,
     Account as ManifestAccount,
     )
+
+
+Address = str
 
 
 def get_owner_account(
@@ -34,6 +37,8 @@ def get_owner_account(
         _priv_key_path = os.path.abspath(os.path.expanduser(os.path.expandvars(priv_key_path)))
         # IF env var to key file is provided
         priv_key_pwd = os.environ.get(priv_key_pwd_env_var, None)
+        if priv_key_pwd is None:
+            priv_key_pwd = getpass.getpass("Password for private key: ")
         with open(_priv_key_path) as f:
             encr_pk_json = json.load(f)
         pk = Account.decrypt(encr_pk_json, priv_key_pwd)
@@ -92,13 +97,13 @@ def save_network_manifest(
 
 
 def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: BridgeParams):
-    admin = contract_manifest.admin_wallet.address
-    relayer = contract_manifest.relayer_wallet.address
+    admin = contract_manifest.admin_wallet.address if contract_manifest.admin_wallet else None
+    relayer = contract_manifest.relayer_wallet.address if contract_manifest.admin_wallet else None
 
     adminRole: bytes = 0
     relayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
 
-    if relayer:
+    if relayer and web3.isAddress(relayer):
         contract.grantRole(relayerRole, relayer, {'from': owner})
 
     if admin and web3.isAddress(admin) and admin != owner.address:
@@ -116,10 +121,7 @@ def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner
             wallet_orig_eth_balance = web3.eth.getBalance(wallet.address)
             if wallet_orig_eth_balance < wallet.funding:
                 necessary_amount = wallet.funding - wallet_orig_eth_balance
-                web3.eth.sendTransaction({
-                    'from': owner.address,
-                    'to': wallet.address,
-                    'value': necessary_amount})
+                owner.transfer(wallet.address, necessary_amount)
                 print(f'Owner {{{owner.address}}} transferred {necessary_amount} [1e-18 x ETH] to {wallet.address} "{wallet_name}" wallet.')
         return necessary_amount
 
@@ -129,6 +131,56 @@ def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner
     relayer_added_funds = fund_wallet(relayer_wallet, "relayer_wallet")
 
     return admin_added_funds, relayer_added_funds
+
+
+def verify_etherscan_api_token_is_set(throw_exception: bool = True) -> bool:
+    etherscan_toke_env_var = "ETHERSCAN_TOKEN"
+
+    etherscan_token = os.environ.get(etherscan_toke_env_var, None)
+    is_set = etherscan_token is not None
+
+    if not is_set:
+        msg = ((f'The {etherscan_toke_env_var} env var is NOT set. It is required for publishing & verification '
+                f'of contract code on Etherscan.'))
+
+        if throw_exception:
+            raise RuntimeError(msg)
+        else:
+            print(msg)
+
+    return is_set
+
+
+def publish_contract_if_required(contract_container: network.contract.ContractContainer,
+                                 contract: network.contract.ProjectContract,
+                                 contract_manifest: ContractParamsBase,
+                                 throw_exception: bool = True) -> bool:
+
+    if not contract_manifest.publish_source:
+        return True
+
+    is_set = verify_etherscan_api_token_is_set(throw_exception)
+
+    if is_set:
+        try:
+            contract_container.publish_source(contract)
+            return True
+        except Exception as ex:
+            if throw_exception:
+                raise
+
+            print((f'[ERROR]: Publishing source of contract on Etherscan failed. This is NON-critical error, '
+                   f'since contract source can be verified later manually. Exception: {ex}'))
+
+            return False
+    else:
+        msg = ((f'[ERROR]: Contract source has NOT been published(as requested in manifest) due to missing'
+                f' Etherscan API Token.\nThis is NON-critical error, since publishing can be done later.'))
+        if throw_exception:
+            raise RuntimeError(msg)
+
+        print(msg)
+        return False
 
 
 def transfer_all_fet_tokens_to_bridge_admin(contract: FetERC20Mock, bridge_manifest: BridgeParams, owner: Account) -> int:

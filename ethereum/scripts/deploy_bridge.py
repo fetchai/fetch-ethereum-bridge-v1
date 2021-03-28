@@ -11,7 +11,7 @@ from .deployment_common import (
     load_network_manifest,
     save_network_manifest,
     transfer_all_fet_tokens_to_bridge_admin,
-    transfer_eth_funds_to_admin_and_relayer,
+    publish_contract_if_required,
     )
 from .deployment_manifest_schema import (
     NetworkManifest,
@@ -25,7 +25,7 @@ from typing import Dict
 
 OUTPUT_MANIFEST_ENV= "ETH_CONTRACT_DEPLOYMENT_MANIFEST_PATH_OUTPUT"
 
-def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
+def deploy(network_manifest: NetworkManifest, owner: Account) -> network.contract.ProjectContract:
     bridge_manif = network_manifest.Bridge
 
     constructor_params = bridge_manif.constructor_parameters
@@ -43,6 +43,13 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
 
         constructor_params.ERC20Address = erc20address
 
+
+    deployment_params = {'from': owner}
+    # NOTE(pb): Commenting-out the code bellow, since the same functionality shall be
+    #           achieved by setting in the `brownie-config.yaml` file.
+    # active_network = network.show_active()
+    #if active_network == "kovan":
+    #    deployment_params['gas_price'] = '1 gwei'
     contract = Contract.deploy(
           constructor_params.ERC20Address
         , constructor_params.cap
@@ -52,8 +59,8 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> Contract:
         , constructor_params.swapFee
         , constructor_params.pausedSinceBlock
         , constructor_params.deleteProtectionPeriod
-        , {'from': owner})
-        #, {'from': owner, 'gas_price': '20 gwei'})
+        , deployment_params)
+        #, publish_source=bridge_manif.publish_source)
 
     bridge_manif.contract_address = contract.address
     bridge_manif.deployer_address = owner.address
@@ -75,10 +82,16 @@ def main():
     contract = deploy(network_manif, owner)
 
     configure_bridge_contract(contract=contract, owner=owner, contract_manifest=network_manif.Bridge)
-    
+
     if OUTPUT_MANIFEST_ENV in os.environ:
         deployment_manifest_path = os.environ[OUTPUT_MANIFEST_ENV]
+
     save_network_manifest(deployment_manifest_path, manifest, network_manif)
+
+    publish_contract_if_required(contract_container=Contract,
+                                 contract=contract,
+                                 contract_manifest=network_manif.Bridge,
+                                 throw_exception=False)
 
 
 if __name__ == "__main__":
