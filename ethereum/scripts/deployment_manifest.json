@@ -96,7 +96,33 @@
             }
         }
     },
-    "mainnet": {},
+    "mainnet": {
+        "Bridge": {
+            "deployer_address": "",
+            "deployer_public_key": "",
+            "contract_address": "",
+            "publish_source": true,
+            "constructor_parameters": {
+                "ERC20Address": "0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85",
+                "cap": 30000000000000000000000000,
+                "reverseAggregatedAllowance": 1000000000000000000000000,
+                "reverseAggregatedAllowanceApproverCap": 1000000000000000000000000,
+                "swapMax": 3000000000000000000000000,
+                "swapMin": 100000000000000000000,
+                "swapFee": 50000000000000000000,
+                "pausedSinceBlockPublicApi": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+                "pausedSinceBlockRelayerApi": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+                "deleteProtectionPeriod": 2427508
+            },
+            "admin_wallet": {
+                "address": "0x5a8de252ea228deCe61638C336fE43ac8166166a",
+                "funding": 0
+            },
+            "relayer_wallet": null,
+            "monitor_wallet": null,
+            "approver_wallet": null
+        }
+    },
     "BSC-test": {},
     "BSC": {},
     "docker": {
