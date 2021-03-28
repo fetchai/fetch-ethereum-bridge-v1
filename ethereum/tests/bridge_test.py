@@ -640,26 +640,6 @@ def tokenFactory(FetERC20Mock, accounts):
         u = test.users
         t = test.token
 
-        #u.owner = accounts[0]
-        #u.relayer = accounts[1]
-        #u.approver = accounts[2]
-        #u.monitor = accounts[3]
-        #u.users = accounts[4:]
-
-        #u.canPauseUsers = [u.owner, u.monitor]
-        #u.canNOTPauseUsers = list(set(u.users) - set(u.canPauseUsers))
-
-        #u.canUnpauseUsers = [u.owner]
-        #u.canNOTUnpauseUsers = list(set(u.users) - set(u.canUnpauseUsers))
-
-        #u.canSetReverseAggregatedAllowance = [u.owner, u.approver]
-        #u.canNOTSetReverseAggregatedAllowance = list(set(u.users) - set(u.canSetReverseAggregatedAllowance))
-
-        #u.notOwners = list(set(u.users) - {u.owner}) #[u.relayer, u.approver, u.monitor, u.users[0]]
-        #u.notRelayers = list(set(u.users) - {u.relayer}) #[u.owner, u.approver, u.monitor, u.users[0]]
-        #u.notApprovers = list(set(u.users) - {u.approver}) #[u.owner, u.monitor, u.relayer, u.users[0]]
-        #u.notMonitors = list(set(u.users) - {u.monitor}) #[u.owner, u.approver, u.relayer, u.users[0]]
-
         contract = FetERC20Mock.deploy("Fetch", "FET", t.initialSupply, t.decimals_, {'from': u.owner})
 
         for user in u.users:
