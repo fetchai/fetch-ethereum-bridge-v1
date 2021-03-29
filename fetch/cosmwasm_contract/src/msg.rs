@@ -50,7 +50,11 @@ pub enum HandleMsg {
         relay_eon: u64,
     },
 
-    Pause {
+    PausePublicApi {
+        since_block: u64,
+    },
+
+    PauseRelayerApi {
         since_block: u64,
     },
 

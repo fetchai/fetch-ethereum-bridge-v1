@@ -22,9 +22,11 @@ pub struct State {
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
     pub reverse_aggregated_allowance: Uint128,
+    pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub cap: Uint128,
     pub swap_fee: Uint128,
-    pub paused_since_block: u64,
+    pub paused_since_block_public_api: u64,
+    pub paused_since_block_relayer_api: u64,
     // (2) TODO(LR)(low) check if this is possible in cosmos
     // Objective: end of the life of the contract
     pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
