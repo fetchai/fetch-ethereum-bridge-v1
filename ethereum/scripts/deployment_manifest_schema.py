@@ -89,15 +89,15 @@ class Account:
 @dataclass_json
 @dataclass
 class BridgeParams(ContractParamsBase):
-    admin_wallet: Optional[Account]
-    relayer_wallet: Optional[Account]
-    monitor_wallet: Optional[Account]
-    approver_wallet: Optional[Account]
     constructor_parameters: BridgeConstructorParams
+    admin_wallet: Optional[Account] = None
+    relayer_wallet: Optional[Account] = None
+    monitor_wallet: Optional[Account] = None
+    approver_wallet: Optional[Account] = None
 
 
 @dataclass_json
 @dataclass
 class NetworkManifest:
-    FetERC20Mock: Optional[FetERC20MockParams]
-    Bridge: Optional[BridgeParams]
+    FetERC20Mock: Optional[FetERC20MockParams] = None
+    Bridge: Optional[BridgeParams] = None

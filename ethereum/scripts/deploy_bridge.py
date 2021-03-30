@@ -82,7 +82,6 @@ def main():
     print(f'network manifest: {network_manif}')
 
     contract = deploy(network_manif, owner)
-
     configure_bridge_contract(contract=contract, owner=owner, contract_manifest=network_manif.Bridge)
 
     if OUTPUT_MANIFEST_ENV in os.environ:

@@ -108,7 +108,10 @@ def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifes
         address = address if web3.isAddress(address) else None
 
         if address:
-            contract.grantRole(role, address, {'from': owner})
+            if contract.hasRole(role, address):
+                print(f'The {address} already has the {role.hex()} role')
+            else:
+                contract.grantRole(role, address, {'from': owner})
 
         return address
 
@@ -117,7 +120,7 @@ def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifes
     grantRole(ApproverRole, contract_manifest.approver_wallet)
     admin_addr = grantRole(AdminRole, contract_manifest.admin_wallet)
 
-    if admin_addr and admin_addr != owner.address:
+    if admin_addr and admin_addr != owner.address and contract.hasRole(AdminRole, owner):
         contract.renounceRole(AdminRole, owner, {'from': owner})
 
     transfer_eth_funds_to_admin_and_relayer(contract_manifest, owner)
