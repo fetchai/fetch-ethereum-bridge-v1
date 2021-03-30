@@ -24,6 +24,7 @@ class ContractParamsBase:
     deployer_address: Optional[str]
     deployer_public_key: Optional[str]
     contract_address: Optional[str]
+    publish_source: Optional[bool]
     constructor_parameters: ContractConstructorParamsBase
 
 
@@ -47,25 +48,33 @@ class FetERC20MockParams(ContractParamsBase):
 @dataclass
 class BridgeConstructorParams(ContractConstructorParamsBase):
     ERC20Address: str
-    cap: int
+
+    cap: int = field(
+        metadata=int_int_metadata_config)
+
     reverseAggregatedAllowance: int = field(
         metadata=int_int_metadata_config)
 
-    upperSwapLimit: int = field(
+    reverseAggregatedAllowanceApproverCap: int = field(
         metadata=int_int_metadata_config)
 
-    lowerSwapLimit: int = field(
+    swapMax: int = field(
+        metadata=int_int_metadata_config)
+
+    swapMin: int = field(
         metadata=int_int_metadata_config)
 
     swapFee: int = field(
         metadata=int_int_metadata_config)
 
-    pausedSinceBlock: int = field(
+    pausedSinceBlockPublicApi: int = field(
+        metadata=int_hex_metadata_config)
+
+    pausedSinceBlockRelayerApi: int = field(
         metadata=int_hex_metadata_config)
 
     deleteProtectionPeriod: int = field(
         metadata=int_int_metadata_config)
-
 
 
 @dataclass_json
@@ -77,12 +86,13 @@ class Account:
         metadata=int_int_metadata_config)
 
 
-
 @dataclass_json
 @dataclass
 class BridgeParams(ContractParamsBase):
-    admin_wallet: Account
-    relayer_wallet: Account
+    admin_wallet: Optional[Account]
+    relayer_wallet: Optional[Account]
+    monitor_wallet: Optional[Account]
+    approver_wallet: Optional[Account]
     constructor_parameters: BridgeConstructorParams
 
 

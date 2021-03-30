@@ -3,20 +3,21 @@ use cosmwasm_std::{
     HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
 };
 
-use crate::access_control::{
-    ac_add_role, ac_get_owner, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole,
-};
+use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole};
 use crate::error::{
     ERR_ACCESS_CONTROL_DONT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
-    ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED, ERR_EON,
-    ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT,
-    ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM, ERR_INVALID_SWAP_ID, ERR_ALREADY_REFUNDED,
+    ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED,
+    ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
+    ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
 use crate::msg::{
-    HandleMsg, InitMsg, QueryMsg, RelayEonResponse, ReverseAggregatedAllowanceResponse,
-    RoleResponse, SupplyResponse, Uint128,
+    CapResponse, DenomResponse, HandleMsg, InitMsg, PausedSinceBlockResponse, QueryMsg,
+    RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
+    SwapMaxResponse, Uint128,
 };
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
+
+pub const DENOM: &str = "atestfet";
 
 /* ***************************************************
  * **************    Initialization      *************
@@ -27,6 +28,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
+    let env_message_sender = deps.api.human_address(&env.message.sender)?;
     let current_block_number = env.block.height;
 
     let mut paused_since_block_public_api = msg.paused_since_block.unwrap_or(u64::MAX);
@@ -37,14 +39,16 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     let delete_protection_period = msg.delete_protection_period.unwrap_or(0u64);
     let earliest_delete = current_block_number + delete_protection_period;
-    let contract_addr_human = env.contract.address;
+    let contract_addr_human = deps.api.human_address(&env.contract.address)?;
 
     if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
-    ac_set_owner(&mut deps.storage, &env.message.sender)?;
-    ac_add_role(&mut deps.storage, &env.message.sender, &AccessRole::Admin)?;
+    let denom = msg.denom.unwrap_or(DENOM.to_string());
+
+    ac_set_owner(&mut deps.storage, &env_message_sender)?;
+    ac_add_role(&mut deps.storage, &env_message_sender, &AccessRole::Admin)?;
 
     let state = State {
         supply: Uint128::zero(),
@@ -55,13 +59,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         upper_swap_limit: msg.upper_swap_limit,
         lower_swap_limit: msg.lower_swap_limit,
         reverse_aggregated_allowance: msg.reverse_aggregated_allowance,
-        reverse_aggregated_allowance_approver_cap: msg.reverse_aggregated_allowance,
+        reverse_aggregated_allowance_approver_cap: msg.reverse_aggregated_allowance_approver_cap,
         cap: msg.cap,
         swap_fee: msg.swap_fee,
         paused_since_block_public_api,
         paused_since_block_relayer_api,
         earliest_delete,
-        denom: env.message.sent_funds[0].denom.clone(), // TMP(LR)
+        denom: denom,
         contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
@@ -132,7 +136,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => try_withdraw_fees(deps, &env, &state, amount, destination),
         HandleMsg::SetCap { amount } => try_set_cap(deps, &env, amount),
         HandleMsg::SetReverseAggregatedAllowance { amount } => {
-            try_set_reverse_aggregated_allowance(deps, &env, amount)
+            try_set_reverse_aggregated_allowance(deps, &env, &state, amount)
+        }
+        HandleMsg::SetReverseAggregatedAllowanceApproverCap { amount } => {
+            try_set_reverse_aggregated_allowance_approver_cap(deps, &env, amount)
         }
         HandleMsg::SetLimits {
             swap_min,
@@ -194,7 +201,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage)?;
+    only_relayer(env, &deps.storage, &deps.api)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_aggregated_reverse_allowance(amount, state)?;
@@ -290,7 +297,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     relay_eon: u64,
     fee: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage)?;
+    only_relayer(env, &deps.storage, &deps.api)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
@@ -395,7 +402,7 @@ fn try_pause_public_api<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     since_block: u64,
 ) -> StdResult<HandleResponse> {
-    can_pause(env, &deps.storage, since_block)?;
+    can_pause(env, &deps.storage, &deps.api, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
@@ -425,7 +432,7 @@ fn try_pause_relayer_api<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     since_block: u64,
 ) -> StdResult<HandleResponse> {
-    can_pause(env, &deps.storage, since_block)?;
+    can_pause(env, &deps.storage, &deps.api, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
@@ -455,7 +462,7 @@ fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     state: &State,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage)?;
+    only_relayer(env, &deps.storage, &deps.api)?;
     verify_not_paused_relayer_api(env, state)?;
 
     let new_eon = state.relay_eon + 1;
@@ -479,7 +486,9 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     state: &State,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage)?;
+    only_admin(env, &deps.storage, &deps.api)?;
+
+    let env_message_sender = deps.api.human_address(&env.message.sender)?;
 
     let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
     config(&mut deps.storage).update(|mut state| {
@@ -490,7 +499,7 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
     let log = vec![
         log("action", "deposit"),
         log("amount", amount),
-        log("sender", env.message.sender.as_str()),
+        log("sender", env_message_sender.as_str()),
     ];
 
     let r = HandleResponse {
@@ -508,7 +517,7 @@ fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage)?;
+    only_admin(env, &deps.storage, &deps.api)?;
 
     if amount > state.supply {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
@@ -543,7 +552,7 @@ fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage)?;
+    only_admin(env, &deps.storage, &deps.api)?;
 
     if amount > state.fees_accrued {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
@@ -577,7 +586,7 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage)?;
+    only_admin(env, &deps.storage, &deps.api)?;
 
     config(&mut deps.storage).update(|mut state| {
         state.cap = amount;
@@ -597,9 +606,16 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
 fn try_set_reverse_aggregated_allowance<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    state: &State,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_approver(env, &deps.storage).or(only_admin(env, &deps.storage))?;
+    only_admin(env, &deps.storage, &deps.api).or(
+        if amount <= state.reverse_aggregated_allowance_approver_cap {
+            only_approver(env, &deps.storage, &deps.api)
+        } else {
+            Err(StdError::generic_err(ERR_ACCESS_CONTROL_ONLY_ADMIN))
+        },
+    )?;
 
     config(&mut deps.storage).update(|mut state| {
         state.reverse_aggregated_allowance = amount;
@@ -608,7 +624,32 @@ fn try_set_reverse_aggregated_allowance<S: Storage, A: Api, Q: Querier>(
 
     let log = vec![
         log("action", "set_reverse_aggregated_allowance"),
-        log("limit", amount),
+        log("amount", amount),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
+}
+
+fn try_set_reverse_aggregated_allowance_approver_cap<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    amount: Uint128,
+) -> StdResult<HandleResponse> {
+    only_admin(env, &deps.storage, &deps.api)?;
+
+    config(&mut deps.storage).update(|mut state| {
+        state.reverse_aggregated_allowance_approver_cap = amount;
+        Ok(state)
+    })?;
+
+    let log = vec![
+        log("action", "set_reverse_aggregated_allowance_approver_cap"),
+        log("amount", amount),
     ];
 
     let r = HandleResponse {
@@ -626,10 +667,10 @@ fn try_set_limits<S: Storage, A: Api, Q: Querier>(
     swap_max: Uint128,
     swap_fee: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage)?;
+    only_admin(env, &deps.storage, &deps.api)?;
 
     if swap_min <= swap_fee || swap_min > swap_max {
-        return Err(StdError::generic_err("fee<lower<=upper violated"));
+        return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
     config(&mut deps.storage).update(|mut state| {
         state.swap_fee = swap_fee;
@@ -659,7 +700,7 @@ fn try_grant_role<S: Storage, A: Api, Q: Querier>(
     role: String,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(&env, &deps.storage)?;
+    only_admin(&env, &deps.storage, &deps.api)?;
 
     ac_add_role(
         &mut deps.storage,
@@ -687,7 +728,7 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
     role: String,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(&env, &deps.storage)?;
+    only_admin(&env, &deps.storage, &deps.api)?;
 
     ac_revoke_role(
         &mut deps.storage,
@@ -714,17 +755,19 @@ fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     role: String,
 ) -> StdResult<HandleResponse> {
+    let env_message_sender = deps.api.human_address(&env.message.sender)?;
+
     let ac_role = &AccessRole::from_str(role.as_str())?;
-    let have_role = ac_have_role(&deps.storage, &env.message.sender, ac_role).unwrap_or(false);
+    let have_role = ac_have_role(&deps.storage, &env_message_sender, ac_role).unwrap_or(false);
     if !have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DONT_HAVE_ROLE));
     }
-    ac_revoke_role(&mut deps.storage, &env.message.sender, ac_role)?;
+    ac_revoke_role(&mut deps.storage, &env_message_sender, ac_role)?;
 
     let log = vec![
         log("action", "renounce_role"),
         log("role", role.as_str()),
-        log("account", &env.message.sender.as_str()),
+        log("account", &env_message_sender.as_str()),
     ];
 
     let r = HandleResponse {
@@ -836,24 +879,31 @@ fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
  * ************    Access Control      ***************
  * ***************************************************/
 
-fn only_admin<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Admin, env, storage)
+fn only_admin<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Admin, env, storage, api)
 }
 
-fn only_relayer<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Relayer, env, storage)
+fn only_relayer<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Relayer, env, storage, api)
 }
 
-fn only_approver<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Approver, env, storage)
+fn only_approver<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Approver, env, storage, api)
 }
 
-fn only_monitor<S: Storage>(env: &Env, storage: &S) -> HandleResult {
-    _only_role(&AccessRole::Monitor, env, storage)
+fn only_monitor<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Monitor, env, storage, api)
 }
 
-fn _only_role<S: Storage>(role: &AccessRole, env: &Env, storage: &S) -> HandleResult {
-    match ac_have_role(storage, &env.message.sender, role) {
+fn _only_role<S: Storage, A: Api>(
+    role: &AccessRole,
+    env: &Env,
+    storage: &S,
+    api: &A,
+) -> HandleResult {
+    let env_message_sender = api.human_address(&env.message.sender)?;
+
+    match ac_have_role(storage, &env_message_sender, role) {
         Ok(has_role) => match has_role {
             true => Ok(HandleResponse::default()),
             false => Err(StdError::generic_err(match role {
@@ -866,13 +916,18 @@ fn _only_role<S: Storage>(role: &AccessRole, env: &Env, storage: &S) -> HandleRe
     }
 }
 
-fn can_pause<S: Storage>(env: &Env, storage: &S, since_block: u64) -> HandleResult {
+fn can_pause<S: Storage, A: Api>(
+    env: &Env,
+    storage: &S,
+    api: &A,
+    since_block: u64,
+) -> HandleResult {
     if since_block <= env.block.height {
         // pausing
-        only_monitor(env, storage).or(only_admin(env, storage))
+        only_monitor(env, storage, api).or(only_admin(env, storage, api))
     } else {
         // unpausing
-        only_admin(env, storage)
+        only_admin(env, storage, api)
     }
 }
 
@@ -893,9 +948,23 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Supply {} => to_binary(&SupplyResponse {
             amount: state.supply,
         }),
+        QueryMsg::Cap {} => to_binary(&CapResponse { amount: state.cap }),
+        QueryMsg::SwapMax {} => to_binary(&SwapMaxResponse {
+            amount: state.upper_swap_limit,
+        }),
         QueryMsg::ReverseAggregatedAllowance {} => to_binary(&ReverseAggregatedAllowanceResponse {
             amount: state.reverse_aggregated_allowance,
         }),
+        QueryMsg::PausedPublicApiSince {} => to_binary(&PausedSinceBlockResponse {
+            block: state.paused_since_block_public_api,
+        }),
+        QueryMsg::PausedRelayerApiSince {} => to_binary(&PausedSinceBlockResponse {
+            block: state.paused_since_block_relayer_api,
+        }),
+        QueryMsg::Denom {} => to_binary(&DenomResponse {
+            denom: state.denom.clone(),
+        }),
+        QueryMsg::FullState {} => to_binary(&state.clone()),
     }
 }
 

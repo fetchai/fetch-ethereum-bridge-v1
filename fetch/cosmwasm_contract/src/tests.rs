@@ -1,7 +1,7 @@
 use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    coins, from_binary, BankMsg, CosmosMsg, Env, Extern, HandleResponse, HumanAddr, InitResponse,
-    StdError, StdResult,
+    coins, Api, BankMsg, CosmosMsg, Env, Extern, HandleResponse, HumanAddr, InitResponse, StdError,
+    StdResult,
 };
 
 use crate::access_control::{
@@ -25,6 +25,7 @@ pub const DEFAULT_OWNER: &str = "Owner";
 pub const DEFAULT_DENUM: &str = "atestfet";
 pub const DEFAULT_CAP: u128 = 100000u128;
 pub const DEFAULT_RA_ALLOWANCE: u128 = 10000u128;
+pub const DEFAULT_RA_ALLOWANCE_APPROVER_CAP: u128 = 5000u128;
 //pub const DEFAULT_DEPOSIT: u128 = 10000u128;
 pub const DEFAULT_SWAP_UPPER_LIMIT: u128 = 1000u128;
 pub const DEFAULT_SWAP_LOWER_LIMIT: u128 = 110u128;
@@ -47,6 +48,12 @@ macro_rules! addr {
     };
 }
 
+macro_rules! str_from_binary {
+    ($val:expr) => {
+        std::str::from_utf8($val.as_slice()).unwrap()
+    };
+}
+
 macro_rules! expect_error {
     ($val1:expr, $val2:expr) => {
         match $val1 {
@@ -66,7 +73,7 @@ mod init {
         caller: &str,
         amount: u128,
     ) -> StdResult<InitResponse> {
-        let env = mock_env(caller, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(amount, DEFAULT_DENUM));
         return init(&mut deps, env, msg);
     }
 
@@ -76,11 +83,13 @@ mod init {
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
+            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
             upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
             lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             delete_protection_period: None,
+            denom: None,
         };
         return mock_init(&mut deps, msg, DEFAULT_OWNER, 0);
     }
@@ -95,7 +104,7 @@ mod init {
         assert_eq!(0, response.log.len());
 
         // check state
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         let expected_state = State {
             supply: cu128!(0u128),
             fees_accrued: Uint128::from(0u128),
@@ -106,13 +115,17 @@ mod init {
             lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             cap: cu128!(DEFAULT_CAP),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
-            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE),
+            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block_public_api: u64::MAX,
             paused_since_block_relayer_api: u64::MAX,
             earliest_delete: env.block.height,
             denom: DEFAULT_DENUM.to_string(),
-            contract_addr_human: env.contract.address.clone(),
+            contract_addr_human: deps
+                .api
+                .human_address(&env.contract.address)
+                .unwrap()
+                .clone(),
         };
 
         let state = config_read(&deps.storage)
@@ -140,11 +153,13 @@ mod init {
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
+            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
             upper_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             lower_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             delete_protection_period: None,
+            denom: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
@@ -157,11 +172,13 @@ mod init {
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
+            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
             upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
             lower_swap_limit: cu128!(DEFAULT_SWAP_FEE),
             swap_fee: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             paused_since_block: None,
             delete_protection_period: None,
+            denom: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         match response {
@@ -186,7 +203,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -230,7 +247,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -272,7 +289,7 @@ mod access_control {
         let msg = HandleMsg::RenounceRole {
             role: String::from(role),
         };
-        let env = mock_env(account, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, account, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -306,6 +323,18 @@ mod access_control {
         .unwrap());
     }
 
+    fn test_grant_role(role: &str) {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        // call
+        let account = "new_account";
+        let response = grant_role(&mut deps, role, account, DEFAULT_OWNER).unwrap();
+
+        // check handle response, query, and state
+        check_grant_role_success(&mut deps, &response, role, account);
+    }
+
     #[test]
     fn success_owner_default_admin() {
         let mut deps = mock_dependencies(20, &[]);
@@ -325,54 +354,22 @@ mod access_control {
 
     #[test]
     fn success_grant_role_admin() {
-        let mut deps = mock_dependencies(20, &[]);
-        init_default(&mut deps).unwrap();
-
-        // call
-        let new_admin = "NEW_ADMIN";
-        let response = grant_role(&mut deps, ADMIN_ROLE, new_admin, DEFAULT_OWNER).unwrap();
-
-        // check handle response, query, and state
-        check_grant_role_success(&mut deps, &response, ADMIN_ROLE, new_admin);
+        test_grant_role(ADMIN_ROLE)
     }
 
     #[test]
     fn success_grant_role_approver() {
-        let mut deps = mock_dependencies(20, &[]);
-        init_default(&mut deps).unwrap();
-
-        // call
-        let new_approver = "NEW_APPROVER";
-        let response = grant_role(&mut deps, APPROVER_ROLE, new_approver, DEFAULT_OWNER).unwrap();
-
-        // check handle response, query, and state
-        check_grant_role_success(&mut deps, &response, APPROVER_ROLE, new_approver);
+        test_grant_role(APPROVER_ROLE)
     }
 
     #[test]
     fn success_grant_role_relayer() {
-        let mut deps = mock_dependencies(20, &[]);
-        init_default(&mut deps).unwrap();
-
-        // call
-        let new_relayer = "NEW_RELAYER";
-        let response = grant_role(&mut deps, RELAYER_ROLE, new_relayer, DEFAULT_OWNER).unwrap();
-
-        // check handle response, query, and state
-        check_grant_role_success(&mut deps, &response, RELAYER_ROLE, new_relayer);
+        test_grant_role(RELAYER_ROLE)
     }
 
     #[test]
     fn success_grant_role_monitor() {
-        let mut deps = mock_dependencies(20, &[]);
-        init_default(&mut deps).unwrap();
-
-        // call
-        let new_monitor = "NEW_MONITOR";
-        let response = grant_role(&mut deps, MONITOR_ROLE, new_monitor, DEFAULT_OWNER).unwrap();
-
-        // check handle response, query, and state
-        check_grant_role_success(&mut deps, &response, MONITOR_ROLE, new_monitor);
+        test_grant_role(MONITOR_ROLE)
     }
 
     #[test]
@@ -496,7 +493,7 @@ mod access_control {
 
         let caller = DEFAULT_OWNER;
         let account = "new_monitor";
-        let response = revoke_role(&mut deps, RELAYER_ROLE, account, caller);
+        let response = revoke_role(&mut deps, MONITOR_ROLE, account, caller);
         expect_error!(response, ERR_ACCESS_CONTROL_DONT_HAVE_ROLE);
     }
 
@@ -564,7 +561,7 @@ mod pause {
     }
 
     fn assert_pause_both(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>, caller: &str) {
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
 
         assert!(
             verify_not_paused_public_api(&env, &config_read(&deps.storage).load().unwrap()).is_ok()
@@ -609,6 +606,42 @@ mod pause {
         );
     }
 
+    fn assert_query_paused(
+        deps: &Extern<MockStorage, MockApi, MockQuerier>,
+        public_api_paused: bool,
+        relayer_api_paused: bool,
+    ) {
+        let env = mock_env(&deps.api, "user", &coins(0, DEFAULT_DENUM));
+
+        let query_msg = QueryMsg::PausedPublicApiSince {};
+        let response = query(&deps, query_msg).unwrap();
+        if public_api_paused {
+            assert_eq!(
+                format!("{{\"block\":{}}}", env.block.height.to_string()),
+                str_from_binary!(response),
+            );
+        } else {
+            assert_eq!(
+                format!("{{\"block\":{}}}", u64::MAX.to_string()).as_bytes(),
+                response.as_slice()
+            );
+        }
+
+        let query_msg = QueryMsg::PausedRelayerApiSince {};
+        let response = query(&deps, query_msg).unwrap();
+        if relayer_api_paused {
+            assert_eq!(
+                format!("{{\"block\":{}}}", env.block.height.to_string()).as_bytes(),
+                response.as_slice()
+            );
+        } else {
+            assert_eq!(
+                format!("{{\"block\":{}}}", u64::MAX.to_string()).as_bytes(),
+                response.as_slice()
+            );
+        }
+    }
+
     #[test]
     fn success_pause_apis_by_admin() {
         let mut deps = mock_dependencies(20, &[]);
@@ -616,6 +649,7 @@ mod pause {
 
         let caller = DEFAULT_OWNER;
         assert_pause_both(&mut deps, caller);
+        assert_query_paused(&deps, true, true);
     }
 
     #[test]
@@ -627,15 +661,16 @@ mod pause {
         grant_role(&mut deps, MONITOR_ROLE, monitor, DEFAULT_OWNER).unwrap();
 
         assert_pause_both(&mut deps, monitor);
+        assert_query_paused(&deps, true, true);
     }
 
     #[test]
-    fn succes_unpause_apis_by_admin() {
+    fn success_unpause_apis_by_admin() {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env.clone()).unwrap();
         pause_relayer_api(&mut deps, env.clone()).unwrap();
 
@@ -655,6 +690,7 @@ mod pause {
             verify_not_paused_relayer_api(&env, &config_read(&deps.storage).load().unwrap())
                 .is_err()
         );
+        assert_query_paused(&deps, false, true);
 
         response = unpause_relayer_api(&mut deps, env.clone()).unwrap();
         // handle response
@@ -672,6 +708,7 @@ mod pause {
             verify_not_paused_relayer_api(&env, &config_read(&deps.storage).load().unwrap())
                 .is_ok()
         );
+        assert_query_paused(&deps, false, false);
     }
 
     #[test]
@@ -679,8 +716,8 @@ mod pause {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
-        let caller = "not_admin_nor_monitor";
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let caller = "user";
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
 
         let mut response = pause_public_api(&mut deps, env.clone());
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
@@ -697,7 +734,7 @@ mod pause {
         let monitor = "new_monitor";
         grant_role(&mut deps, MONITOR_ROLE, monitor, DEFAULT_OWNER).unwrap();
 
-        let env = mock_env(monitor, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, monitor, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env.clone()).unwrap();
         pause_relayer_api(&mut deps, env.clone()).unwrap();
 
@@ -727,7 +764,7 @@ mod deposit {
         caller: &str,
     ) -> StdResult<HandleResponse> {
         let msg = HandleMsg::Deposit {};
-        let env = mock_env(caller, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(amount, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -772,7 +809,7 @@ mod deposit {
         let amount = 1000u128;
         let msg = HandleMsg::Deposit {};
         let denom = "WRONG";
-        let env = mock_env(DEFAULT_OWNER, &coins(amount, denom));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(amount, denom));
         let response = handle(&mut deps, env, msg);
         expect_error!(response, ERR_UNRECOGNIZED_DENOM);
     }
@@ -789,7 +826,7 @@ mod new_relay_eon {
         caller: &str,
     ) -> StdResult<HandleResponse> {
         let msg = HandleMsg::NewRelayEon {};
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -811,6 +848,11 @@ mod new_relay_eon {
         // check contract state
         let state = config_read(&deps.storage).load().unwrap();
         assert_eq!(1u64, state.relay_eon);
+
+        // query
+        let query_msg = QueryMsg::RelayEon {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(format!("{{\"eon\":{}}}", 1u64), str_from_binary!(response));
     }
 
     #[test]
@@ -833,7 +875,7 @@ mod new_relay_eon {
 
         let relayer = "new_relayer";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let response = new_relay_eon(&mut deps, relayer);
@@ -859,7 +901,7 @@ mod swap {
             destination: destination.to_string(),
         };
 
-        let env = mock_env(from, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, from, &coins(amount, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -885,6 +927,14 @@ mod swap {
         let state = config_read(&deps.storage).load().unwrap();
         assert_eq!(1u64, state.next_swap_id);
         assert_eq!(cu128!(amount), state.supply);
+
+        // query
+        let query_msg = QueryMsg::Supply {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", amount),
+            str_from_binary!(response)
+        );
     }
 
     #[test]
@@ -900,12 +950,12 @@ mod swap {
         };
 
         amount = DEFAULT_SWAP_LOWER_LIMIT - 10u128;
-        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
         amount = DEFAULT_SWAP_UPPER_LIMIT + 10u128;
-        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
@@ -928,11 +978,11 @@ mod swap {
         };
 
         for _ in 0..(DEFAULT_CAP / DEFAULT_SWAP_UPPER_LIMIT) {
-            let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
+            let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
             handle(&mut deps, env, msg.clone()).unwrap();
         }
 
-        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_CAP_EXCEEDED);
 
@@ -946,7 +996,7 @@ mod swap {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
-        let mut env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env).unwrap();
 
         let fet_account = "user_account";
@@ -956,7 +1006,7 @@ mod swap {
             destination: eth_account.to_string(),
         };
 
-        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_CONTRACT_PAUSED);
 
@@ -994,7 +1044,7 @@ mod reverse_swap {
             relay_eon: eon,
         };
 
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env.clone(), msg)
     }
 
@@ -1046,8 +1096,11 @@ mod reverse_swap {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(relayer, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(&env.contract.address, from_address);
+                    let env = mock_env(&deps.api, relayer, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(
+                        &env.contract.address,
+                        &deps.api.canonical_address(from_address).unwrap()
+                    );
                     assert_eq!(&addr!(fet_account), to_address);
                     assert_eq!(
                         cu128!(amount - DEFAULT_SWAP_FEE),
@@ -1140,7 +1193,7 @@ mod reverse_swap {
         let deposited = 1000u128;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let response = reverse_swap(
@@ -1243,7 +1296,7 @@ mod refund {
             relay_eon: eon,
         };
 
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1262,7 +1315,7 @@ mod refund {
             relay_eon: eon,
         };
 
-        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1286,7 +1339,7 @@ mod refund {
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        let mut response: HandleResponse;
+        let response: HandleResponse;
         if fee > 0 {
             response = refund(&mut deps, relayer, id, fet_account, amount, eon).unwrap();
         } else {
@@ -1303,8 +1356,11 @@ mod refund {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(relayer, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(&env.contract.address, from_address);
+                    let env = mock_env(&deps.api, relayer, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(
+                        &env.contract.address,
+                        &deps.api.canonical_address(from_address).unwrap()
+                    );
                     assert_eq!(&addr!(fet_account), to_address);
                     assert_eq!(
                         cu128!(amount - fee),
@@ -1414,7 +1470,7 @@ mod refund {
             DEFAULT_SWAP_LOWER_LIMIT,
         )
         .unwrap();
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
@@ -1526,6 +1582,20 @@ mod withdraw {
     use init::init_default;
     use swap::swap;
 
+    fn withdraw(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        amount: u128,
+        recipient: &str,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::Withdraw {
+            amount: cu128!(amount),
+            destination: addr!(recipient),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
+
     #[test]
     fn success_withdraw() {
         let mut deps = mock_dependencies(20, &[]);
@@ -1536,12 +1606,7 @@ mod withdraw {
         swap(&mut deps, "user", "some_eth_addr", amount).unwrap();
 
         let recipient = "lucky_user";
-        let msg = HandleMsg::Withdraw {
-            amount: cu128!(2 * amount),
-            destination: addr!(recipient),
-        };
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-        let response = handle(&mut deps, env, msg).unwrap();
+        let response = withdraw(&mut deps, DEFAULT_OWNER, 2 * amount, recipient).unwrap();
 
         // check handle response
         assert_eq!(1, response.messages.len());
@@ -1553,8 +1618,11 @@ mod withdraw {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(&env.contract.address, from_address);
+                    let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(
+                        &env.contract.address,
+                        &deps.api.canonical_address(from_address).unwrap()
+                    );
                     assert_eq!(&addr!(recipient), to_address);
                     assert_eq!(
                         cu128!(2 * amount),
@@ -1578,10 +1646,32 @@ mod withdraw {
     }
 
     #[test]
-    fn failure_withdraw_not_admin() {}
+    fn failure_withdraw_not_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = 1000u128;
+        deposit(&mut deps, amount, DEFAULT_OWNER).unwrap();
+
+        let recipient = "lucky_user";
+        let response = withdraw(&mut deps, recipient, amount, recipient);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(amount), state.supply);
+    }
 
     #[test]
-    fn failure_withdraw_not_enough_supply() {}
+    fn failure_withdraw_not_enough_supply() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = 1000u128;
+
+        let recipient = "lucky_user";
+        let response = withdraw(&mut deps, DEFAULT_OWNER, amount, recipient);
+        expect_error!(response, ERR_SUPPLY_EXCEEDED);
+    }
 }
 
 mod withdraw_fees {
@@ -1591,12 +1681,23 @@ mod withdraw_fees {
     use init::init_default;
     use reverse_swap::reverse_swap;
 
-    #[test]
-    fn success_withdraw_fees() {
-        let mut deps = mock_dependencies(20, &[]);
-        init_default(&mut deps).unwrap();
+    fn withdraw_fees(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        amount: u128,
+        recipient: &str,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::WithdrawFees {
+            amount: cu128!(amount),
+            destination: addr!(recipient),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
 
-        let amount = 1000u128;
+    fn _do_one_reverse_swap(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+    ) -> StdResult<HandleResponse> {
         let relayer = "relayer";
         deposit(&mut deps, DEFAULT_SWAP_LOWER_LIMIT, DEFAULT_OWNER).unwrap();
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
@@ -1610,15 +1711,17 @@ mod withdraw_fees {
             DEFAULT_SWAP_LOWER_LIMIT,
             0u64,
         )
-        .unwrap();
+    }
+    #[test]
+    fn success_withdraw_fees() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        _do_one_reverse_swap(&mut deps).unwrap();
 
         let recipient = "lucky_user";
-        let msg = HandleMsg::WithdrawFees {
-            amount: cu128!(DEFAULT_SWAP_FEE),
-            destination: addr!(recipient),
-        };
-        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-        let response = handle(&mut deps, env, msg).unwrap();
+        let response =
+            withdraw_fees(&mut deps, DEFAULT_OWNER, DEFAULT_SWAP_FEE, recipient).unwrap();
 
         // check handle response
         assert_eq!(1, response.messages.len());
@@ -1630,8 +1733,11 @@ mod withdraw_fees {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(&env.contract.address, from_address);
+                    let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(
+                        &env.contract.address,
+                        &deps.api.canonical_address(from_address).unwrap()
+                    );
                     assert_eq!(&addr!(recipient), to_address);
                     assert_eq!(
                         cu128!(DEFAULT_SWAP_FEE),
@@ -1643,7 +1749,8 @@ mod withdraw_fees {
         }
         assert!(response.log[0].key == "action" && response.log[0].value == "withdraw_fees");
         assert!(
-            response.log[1].key == "amount" && response.log[1].value == (DEFAULT_SWAP_FEE).to_string()
+            response.log[1].key == "amount"
+                && response.log[1].value == (DEFAULT_SWAP_FEE).to_string()
         );
         assert!(
             response.log[2].key == "destination" && response.log[2].value == recipient.to_string()
@@ -1655,44 +1762,337 @@ mod withdraw_fees {
     }
 
     #[test]
-    fn failure_withdraw_fees_not_admin() {}
+    fn failure_withdraw_fees_not_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        _do_one_reverse_swap(&mut deps).unwrap();
+
+        let recipient = "lucky_user";
+        let response = withdraw_fees(&mut deps, recipient, DEFAULT_SWAP_FEE, recipient);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
+    }
 
     #[test]
-    fn failure_withdraw_fees_not_enough_supply() {}
+    fn failure_withdraw_fees_not_enough_supply() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        _do_one_reverse_swap(&mut deps).unwrap();
+
+        let recipient = "lucky_user";
+        let response = withdraw_fees(
+            &mut deps,
+            DEFAULT_OWNER,
+            DEFAULT_SWAP_FEE + 1u128,
+            recipient,
+        );
+        expect_error!(response, ERR_SUPPLY_EXCEEDED);
+    }
 }
 
 mod set_cap {
     use super::*;
+    use init::init_default;
+
+    fn set_cap(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        amount: u128,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::SetCap {
+            amount: cu128!(amount),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
 
     #[test]
-    fn success_set_cap() {}
+    fn success_set_cap() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_CAP + 1000u128;
+        let response = set_cap(&mut deps, DEFAULT_OWNER, amount).unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.log.len());
+        assert!(response.log[0].key == "action" && response.log[0].value == "set_cap");
+        assert!(response.log[1].key == "cap" && response.log[1].value == (amount).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(amount), state.cap);
+
+        // query
+        let query_msg = QueryMsg::Cap {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", amount),
+            str_from_binary!(response)
+        );
+    }
 
     #[test]
-    fn failure_set_cap_not_admin() {}
-}
+    fn failure_set_cap_not_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
 
-mod set_reverse_aggregated_allowance {
-    use super::*;
+        let amount = DEFAULT_CAP + 1000u128;
+        let response = set_cap(&mut deps, "not_admin", amount);
 
-    #[test]
-    fn success_set_reverse_aggregated_allowance_by_admin() {}
-
-    #[test]
-    fn success_set_reverse_aggregated_allowance_by_approver() {}
-
-    #[test]
-    fn failure_set_reverse_aggregated_allowance_not_admin_nor_approver() {}
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_CAP), state.cap);
+    }
 }
 
 mod set_limits {
     use super::*;
+    use init::init_default;
+
+    fn set_limits(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        fee: u128,
+        min: u128,
+        max: u128,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::SetLimits {
+            swap_min: cu128!(min),
+            swap_max: cu128!(max),
+            swap_fee: cu128!(fee),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
 
     #[test]
-    fn success_set_limit() {}
+    fn success_set_limits() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let fee = 10u128;
+        let min = 20u128;
+        let max = 30u128;
+        let response = set_limits(&mut deps, DEFAULT_OWNER, fee, min, max).unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(4, response.log.len());
+        assert!(response.log[0].key == "action" && response.log[0].value == "set_limits");
+        assert!(response.log[1].key == "swap_fee" && response.log[1].value == (fee).to_string());
+        assert!(response.log[2].key == "swap_min" && response.log[2].value == (min).to_string());
+        assert!(response.log[3].key == "swap_max" && response.log[3].value == (max).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(fee), state.swap_fee);
+        assert_eq!(cu128!(min), state.lower_swap_limit);
+        assert_eq!(cu128!(max), state.upper_swap_limit);
+
+        // query
+        let query_msg = QueryMsg::SwapMax {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", max),
+            str_from_binary!(response)
+        );
+    }
 
     #[test]
-    fn failure_set_limits_not_admin() {}
+    fn failure_set_limits_not_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let fee = 10u128;
+        let min = 20u128;
+        let max = 30u128;
+        let response = set_limits(&mut deps, "not_admin", fee, min, max);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
+    }
 
     #[test]
-    fn failure_set_limits_unconsistent_limits() {}
+    fn failure_set_limits_unconsistent_limits() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let fee = 20u128;
+        let min = 20u128;
+        let max = 10u128;
+        let response = set_limits(&mut deps, DEFAULT_OWNER, fee, min, max);
+
+        expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
+    }
+}
+
+mod set_reverse_aggregated_allowance {
+    use super::*;
+    use access_control::grant_role;
+    use init::init_default;
+
+    fn set_reverse_aggregated_allowance(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        amount: u128,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::SetReverseAggregatedAllowance {
+            amount: cu128!(amount),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
+
+    fn set_reverse_aggregated_allowance_approver_cap(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        amount: u128,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::SetReverseAggregatedAllowanceApproverCap {
+            amount: cu128!(amount),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
+
+    fn set_reverse_aggregated_allowance_by_approver(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        amount: u128,
+    ) -> StdResult<HandleResponse> {
+        let approver = "new_approver";
+        grant_role(&mut deps, APPROVER_ROLE, approver, DEFAULT_OWNER).unwrap();
+        set_reverse_aggregated_allowance(&mut deps, approver, amount)
+    }
+
+    #[test]
+    fn success_set_reverse_aggregated_allowance_approver_cap() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1000u128;
+        let response =
+            set_reverse_aggregated_allowance_approver_cap(&mut deps, DEFAULT_OWNER, amount)
+                .unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.log.len());
+        assert!(
+            response.log[0].key == "action"
+                && response.log[0].value == "set_reverse_aggregated_allowance_approver_cap"
+        );
+        assert!(response.log[1].key == "amount" && response.log[1].value == (amount).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(
+            cu128!(amount),
+            state.reverse_aggregated_allowance_approver_cap
+        );
+    }
+
+    #[test]
+    fn success_set_reverse_aggregated_allowance_by_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_RA_ALLOWANCE + 1000u128;
+        let response = set_reverse_aggregated_allowance(&mut deps, DEFAULT_OWNER, amount).unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.log.len());
+        assert!(
+            response.log[0].key == "action"
+                && response.log[0].value == "set_reverse_aggregated_allowance"
+        );
+        assert!(response.log[1].key == "amount" && response.log[1].value == (amount).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(amount), state.reverse_aggregated_allowance);
+
+        // query
+        let query_msg = QueryMsg::ReverseAggregatedAllowance {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", amount),
+            str_from_binary!(response)
+        );
+    }
+
+    #[test]
+    fn success_set_reverse_aggregated_allowance_by_approver() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;
+        let response = set_reverse_aggregated_allowance_by_approver(&mut deps, amount).unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.log.len());
+        assert!(
+            response.log[0].key == "action"
+                && response.log[0].value == "set_reverse_aggregated_allowance"
+        );
+        assert!(response.log[1].key == "amount" && response.log[1].value == (amount).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(amount), state.reverse_aggregated_allowance);
+
+        // query
+        let query_msg = QueryMsg::ReverseAggregatedAllowance {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", amount),
+            str_from_binary!(response)
+        );
+    }
+
+    #[test]
+    fn failure_set_reverse_aggregated_allowance_by_approver_exceeds_cap() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1u128;
+        let response = set_reverse_aggregated_allowance_by_approver(&mut deps, amount);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE),
+            state.reverse_aggregated_allowance
+        );
+    }
+
+    #[test]
+    fn failure_set_reverse_aggregated_allowance_not_admin_nor_approver() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;
+        let response = set_reverse_aggregated_allowance(&mut deps, "user", amount);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE),
+            state.reverse_aggregated_allowance
+        );
+    }
 }

@@ -2,13 +2,18 @@
 
 import pytest
 import brownie
-from brownie import FetERC20Mock, Bridge
+from brownie import FetERC20Mock, Bridge, accounts
+from brownie.network.account import _PrivateKeyAccount as Account, Accounts
 from dataclasses import dataclass, InitVar, field
 from enum import Enum, auto
-from typing import Type
+from typing import List
+from scripts.deployment_manifest_schema import (
+    BridgeConstructorParams,
+    FetERC20MockConstructorParams
+    )
 
 
-CanonicalFET = Type[int]
+CanonicalFET = int
 
 
 class AutoNameEnum(Enum):
@@ -23,11 +28,13 @@ class EventType(AutoNameEnum):
     Swap = auto()
     SwapRefund = auto()
     ReverseSwap = auto()
-    Pause = auto()
+    PausePublicApi = auto()
+    PauseRelayerApi = auto()
+    NewRelayEon = auto()
     LimitsUpdate = auto()
     CapUpdate = auto()
     ReverseAggregatedAllowanceUpdate = auto()
-    NewRelayEon = auto()
+    ReverseAggregatedAllowanceApproverCapUpdate = auto()
     Withdraw = auto()
     Deposit = auto()
     FeesWithdrawal = auto()
@@ -36,73 +43,139 @@ class EventType(AutoNameEnum):
 
 
 @dataclass
-class TokenSetup:
-    tokenDecimals: int = 18
-    multiplier: int = 10**tokenDecimals
-    totalSupply: int = None
-    userFunds: int = None
+class TokenSetup(FetERC20MockConstructorParams):
+    multiplier: int
+    userFunds: int
 
-    def toCanonical(self, amount_fet: int ) -> CanonicalFET:
-        return amount_fet * self.multiplier
+    @classmethod
+    def toCanonicalCls(cls, amount_fet: int, multiplier: int) -> CanonicalFET:
+        return amount_fet * multiplier
 
-    def __post_init__(self):
-        self.totalSupply = self.toCanonical(1000000)
-        self.userFunds = self.toCanonical(1000)
+    def toCanonical(self, amount_fet: int) -> CanonicalFET:
+        return self.toCanonicalCls(amount_fet, self.multiplier)
+
+    @classmethod
+    def default(cls):
+        decimals_ = 18
+        multiplier = 10**decimals_
+        return TokenSetup(
+            name="Fetch",
+            symbol="FET",
+            initialSupply = cls.toCanonicalCls(1000000, multiplier=multiplier),
+            decimals_=decimals_,
+            multiplier=multiplier,
+            userFunds=cls.toCanonicalCls(1000, multiplier=multiplier)
+            )
 
 
 @dataclass
 class UsersSetup:
-    owner = None
-    relayer = None
-    delegate = None
-    users = None
-    adminRole: bytes = 0
-    relayerRole: bytes = None
-    delegateRole: bytes = None
+    owner: Account = None
+    relayer: Account = None
+    approver: Account = None
+    monitor: Account = None
+    users: List[Account] = None
+    everyone: List[Account] = None
 
-    notOwners = None
-    notRelayers = None
+    adminRole: bytes = None
+    relayerRole: bytes = None
+    approverRole: bytes = None
+    monitorRole: bytes = None
+
+    canPauseUsers: List[Account] = None
+    canNOTPauseUsers: List[Account] = None
+
+    canUnpauseUsers: List[Account] = None
+    canNOTUnpauseUsers: List[Account] = None
+
+    canSetReverseAggregatedAllowance: List[Account] = None
+    canNOTSetReverseAggregatedAllowance: List[Account] = None
+
+    canSetReverseAggregatedAllowance: List[Account] = None
+    canNOTSetReverseAggregatedAllowance: List[Account] = None
+
+    notOwners: List[Account] = None
+    notRelayers: List[Account] = None
+    notMonitors: List[Account] = None
+    notApprovers: List[Account] = None
 
     def __post_init__(self):
-        self.relayerRole: bytes = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-        self.delegateRole: bytes = brownie.web3.solidityKeccak(['string'], ["DELEGATE_ROLE"])
+        self.relayerRole = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
+        self.approverRole = brownie.web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
+        self.monitorRole  = brownie.web3.solidityKeccak(['string'], ["MONITOR_ROLE"])
+
+    @classmethod
+    def default(cls, accounts: Accounts):
+        owner = accounts[0]
+        relayer = accounts[1]
+        approver = accounts[2]
+        monitor = accounts[3]
+        users = accounts[4:]
+        everyone = accounts[0:5]
+
+        canPauseUsers = [owner, monitor]
+        canUnpauseUsers = [owner]
+        canSetReverseAggregatedAllowance = [owner, approver]
+
+        return UsersSetup(
+            owner=owner,
+            relayer=relayer,
+            approver=approver,
+            monitor=monitor,
+            users=users,
+            everyone=everyone,
+            canPauseUsers=canPauseUsers,
+            canNOTPauseUsers=list(set(everyone) - set(canPauseUsers)),
+            canUnpauseUsers=canUnpauseUsers,
+            canNOTUnpauseUsers=list(set(everyone) - set(canUnpauseUsers)),
+            canSetReverseAggregatedAllowance=canSetReverseAggregatedAllowance,
+            canNOTSetReverseAggregatedAllowance=list(set(everyone) - set(canSetReverseAggregatedAllowance)),
+            notOwners=list(set(everyone) - {owner}),
+            notRelayers=list(set(everyone) - {relayer}),
+            notApprovers=list(set(everyone) - {approver}),
+            notMonitors=list(set(everyone) - {monitor}),
+            )
 
 
 @dataclass
-class BridgeSetup:
-    token: InitVar[TokenSetup]
-    cap: int = None
-    reverseAggregatedAllowance = None
-    swapMax: int = None
-    swapMin: int = None
-    swapFee: int = None
-    pauseSinceBlock: int = 0xffffffffffffffff
-    pauseSinceBlockEffective: int = None
-    deleteProtectionPeriod: int = 13
+class BridgeSetup(BridgeConstructorParams):
+    pausedSinceBlockPublicApiEffective: int = None
+    pausedSinceBlockRelayerApiEffective: int = None
     earliestDelete: int = None
     deploymentBlockNumber: int = None
 
-    def __post_init__(self, token):
-        self.cap = token.toCanonical(1000)
-        self.reverseAggregatedAllowance = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-        self.swapMax = token.toCanonical(100)
-        self.swapMin = token.toCanonical(10)
-        self.swapFee = token.toCanonical(5)
+    @classmethod
+    def default(self, token: TokenSetup):
+        return BridgeSetup(
+            ERC20Address="",
+            cap=token.toCanonical(1000),
+            reverseAggregatedAllowance=token.toCanonical(1000),
+            reverseAggregatedAllowanceApproverCap=token.toCanonical(2000),
+            swapMax = token.toCanonical(100),
+            swapMin = token.toCanonical(10),
+            swapFee = token.toCanonical(5),
+            pausedSinceBlockPublicApi=0xffffffffffffffff,
+            pausedSinceBlockRelayerApi=0xffffffffffffffff,
+            deleteProtectionPeriod=13
+            )
 
 
 @dataclass
 class ValuesSetup:
-    bridge: InitVar[BridgeSetup]
     amount: int = None
-    dest_swap_address = None
-    dest_swap_address_hash = None
-    src_tx_hash = None
+    dest_swap_address: str = None
+    dest_swap_address_hash: bytes = None
+    src_tx_hash: bytes = None
 
-    def __post_init__(self, bridge):
-        self.amount = bridge.swapMin
-        self.dest_swap_address = "some weird encoded and loooooonooooooooger than normal address"
-        self.dest_swap_address_hash = brownie.web3.solidityKeccak(["string"], [self.dest_swap_address])
-        self.src_tx_hash = brownie.web3.solidityKeccak(["string"], ["some tx has"])
+    @classmethod
+    def default(cls, bridge: BridgeSetup):
+        dest_swap_address="some weird encoded and loooooonooooooooger than normal address"
+        return ValuesSetup(
+            amount=bridge.swapMin,
+            dest_swap_address=dest_swap_address,
+            dest_swap_address_hash=brownie.web3.solidityKeccak(["string"], [dest_swap_address]),
+            src_tx_hash=brownie.web3.solidityKeccak(["string"], ["some tx has"])
+            )
 
 
 @dataclass
@@ -112,15 +185,19 @@ class Setup__:
     bridge: BridgeSetup = None
     vals: ValuesSetup = None
 
-    def __post_init__(self):
-        self.users = UsersSetup()
-        self.token = TokenSetup()
-        self.bridge = BridgeSetup(self.token)
-        self.vals = ValuesSetup(self.bridge)
+    @classmethod
+    def default(self, accounts: Accounts):
+        return Setup__(
+            users=UsersSetup.default(accounts),
+            token=TokenSetup.default(),
+            bridge=BridgeSetup.default(self.token),
+            vals=ValuesSetup.default(self.bridge)
+            )
 
 
 @dataclass
 class BridgeTest:
+    accounts: InitVar[Accounts]
     users: UsersSetup = None # field(default_factory=UsersSetup)
     token: TokenSetup = None # field(default_factory=TokenSetup)
     bridge: BridgeSetup = None # field(default_factory=lambda: BridgeSetup(BridgeTest.token))
@@ -128,11 +205,11 @@ class BridgeTest:
     t: FetERC20Mock = None
     b: Bridge = None
 
-    def __post_init__(self):
-        self.users = UsersSetup()
-        self.token = TokenSetup()
-        self.bridge = BridgeSetup(self.token)
-        self.vals = ValuesSetup(self.bridge)
+    def __post_init__(self, accounts: Accounts):
+        self.users = UsersSetup.default(accounts)
+        self.token = TokenSetup.default()
+        self.bridge = BridgeSetup.default(self.token)
+        self.vals = ValuesSetup.default(self.bridge)
 
     def standard_setup(self,
                        user=None,
@@ -146,6 +223,9 @@ class BridgeTest:
         related to keeping track of contract's financial affairs and operations
         will be set to non-trivial(non-default) values.
         """
+
+        user = user or self.users.users[0]
+
         # Add excess funds
         self.t.transfer(self.b, excess_amount, {'from': user})
         # Add 3 swaps
@@ -153,11 +233,28 @@ class BridgeTest:
         tx2 = self.swap(user=user, amount=amount)
         self.swap(user=user, amount=amount)
         # Refund 2nd swap
-        self.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+        self.refund(id=tx2.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False, caller=caller)
         # Add reverse swap
         self.reverseSwap(rid=0, to_user=user, amount=amount, relay_eon=relay_eon, caller=caller)
 
-        assert self.b.getFeesAccrued() > 0
+
+    def newRelayEon(self, caller: Account = None):
+        caller = caller or self.users.relayer
+
+        orig_relay_eon = self.b.getRelayEon()
+
+        if orig_relay_eon == ((1<<64) - 1):
+            expected_new_relay_eon = 0
+        else:
+            expected_new_relay_eon = orig_relay_eon + 1
+
+        tx = self.b.newRelayEon({'from': caller})
+
+        assert expected_new_relay_eon == self.b.getRelayEon()
+        assert tx.events[str(EventType.NewRelayEon)]['eon'] == expected_new_relay_eon
+
+        return tx
+
 
     def swap(self, user, amount: int = None, dest_addr: str = None):
         amount = self.vals.amount if amount is None else amount
@@ -437,39 +534,57 @@ class BridgeTest:
         return tx
 
 
-    def pauseSince(self,
-                   blockNumber,
-                   caller = None):
-        caller = caller or self.users.relayer
+    def pausePublicApiSince(self,
+                            blockNumber: int,
+                            caller: Account = None):
+        caller = caller or self.users.owner
 
-        tx = self.b.pauseSince(blockNumber, {'from': caller})
+        tx = self.b.pausePublicApiSince(blockNumber, {'from': caller})
 
         effective_paused_since_block = tx.block_number if tx.block_number > blockNumber else blockNumber
-        assert self.b.pausedSinceBlock() == effective_paused_since_block
+        assert self.b.pausedSinceBlockPublicApi() == effective_paused_since_block
+        assert self.b.pausedSinceBlockPublicApi() == self.b.getPausedSinceBlockPublicApi()
 
-        e = tx.events[str(EventType.Pause)]
+        e = tx.events[str(EventType.PausePublicApi)]
+        assert e['sinceBlock'] == effective_paused_since_block
+
+        return tx
+
+
+    def pauseRelayerApiSince(self,
+                             blockNumber: int,
+                             caller: Account = None):
+        caller = caller or self.users.owner
+
+        tx = self.b.pauseRelayerApiSince(blockNumber, {'from': caller})
+
+        effective_paused_since_block = tx.block_number if tx.block_number > blockNumber else blockNumber
+        assert self.b.pausedSinceBlockRelayerApi() == effective_paused_since_block
+        assert self.b.pausedSinceBlockRelayerApi() == self.b.getPausedSinceBlockRelayerApi()
+
+        e = tx.events[str(EventType.PauseRelayerApi)]
         assert e['sinceBlock'] == effective_paused_since_block
 
         return tx
 
 
     def setLimits(self,
-                  upper_swap_limit,
-                  lower_swap_limit,
+                  swap_max,
+                  swap_min,
                   swap_fee,
                   caller = None):
         caller = caller or self.users.owner
 
-        tx = self.b.setLimits(upper_swap_limit, lower_swap_limit, swap_fee, {'from': caller})
+        tx = self.b.setLimits(swap_max, swap_min, swap_fee, {'from': caller})
 
-        assert upper_swap_limit == self.b.swapMax()
-        assert lower_swap_limit == self.b.swapMin()
+        assert swap_max == self.b.swapMax()
+        assert swap_min == self.b.swapMin()
         assert swap_fee == self.b.swapFee()
-        assert swap_fee <= lower_swap_limit <= upper_swap_limit
+        assert swap_fee <= swap_min <= swap_max
 
         e = tx.events[str(EventType.LimitsUpdate)]
-        assert e['max'] == upper_swap_limit
-        assert e['min'] == lower_swap_limit
+        assert e['max'] == swap_max
+        assert e['min'] == swap_min
         assert e['fee'] == swap_fee
 
         return tx
@@ -503,21 +618,29 @@ class BridgeTest:
         return tx
 
 
+    def setReverseAggregatedAllowanceApproverCap(self,
+                                                 cap: int,
+                                                 caller = None):
+        caller = caller or self.users.owner
+
+        tx = self.b.setReverseAggregatedAllowanceApproverCap(cap, {'from': caller})
+
+        assert cap == self.b.getReverseAggregatedAllowanceApproverCap()
+
+        e = tx.events[str(EventType.ReverseAggregatedAllowanceApproverCapUpdate)]
+        assert cap == e['value']
+
+        return tx
+
+
 @pytest.fixture(scope="module", autouse=True)
 def tokenFactory(FetERC20Mock, accounts):
     def token_(test: BridgeTest = None) -> BridgeTest:
-        test = test or BridgeTest()
+        test = test or BridgeTest(accounts=accounts)
         u = test.users
         t = test.token
 
-        u.owner = accounts[0]
-        u.relayer = accounts[1]
-        u.delegate = accounts[2]
-        u.users = accounts[3:]
-        u.notOwners = [u.relayer, u.delegate, u.users[0]]
-        u.notRelayers = [u.owner, u.delegate, u.users[0]]
-
-        contract = FetERC20Mock.deploy("Fetch", "FET", t.totalSupply, t.tokenDecimals, {'from': u.owner})
+        contract = FetERC20Mock.deploy("Fetch", "FET", t.initialSupply, t.decimals_, {'from': u.owner})
 
         for user in u.users:
             contract.transfer(user, t.userFunds)
@@ -539,26 +662,32 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
             test.t.address,
             b.cap,
             b.reverseAggregatedAllowance,
+            b.reverseAggregatedAllowanceApproverCap,
             b.swapMax,
             b.swapMin,
             b.swapFee,
-            b.pauseSinceBlock,
+            b.pausedSinceBlockPublicApi,
+            b.pausedSinceBlockRelayerApi,
             b.deleteProtectionPeriod,
             {'from': u.owner})
 
         b.deploymentBlockNumber = contract.tx.block_number
-        b.pauseSinceBlockEffective = b.pauseSinceBlock if b.pauseSinceBlock > b.deploymentBlockNumber else b.deploymentBlockNumber
+        b.pausedSinceBlockPublicApiEffective = b.pausedSinceBlockPublicApi if b.pausedSinceBlockPublicApi > b.deploymentBlockNumber else b.deploymentBlockNumber
+        b.pausedSinceBlockRelayerApiEffective = b.pausedSinceBlockRelayerApi if b.pausedSinceBlockRelayerApi > b.deploymentBlockNumber else b.deploymentBlockNumber
         b.earliestDelete = b.deploymentBlockNumber + b.deleteProtectionPeriod
 
-        assert contract.pausedSinceBlock() == b.pauseSinceBlockEffective
+        assert contract.pausedSinceBlockPublicApi() == b.pausedSinceBlockPublicApiEffective
+        assert contract.pausedSinceBlockRelayerApi() == b.pausedSinceBlockRelayerApiEffective
         assert contract.earliestDelete() == b.earliestDelete
 
         contract.grantRole(u.relayerRole, u.relayer, {'from': u.owner})
-        contract.grantRole(u.delegateRole, u.delegate, {'from': u.owner})
+        contract.grantRole(u.approverRole, u.approver, {'from': u.owner})
+        contract.grantRole(u.monitorRole, u.monitor, {'from': u.owner})
 
         test.b = contract
 
         return test
+
     yield bridge_
 
 
@@ -571,52 +700,67 @@ def isolate(fn_isolation):
 
 def test_initial_state(bridgeFactory):
     test: BridgeTest = bridgeFactory()
-
-    assert test.b.relayEon() == ((1<<64)-1)
-    assert test.b.nextSwapId() == 0
+    assert test.b.getCap() == test.bridge.cap
+    assert test.b.getSwapMax() == test.bridge.swapMax
+    assert test.b.getSwapMin() == test.bridge.swapMin
+    assert test.b.getSwapFee() == test.bridge.swapFee
+    assert test.b.getReverseAggregatedAllowance() == test.bridge.reverseAggregatedAllowance
+    assert test.b.getReverseAggregatedAllowanceApproverCap() == test.bridge.reverseAggregatedAllowanceApproverCap
+    assert test.b.getRelayEon() == ((1<<64)-1)
+    assert test.b.getNextSwapId() == 0
     assert test.b.getFeesAccrued() == 0
-    assert test.b.token() == test.t.address
-    assert test.b.earliestDelete() == test.bridge.deploymentBlockNumber + test.bridge.deleteProtectionPeriod
-    assert test.b.pausedSinceBlock() == test.bridge.pauseSinceBlockEffective
+    assert test.b.getToken() == test.t.address
+    assert test.b.getEarliestDelete() == test.bridge.deploymentBlockNumber + test.bridge.deleteProtectionPeriod
+    assert test.b.getPausedSinceBlockPublicApi() == test.bridge.pausedSinceBlockPublicApiEffective
+    assert test.b.getPausedSinceBlockRelayerApi() == test.bridge.pausedSinceBlockRelayerApiEffective
     assert test.b.getFeesAccrued() == 0
 
 
-def test_initial_state_non_trivial_pause_since_0(bridgeFactory):
+def test_initial_state_non_trivial_pause_since_0(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     brownie.chain.mine(100)
-    expectedPauseSince = brownie.web3.eth.blockNumber + 10000
-    test = BridgeTest()
-    test.bridge.pauseSinceBlock = expectedPauseSince
+    expectedPauseSincePublicApi = brownie.web3.eth.blockNumber + 10000
+    expectedPauseSinceRelayerApi = brownie.web3.eth.blockNumber + 10001
+    test = BridgeTest(accounts=accounts)
+    test.bridge.pausedSinceBlockPublicApi = expectedPauseSincePublicApi
+    test.bridge.pausedSinceBlockRelayerApi = expectedPauseSinceRelayerApi
 
     # ===   WHEN / TEST SUBJECT  ==========================
     test = bridgeFactory(test)
 
     # ===   THEN / VERIFICATION:  =========================
-    assert test.bridge.deploymentBlockNumber < expectedPauseSince
-    assert test.b.pausedSinceBlock() == expectedPauseSince
+    assert test.bridge.deploymentBlockNumber < expectedPauseSincePublicApi
+    assert test.b.getPausedSinceBlockPublicApi() == expectedPauseSincePublicApi
+    assert test.b.getPausedSinceBlockRelayerApi() == expectedPauseSinceRelayerApi
 
 
-def test_initial_state_non_trivial_pause_since_1(bridgeFactory):
+def test_initial_state_non_trivial_pause_since_1(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     n = 100
+    pausedSinceBlockPublicApi = int(n / 2)
+    pausedSinceBlockRelayerApi = int(n / 2) + 1
+
     brownie.chain.mine(n)
-    test = BridgeTest()
-    test.bridge.pauseSinceBlock = int(n / 2)
+    test = BridgeTest(accounts=accounts)
+    test.bridge.pausedSinceBlockPublicApi = pausedSinceBlockPublicApi
+    test.bridge.pausedSinceBlockRelayerApi = pausedSinceBlockRelayerApi
 
     # ===   WHEN / TEST SUBJECT  ==========================
     test = bridgeFactory(test)
 
     # ===   THEN / VERIFICATION:  =========================
-    assert int(n / 2) < test.b.pausedSinceBlock()
-    assert test.b.pausedSinceBlock() == test.bridge.deploymentBlockNumber
+    assert pausedSinceBlockPublicApi < test.b.getPausedSinceBlockPublicApi()
+    assert pausedSinceBlockRelayerApi < test.b.getPausedSinceBlockRelayerApi()
+    assert test.b.getPausedSinceBlockPublicApi() == test.bridge.deploymentBlockNumber
+    assert test.b.getPausedSinceBlockRelayerApi() == test.bridge.deploymentBlockNumber
 
 
-def test_initial_state_non_trivial_earliest_delete(bridgeFactory):
+def test_initial_state_non_trivial_earliest_delete(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     dpp = 10000
     n = 100
     brownie.chain.mine(n)
-    test = BridgeTest()
+    test = BridgeTest(accounts)
     test.bridge.deleteProtectionPeriod = dpp
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -631,14 +775,15 @@ def test_newRelayEon_basic(bridgeFactory):
     test: BridgeTest = bridgeFactory()
 
     for u in test.users.notRelayers:
-         with brownie.reverts(revert_msg="Caller must be relayer"):
-             test.b.newRelayEon({'from': u})
+         with brownie.reverts(revert_msg="Only relayer role"):
+             test.newRelayEon(caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
-    tx = test.b.newRelayEon({'from': test.users.relayer})
+    tx = test.newRelayEon(caller=test.users.relayer)
 
     # ===   THEN / VERIFICATION:  =========================
-    assert test.b.relayEon() == 0
+    # All necessary verification is already implemented inside of the test subject method called above.
+    assert test.b.getRelayEon() == 0
     assert tx.events[str(EventType.NewRelayEon)]['eon'] == 0
 
 
@@ -661,7 +806,7 @@ def test_reverseSwap_basic(bridgeFactory):
     test.swap(user=user, amount=amount)
 
     for u in test.users.notRelayers:
-         with brownie.reverts(revert_msg="Caller must be relayer"):
+         with brownie.reverts(revert_msg="Only relayer role"):
              test.reverseSwap(rid=0, to_user=user, amount=amount, caller=u)
 
     # ===   GIVEN / PRECONDITIONS:  =======================
@@ -671,9 +816,9 @@ def test_reverseSwap_basic(bridgeFactory):
     # All necessary verification is already implemented inside of the test subject method called above.
 
 
-def test_reverseSwap_amount_smaller_than_fee(bridgeFactory):
+def test_reverseSwap_amount_smaller_than_fee(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test = BridgeTest()
+    test = BridgeTest(accounts)
     bridgeFactory(test)
     user = test.users.users[0]
     swapFee = test.b.swapFee()
@@ -709,7 +854,7 @@ def test_refund_bacis(bridgeFactory):
     swap_tx = test.swap(user=user, amount=amount)
 
     for u in test.users.notRelayers:
-         with brownie.reverts(revert_msg="Caller must be relayer"):
+         with brownie.reverts(revert_msg="Only relayer role"):
              test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -804,7 +949,7 @@ def test_refund_in_full(bridgeFactory):
     assert e['fee'] == 0
 
 
-def test_swap_reverts_when_bridge_is_paused(bridgeFactory):
+def test_swap_reverts_when_public_api_is_paused(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
@@ -812,29 +957,149 @@ def test_swap_reverts_when_bridge_is_paused(bridgeFactory):
     amount = test.bridge.swapMax
     test.swap(user=user, amount=amount)
 
-    test.pauseSince(0)
+    test.pausePublicApiSince(0, caller=test.users.monitor)
 
     # ===   WHEN / TEST SUBJECT  ==========================
-    with brownie.reverts(revert_msg="Contract has been paused"):
-        test.swap(user=user, amount=amount)
+    for u in test.users.everyone:
+        with brownie.reverts(revert_msg="Contract has been paused"):
+            test.swap(user=user, amount=amount)
 
     # ===   THEN / VERIFICATION:  =========================
     # Verification is done by `brownie.reverts(...)` above
 
 
-def test_paused_only_by_permitted_users(bridgeFactory):
+def test_swap_reverts_when_relayer_api_is_paused(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
-    with brownie.reverts(revert_msg="Only relayer, admin or delegate"):
-        test.pauseSince(0, caller=test.users.users[0])
+    user = test.users.users[0]
+    amount = test.bridge.swapMax
+
+    # Prove negative:
+    test.swap(user=user, amount=amount)
+
+    test.pauseRelayerApiSince(0, caller=test.users.monitor)
 
     # ===   WHEN / TEST SUBJECT  ==========================
-    for i, user in enumerate([test.users.relayer, test.users.delegate, test.users.owner], start=0):
-        test.pauseSince(i, caller=user)
+    for u in test.users.everyone:
+        with brownie.reverts(revert_msg="Contract has been paused"):
+            test.swap(user=user, amount=amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+
+
+def test_pausing_public_api_only_by_permitted_users(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    # First proving negative
+    for u in test.users.canNOTPauseUsers:
+        with brownie.reverts(revert_msg="Only admin or monitor role"):
+            test.pausePublicApiSince(0, caller=test.users.users[0])
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    # Test positive
+    for i, user in enumerate(test.users.canPauseUsers, start=0):
+        test.pausePublicApiSince(i, caller=user)
 
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_pausing_relayer_api_only_by_permitted_users(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    # First proving negative
+    for u in test.users.canNOTPauseUsers:
+        with brownie.reverts(revert_msg="Only admin or monitor role"):
+            test.pauseRelayerApiSince(0, caller=test.users.users[0])
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    # Test positive
+    for i, user in enumerate(test.users.canPauseUsers, start=0):
+        test.pauseRelayerApiSince(i, caller=user)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_unpausing_public_api_only_by_permitted_users(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    # First proving negative
+    for u in test.users.canNOTUnpauseUsers:
+        with brownie.reverts(revert_msg="Only admin role"):
+            test.pausePublicApiSince(brownie.web3.eth.blockNumber + 100, caller=test.users.users[0])
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    # Test positive
+    for user in test.users.canUnpauseUsers:
+        test.pausePublicApiSince(brownie.web3.eth.blockNumber + 100, caller=user)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_unpausing_relayer_api_only_by_permitted_users(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    # First proving negative
+    for u in test.users.canNOTUnpauseUsers:
+        with brownie.reverts(revert_msg="Only admin role"):
+            test.pauseRelayerApiSince(brownie.web3.eth.blockNumber + 100, caller=test.users.users[0])
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    # Test positive
+    for user in test.users.canUnpauseUsers:
+        test.pauseRelayerApiSince(brownie.web3.eth.blockNumber + 100, caller=user)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_relayer_api_reverts_when_relayer_api_is_paused(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    test.standard_setup()
+
+    user = test.users.users[0]
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    # Adding 6 swaps to bump up supply and to prepare for refund & reverseSwap calls
+    txs = [test.swap(user=user, amount=amount) for _ in range(0,6)]
+
+    # Prove negative (relative to test objective)
+    test.refund(id=txs[0].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    test.refund(id=txs[1].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+    test.newRelayEon()
+
+    test.pauseRelayerApiSince(0)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Contract has been paused"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.refund(id=txs[0].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Contract has been paused"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.refund(id=txs[1].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Contract has been paused"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.reverseSwap(rid=0, to_user=user, amount=amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Contract has been paused"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.newRelayEon()
 
 
 def test_set_limits_basic(bridgeFactory):
@@ -846,7 +1111,7 @@ def test_set_limits_basic(bridgeFactory):
     new_swap_fee = test.b.swapFee() + 1
 
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             test.setLimits(new_swap_max, new_swap_min, new_swap_fee, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -885,7 +1150,7 @@ def test_set_cap_basic(bridgeFactory):
     new_cap = orig_cap + 1
 
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             test.setCap(new_cap, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -918,29 +1183,81 @@ def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFa
     # Verification is done by `brownie.reverts(...)` above
 
 
-def test_set_reverse_aggregated_allowance_basic(bridgeFactory):
+def test_set_reverse_aggregated_allowance_approver_cap(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test = BridgeTest()
-    test.bridge.reverseAggregatedAllowance = test.token.toCanonical(10000)
+    test = BridgeTest(accounts)
+    orig_apporver_cap = 10000
+    test.bridge.reverseAggregatedAllowanceApproverCap = orig_apporver_cap
     test = bridgeFactory(test)
 
-    orig_allowance = test.b.getReverseAggregatedAllowance()
-    new_allowance = orig_allowance + 1
+    new_expected_apporver_cap = orig_apporver_cap + 1
 
+    # PFirst prove negative:
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
-            test.setReverseAggregatedAllowance(new_allowance, caller=u)
+        with brownie.reverts(revert_msg="Only admin role"):
+            test.setReverseAggregatedAllowanceApproverCap(new_expected_apporver_cap, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
-    test.setReverseAggregatedAllowance(new_allowance)
+    test.setReverseAggregatedAllowanceApproverCap(new_expected_apporver_cap)
 
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
 
 
-def test_set_reverse_aggregated_allowance_refund(bridgeFactory):
+def test_set_reverse_aggregated_allowance_basic(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test = BridgeTest()
+    test = BridgeTest(accounts)
+    orig_allowance = 1000
+    new_expected_allowance = orig_allowance + 1
+    approver_cap = new_expected_allowance
+
+    test.bridge.reverseAggregatedAllowance = orig_allowance
+    test.bridge.reverseAggregatedAllowanceApproverCap = approver_cap
+    test = bridgeFactory(test)
+
+    assert orig_allowance == test.b.getReverseAggregatedAllowance()
+
+    # First prove negative:
+    for u in test.users.canNOTSetReverseAggregatedAllowance:
+        with brownie.reverts(revert_msg="Only admin or approver role"):
+            test.setReverseAggregatedAllowance(new_expected_allowance, caller=u)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    for u in test.users.canSetReverseAggregatedAllowance:
+        test.setReverseAggregatedAllowance(new_expected_allowance, caller=u)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_set_reverse_aggregated_allowance_over_approver_cap(bridgeFactory, accounts):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest(accounts)
+    orig_allowance = 1000
+    new_expected_allowance = orig_allowance + 1
+    approver_cap = orig_allowance
+
+    test.bridge.reverseAggregatedAllowance = orig_allowance
+    test.bridge.reverseAggregatedAllowanceApproverCap = approver_cap
+    test = bridgeFactory(test)
+
+    assert orig_allowance == test.b.getReverseAggregatedAllowance()
+
+    # First prove negative:
+    for u in test.users.notOwners:
+        with brownie.reverts(revert_msg="Only admin role"):
+            test.setReverseAggregatedAllowance(new_expected_allowance, caller=u)
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.setReverseAggregatedAllowance(new_expected_allowance, caller=test.users.owner)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # All necessary verification is already implemented inside of the test subject method called above.
+
+
+def test_set_reverse_aggregated_allowance_refund(bridgeFactory, accounts):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = BridgeTest(accounts)
     amount = test.bridge.swapMin + test.bridge.swapFee
 
     test.bridge.reverseAggregatedAllowance = amount
@@ -959,9 +1276,9 @@ def test_set_reverse_aggregated_allowance_refund(bridgeFactory):
         test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=False)
 
 
-def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory):
+def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test = BridgeTest()
+    test = BridgeTest(accounts)
     amount = test.bridge.swapMin + test.bridge.swapFee
 
     test.bridge.reverseAggregatedAllowance = amount
@@ -980,9 +1297,9 @@ def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory):
         test.refund(id=tx1.events[str(EventType.Swap)]['id'], to_user=user, amount=1, waive_fee=True)
 
 
-def test_set_reverse_aggregated_allowance_reverse_swap(bridgeFactory):
+def test_set_reverse_aggregated_allowance_reverse_swap(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
-    test = BridgeTest()
+    test = BridgeTest(accounts=accounts)
     amount = test.bridge.swapMin + test.bridge.swapFee
 
     test.bridge.reverseAggregatedAllowance = amount
@@ -999,6 +1316,44 @@ def test_set_reverse_aggregated_allowance_reverse_swap(bridgeFactory):
 
     with brownie.reverts(revert_msg="Operation exceeds reverse aggregated allowance"):
         test.reverseSwap(rid=1, to_user=user, amount=1)
+
+
+def test_swap_max_limit_for_relayer_api(bridgeFactory, accounts):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test = bridgeFactory()
+
+    test.standard_setup()
+
+    user = test.users.users[0]
+    amount = test.bridge.swapMin + test.bridge.swapFee
+
+    # Adding 6 swaps to bump up supply and to prepare for refund & reverseSwap calls
+    txs = [test.swap(user=user, amount=amount) for _ in range(0,6)]
+
+    # Prove negative (relative to test objective)
+    test.refund(id=txs[0].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+    test.refund(id=txs[1].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+    test.reverseSwap(rid=0, to_user=user, amount=amount)
+
+    test.setLimits(
+        swap_max=amount-1,
+        swap_min=test.bridge.swapMin,
+        swap_fee=test.bridge.swapFee)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Amount exceeds swap max limit"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.refund(id=txs[3].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=False)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Amount exceeds swap max limit"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.refund(id=txs[4].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
+
+    # ===   THEN / VERIFICATION:  =========================
+    with brownie.reverts(revert_msg="Amount exceeds swap max limit"):
+        # ===   WHEN / TEST SUBJECT  ==========================
+        test.reverseSwap(rid=0, to_user=user, amount=amount)
 
 
 def test_fees_accrued(bridgeFactory):
@@ -1045,6 +1400,11 @@ def test_mint(bridgeFactory):
     orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
+    # First prove negative:
+    for u in test.users.notOwners:
+        with brownie.reverts(revert_msg="Only admin role"):
+            test.mint(mint_amount, caller=u)
+
     # ===   WHEN / TEST SUBJECT  ==========================
     test.mint(mint_amount)
 
@@ -1072,8 +1432,9 @@ def test_burn(bridgeFactory):
     orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
 
+    # First prove negative:
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             test.burn(burn_amount, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -1105,8 +1466,9 @@ def test_deposit(bridgeFactory):
 
     test.t.approve(test.b, deposit_amount, {'from': from_user})
 
+    # First prove negative:
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             tx = test.deposit(deposit_amount, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -1137,8 +1499,9 @@ def test_withdraw(bridgeFactory):
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
 
+    # First prove negative:
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             test.withdraw(target_to_user, withdraw_amount, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -1168,9 +1531,9 @@ def test_withdraw_fees(bridgeFactory):
     orig_contract_balance = test.t.balanceOf(test.b)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
 
-
+    # First prove negative:
     for u in test.users.notOwners:
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             test.withdrawFees(target_to_user, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
@@ -1185,11 +1548,11 @@ def test_withdraw_fees(bridgeFactory):
     assert test.t.balanceOf(target_to_user) == orig_target_to_user_balance + orig_fees_accrued
 
 
-def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactory):
+def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     delete_protection_period = 20
-    test = BridgeTest()
+    test = BridgeTest(accounts=accounts)
     test.bridge.deleteProtectionPeriod = delete_protection_period
     bridgeFactory(test)
     user = test.users.users[0]
@@ -1206,11 +1569,11 @@ def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactor
         test.deleteContract(target_to_user)
 
 
-def test_delete_contract_reverts_due_to_access_rights(bridgeFactory):
+def test_delete_contract_reverts_due_to_access_rights(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     delete_protection_period = 20
-    test = BridgeTest()
+    test = BridgeTest(accounts=accounts)
     test.bridge.deleteProtectionPeriod = delete_protection_period
     bridgeFactory(test)
     user = test.users.users[0]
@@ -1223,17 +1586,17 @@ def test_delete_contract_reverts_due_to_access_rights(bridgeFactory):
 
     for u in test.users.notOwners:
         # ===   THEN / VERIFICATION:  =========================
-        with brownie.reverts(revert_msg="Caller must be owner"):
+        with brownie.reverts(revert_msg="Only admin role"):
             # ===   WHEN / TEST SUBJECT  ==========================
             test.deleteContract(target_to_user, caller=u)
 
 
-def test_delete_contract_passes_when_protection_period_reached(bridgeFactory):
+def test_delete_contract_passes_when_protection_period_reached(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     excess_amount = 1234
     delete_protection_period = 20
 
-    test = BridgeTest()
+    test = BridgeTest(accounts=accounts)
     test.bridge.deleteProtectionPeriod = delete_protection_period
     bridgeFactory(test)
 
