@@ -828,19 +828,19 @@
         12
       ],
       "IBridgeAdmin": [
-        94
+        88
       ],
       "IBridgeCommon": [
-        277
+        276
       ],
       "IBridgeMonitor": [
-        296
+        295
       ],
       "IBridgePublic": [
-        311
+        310
       ],
       "IBridgeRelayer": [
-        362
+        361
       ]
     },
     "id": 13,
@@ -868,7 +868,7 @@
         "id": 2,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 312,
+        "sourceUnit": 311,
         "src": "855:29:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -879,7 +879,7 @@
         "id": 3,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 363,
+        "sourceUnit": 362,
         "src": "885:30:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -890,7 +890,7 @@
         "id": 4,
         "nodeType": "ImportDirective",
         "scope": 13,
-        "sourceUnit": 95,
+        "sourceUnit": 89,
         "src": "916:28:0",
         "symbolAliases": [],
         "unitAlias": ""
@@ -903,10 +903,10 @@
               "id": 6,
               "name": "IBridgePublic",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 311,
+              "referencedDeclaration": 310,
               "src": "2841:13:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgePublic_$311",
+                "typeIdentifier": "t_contract$_IBridgePublic_$310",
                 "typeString": "contract IBridgePublic"
               }
             },
@@ -919,10 +919,10 @@
               "id": 8,
               "name": "IBridgeRelayer",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 362,
+              "referencedDeclaration": 361,
               "src": "2856:14:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeRelayer_$362",
+                "typeIdentifier": "t_contract$_IBridgeRelayer_$361",
                 "typeString": "contract IBridgeRelayer"
               }
             },
@@ -935,10 +935,10 @@
               "id": 10,
               "name": "IBridgeAdmin",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 94,
+              "referencedDeclaration": 88,
               "src": "2872:12:0",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeAdmin_$94",
+                "typeIdentifier": "t_contract$_IBridgeAdmin_$88",
                 "typeString": "contract IBridgeAdmin"
               }
             },
@@ -948,11 +948,11 @@
           }
         ],
         "contractDependencies": [
-          94,
-          277,
-          296,
-          311,
-          362
+          88,
+          276,
+          295,
+          310,
+          361
         ],
         "contractKind": "interface",
         "documentation": {
@@ -965,11 +965,11 @@
         "id": 12,
         "linearizedBaseContracts": [
           12,
-          94,
-          296,
-          362,
-          311,
-          277
+          88,
+          295,
+          361,
+          310,
+          276
         ],
         "name": "IBridge",
         "nodeType": "ContractDefinition",

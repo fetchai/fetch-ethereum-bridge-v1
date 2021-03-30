@@ -331,6 +331,19 @@
     },
     {
       "inputs": [],
+      "name": "getFeesAccrued",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getMonitorRole",
       "outputs": [
         {
@@ -540,18 +553,18 @@
     "absolutePath": "interfaces/IBridgePublic.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        277
+        276
       ],
       "IBridgePublic": [
-        311
+        310
       ]
     },
-    "id": 312,
+    "id": 311,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 298,
+        "id": 297,
         "literals": [
           "solidity",
           "^",
@@ -568,10 +581,10 @@
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 299,
+        "id": 298,
         "nodeType": "ImportDirective",
-        "scope": 312,
-        "sourceUnit": 278,
+        "scope": 311,
+        "sourceUnit": 277,
         "src": "855:29:4",
         "symbolAliases": [],
         "unitAlias": ""
@@ -581,65 +594,65 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 301,
+              "id": 300,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 277,
+              "referencedDeclaration": 276,
               "src": "1125:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$277",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$276",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 302,
+            "id": 301,
             "nodeType": "InheritanceSpecifier",
             "src": "1125:13:4"
           }
         ],
         "contractDependencies": [
-          277
+          276
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 300,
+          "id": 299,
           "nodeType": "StructuredDocumentation",
           "src": "887:210:4",
           "text": " @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n @notice Methods of this public interface is allow users to interact with Bridge contract."
         },
         "fullyImplemented": false,
-        "id": 311,
+        "id": 310,
         "linearizedBaseContracts": [
-          311,
-          277
+          310,
+          276
         ],
         "name": "IBridgePublic",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 303,
+              "id": 302,
               "nodeType": "StructuredDocumentation",
               "src": "1146:2061:4",
               "text": " @notice Initiates swap, which will be relayed to the other blockchain.\n         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n         in desc. for `refund(...)` call.\n @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      on the other blockchain.\n      Callable by anyone.\n @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n                             in to.\n                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n                             The **CORRECT** means, in this context, that address is valid *AND* user really\n                             intended this particular address value as destination = that address is NOT lets say\n                             copy-paste mistake made by user. Reason being that when user provided valid address\n                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n                             the swap will be relayed to the other blockchain!\n                             The **VALID** means that provided value successfully passes consistency checks of\n                             valid address of **OTHER** blockchain. In the case when user provides invalid\n                             address value, relayer will execute refund - please see desc. for `refund()` call\n                             for more details."
             },
             "functionSelector": "deb4a6d2",
-            "id": 310,
+            "id": 309,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "swap",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 308,
+              "id": 307,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 305,
+                  "id": 304,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
+                  "scope": 309,
                   "src": "3226:14:4",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -648,7 +661,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 304,
+                    "id": 303,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "3226:7:4",
@@ -661,11 +674,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 307,
+                  "id": 306,
                   "mutability": "mutable",
                   "name": "destinationAddress",
                   "nodeType": "VariableDeclaration",
-                  "scope": 310,
+                  "scope": 309,
                   "src": "3242:34:4",
                   "stateVariable": false,
                   "storageLocation": "calldata",
@@ -674,7 +687,7 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 306,
+                    "id": 305,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
                     "src": "3242:6:4",
@@ -689,19 +702,19 @@
               "src": "3225:52:4"
             },
             "returnParameters": {
-              "id": 309,
+              "id": 308,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "3286:0:4"
             },
-            "scope": 311,
+            "scope": 310,
             "src": "3212:75:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 312,
+        "scope": 311,
         "src": "1098:2191:4"
       }
     ],

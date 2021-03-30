@@ -32,17 +32,6 @@ import "./IBridgeMonitor.sol";
  *         supply transferred across the Bridge.
  */
 interface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {
-
-    /**
-     * @notice Returns amount of excess FET ERC20 tokens which were sent to address of this contract via direct ERC20
-     *         transfer (by calling ERC20.transfer(...)), without interacting with API of this contract, what can happen
-     *         only by mistake.
-     *
-     * @return targetAddress : address to send tokens to
-     */
-    function getFeesAccrued() external view returns(uint256);
-
-
     /**
      * @notice Mints provided amount of FET tokens.
      *         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.

@@ -968,22 +968,18 @@ def test_swap_reverts_when_public_api_is_paused(bridgeFactory):
     # Verification is done by `brownie.reverts(...)` above
 
 
-def test_swap_reverts_when_relayer_api_is_paused(bridgeFactory):
+def test_swap_successful_when_relayer_api_is_paused(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
     user = test.users.users[0]
     amount = test.bridge.swapMax
 
-    # Prove negative:
-    test.swap(user=user, amount=amount)
-
     test.pauseRelayerApiSince(0, caller=test.users.monitor)
 
     # ===   WHEN / TEST SUBJECT  ==========================
     for u in test.users.everyone:
-        with brownie.reverts(revert_msg="Contract has been paused"):
-            test.swap(user=user, amount=amount)
+        test.swap(user=user, amount=amount)
 
     # ===   THEN / VERIFICATION:  =========================
     # Verification is done by `brownie.reverts(...)` above

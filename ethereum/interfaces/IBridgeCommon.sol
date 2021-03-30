@@ -63,6 +63,7 @@ interface IBridgeCommon {
     function getSwapMin() external view returns(uint256);
     function getCap() external view returns(uint256);
     function getSwapFee() external view returns(uint256);
+    function getFeesAccrued() external view returns(uint256);
     function getPausedSinceBlockPublicApi() external view returns(uint256);
     function getPausedSinceBlockRelayerApi() external view returns(uint256);
     function getReverseAggregatedAllowance() external view returns(uint256);
