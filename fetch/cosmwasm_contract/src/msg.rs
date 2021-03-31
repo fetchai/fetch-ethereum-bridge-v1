@@ -14,8 +14,9 @@ pub struct InitMsg {
     pub lower_swap_limit: Uint128,
     pub swap_fee: Uint128,
     pub reverse_aggregated_allowance: Uint128,
+    pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub paused_since_block: Option<u64>,
-    pub delete_protection_period: Option<u64>,
+    pub denom: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -50,7 +51,11 @@ pub enum HandleMsg {
         relay_eon: u64,
     },
 
-    Pause {
+    PausePublicApi {
+        since_block: u64,
+    },
+
+    PauseRelayerApi {
         since_block: u64,
     },
 
@@ -76,6 +81,10 @@ pub enum HandleMsg {
     },
 
     SetReverseAggregatedAllowance {
+        amount: Uint128,
+    },
+
+    SetReverseAggregatedAllowanceApproverCap {
         amount: Uint128,
     },
 
@@ -108,6 +117,12 @@ pub enum QueryMsg {
     RelayEon {},
     Supply {},
     ReverseAggregatedAllowance {},
+    SwapMax {},
+    Cap {},
+    PausedPublicApiSince {},
+    PausedRelayerApiSince {},
+    Denom {},
+    FullState {},
 }
 
 // We define a custom struct for each query response
@@ -126,7 +141,16 @@ pub struct SupplyResponse {
     pub amount: Uint128,
 }
 
+pub type CapResponse = SupplyResponse;
+pub type SwapMaxResponse = SupplyResponse;
+pub type ReverseAggregatedAllowanceResponse = SupplyResponse;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ReverseAggregatedAllowanceResponse {
-    pub amount: Uint128,
+pub struct PausedSinceBlockResponse {
+    pub block: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct DenomResponse {
+    pub denom: String,
 }

@@ -98,7 +98,7 @@ name = "bridge"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
- "cosmwasm-std",
+ "cosmwasm-std 0.9.4",
  "cosmwasm-storage",
  "cosmwasm-vm",
  "schemars",
@@ -164,6 +164,19 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecadad4858cac51d891d00206910886637ef0f56c05e16e1d4b611bca4338d68"
+dependencies = [
+ "base64",
+ "schemars",
+ "serde",
+ "serde-json-wasm",
+ "snafu",
+]
+
+[[package]]
+name = "cosmwasm-std"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f85908a2696117c8f2c1b3ce201d34a1aa9a6b3c1583a65cfb794ec66e1cfde4"
@@ -177,11 +190,11 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "0.10.1"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e103531a2ce636e86b7639cec25d348c4d360832ab8e0e7f9a6e00f08aac1379"
+checksum = "cdb6b6ca126f6041a815c32497db4aaf5d505c34cc879267b046b4f4666e43ab"
 dependencies = [
- "cosmwasm-std",
+ "cosmwasm-std 0.9.4",
  "serde",
 ]
 
@@ -191,7 +204,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12d56a7ad7bbbf04b94a782f25fe50a9372067737f661931acf9d30668003efd"
 dependencies = [
- "cosmwasm-std",
+ "cosmwasm-std 0.10.1",
  "hex",
  "memmap",
  "parity-wasm",
