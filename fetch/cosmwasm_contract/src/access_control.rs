@@ -2,13 +2,12 @@ use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::str::{from_utf8, FromStr};
 
-use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAVE_ROLE, ERR_ACCESS_CONTROL_DONT_HAVE_ROLE};
+use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE};
 
 pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
 
 pub const OWNER_KEY: &[u8] = b"OWNER_KEY";
 pub const ADMIN_ROLE: &str = "ADMIN_ROLE";
-pub const DELEGATE_ROLE: &str = "DELEGATE_ROLE";
 pub const APPROVER_ROLE: &str = "APPROVER_ROLE";
 pub const MONITOR_ROLE: &str = "MONITOR_ROLE";
 pub const RELAYER_ROLE: &str = "RELAYER_ROLE";
@@ -17,7 +16,6 @@ pub const RELAYER_ROLE: &str = "RELAYER_ROLE";
 pub enum AccessRole {
     Owner,
     Admin,
-    Delegate,
     Relayer,
     Approver,
     Monitor,
@@ -27,7 +25,6 @@ impl AccessRole {
     fn value(&self) -> &str {
         match *self {
             AccessRole::Admin => ADMIN_ROLE,
-            AccessRole::Delegate => DELEGATE_ROLE,
             AccessRole::Relayer => RELAYER_ROLE,
             AccessRole::Approver => APPROVER_ROLE,
             AccessRole::Monitor => MONITOR_ROLE,
@@ -41,7 +38,6 @@ impl AccessRole {
     pub fn from_str(s: &str) -> Result<Self, StdError> {
         match s {
             ADMIN_ROLE => Ok(AccessRole::Admin),
-            DELEGATE_ROLE => Ok(AccessRole::Delegate),
             RELAYER_ROLE => Ok(AccessRole::Relayer),
             APPROVER_ROLE => Ok(AccessRole::Approver),
             MONITOR_ROLE => Ok(AccessRole::Monitor),
@@ -57,7 +53,6 @@ impl FromStr for AccessRole {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             ADMIN_ROLE => Ok(AccessRole::Admin),
-            DELEGATE_ROLE => Ok(AccessRole::Delegate),
             RELAYER_ROLE => Ok(AccessRole::Relayer),
             APPROVER_ROLE => Ok(AccessRole::Approver),
             MONITOR_ROLE => Ok(AccessRole::Monitor),
@@ -94,7 +89,7 @@ pub fn ac_add_role<S: Storage>(
 ) -> StdResult<bool> {
     let already_have_role = ac_have_role(storage, addr, role).unwrap_or(false);
     if already_have_role {
-        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_ALREADY_HAVE_ROLE));
+        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE));
     }
     let mut ac_store = access_control(storage);
     let mut addr_roles = PrefixedStorage::new(addr.as_str().as_bytes(), &mut ac_store);
@@ -110,7 +105,7 @@ pub fn ac_revoke_role<S: Storage>(
 ) -> StdResult<bool> {
     let already_have_role = ac_have_role(storage, addr, role).unwrap_or(false);
     if !already_have_role {
-        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DONT_HAVE_ROLE));
+        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
     let mut ac_store = access_control(storage);
     let mut addr_roles = PrefixedStorage::new(addr.as_str().as_bytes(), &mut ac_store);

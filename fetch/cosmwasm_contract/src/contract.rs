@@ -5,7 +5,7 @@ use cosmwasm_std::{
 
 use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole};
 use crate::error::{
-    ERR_ACCESS_CONTROL_DONT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
+    ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
     ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED,
     ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
     ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
@@ -17,7 +17,7 @@ use crate::msg::{
 };
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
-pub const DENOM: &str = "atestfet";
+pub const DEFAULT_DENOM: &str = "afet";
 
 /* ***************************************************
  * **************    Initialization      *************
@@ -37,15 +37,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     }
     let paused_since_block_relayer_api = paused_since_block_public_api;
 
-    let delete_protection_period = msg.delete_protection_period.unwrap_or(0u64);
-    let earliest_delete = current_block_number + delete_protection_period;
     let contract_addr_human = deps.api.human_address(&env.contract.address)?;
 
     if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
-    let denom = msg.denom.unwrap_or(DENOM.to_string());
+    let denom = msg.denom.unwrap_or(DEFAULT_DENOM.to_string());
 
     ac_set_owner(&mut deps.storage, &env_message_sender)?;
     ac_add_role(&mut deps.storage, &env_message_sender, &AccessRole::Admin)?;
@@ -64,8 +62,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         swap_fee: msg.swap_fee,
         paused_since_block_public_api,
         paused_since_block_relayer_api,
-        earliest_delete,
-        denom: denom,
+        denom,
         contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
@@ -760,7 +757,7 @@ fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     let ac_role = &AccessRole::from_str(role.as_str())?;
     let have_role = ac_have_role(&deps.storage, &env_message_sender, ac_role).unwrap_or(false);
     if !have_role {
-        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DONT_HAVE_ROLE));
+        return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
     ac_revoke_role(&mut deps.storage, &env_message_sender, ac_role)?;
 
@@ -922,12 +919,12 @@ fn can_pause<S: Storage, A: Api>(
     api: &A,
     since_block: u64,
 ) -> HandleResult {
-    if since_block <= env.block.height {
-        // pausing
-        only_monitor(env, storage, api).or(only_admin(env, storage, api))
-    } else {
+    if since_block > env.block.height {
         // unpausing
         only_admin(env, storage, api)
+    } else {
+        // pausing
+        only_monitor(env, storage, api).or(only_admin(env, storage, api))
     }
 }
 

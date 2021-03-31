@@ -12,7 +12,7 @@ use crate::contract::{
     verify_not_paused_relayer_api,
 };
 use crate::error::{
-    ERR_ACCESS_CONTROL_ALREADY_HAVE_ROLE, ERR_ACCESS_CONTROL_DONT_HAVE_ROLE,
+    ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE,
     ERR_ACCESS_CONTROL_ONLY_ADMIN, ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED,
     ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED, ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED,
     ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED,
@@ -88,8 +88,7 @@ mod init {
             lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
-            delete_protection_period: None,
-            denom: None,
+            denom: Some(DEFAULT_DENUM.to_string()),
         };
         return mock_init(&mut deps, msg, DEFAULT_OWNER, 0);
     }
@@ -119,7 +118,6 @@ mod init {
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block_public_api: u64::MAX,
             paused_since_block_relayer_api: u64::MAX,
-            earliest_delete: env.block.height,
             denom: DEFAULT_DENUM.to_string(),
             contract_addr_human: deps
                 .api
@@ -158,7 +156,6 @@ mod init {
             lower_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
-            delete_protection_period: None,
             denom: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
@@ -177,7 +174,6 @@ mod init {
             lower_swap_limit: cu128!(DEFAULT_SWAP_FEE),
             swap_fee: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             paused_since_block: None,
-            delete_protection_period: None,
             denom: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
@@ -469,7 +465,7 @@ mod access_control {
         grant_role(&mut deps, APPROVER_ROLE, account, caller).unwrap();
 
         let response = grant_role(&mut deps, APPROVER_ROLE, account, caller);
-        expect_error!(response, ERR_ACCESS_CONTROL_ALREADY_HAVE_ROLE);
+        expect_error!(response, ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE);
     }
 
     #[test]
@@ -494,7 +490,7 @@ mod access_control {
         let caller = DEFAULT_OWNER;
         let account = "new_monitor";
         let response = revoke_role(&mut deps, MONITOR_ROLE, account, caller);
-        expect_error!(response, ERR_ACCESS_CONTROL_DONT_HAVE_ROLE);
+        expect_error!(response, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE);
     }
 
     #[test]
@@ -505,7 +501,7 @@ mod access_control {
         let account = "not_admin";
         let role = ADMIN_ROLE;
         let response = renounce_role(&mut deps, role, account);
-        expect_error!(response, ERR_ACCESS_CONTROL_DONT_HAVE_ROLE)
+        expect_error!(response, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE)
     }
 }
 

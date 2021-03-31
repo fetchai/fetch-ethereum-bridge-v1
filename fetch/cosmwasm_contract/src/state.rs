@@ -27,11 +27,6 @@ pub struct State {
     pub swap_fee: Uint128,
     pub paused_since_block_public_api: u64,
     pub paused_since_block_relayer_api: u64,
-    // (2) TODO(LR)(low) check if this is possible in cosmos
-    // Objective: end of the life of the contract
-    pub earliest_delete: u64, // delete the whole state of the contract and the stored contract
-
-    // temporary
     pub denom: String,
 
     // optimization FIXME(LR) Not needed any more with version 0.10.0

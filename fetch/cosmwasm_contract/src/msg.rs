@@ -16,7 +16,6 @@ pub struct InitMsg {
     pub reverse_aggregated_allowance: Uint128,
     pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub paused_since_block: Option<u64>,
-    pub delete_protection_period: Option<u64>,
     pub denom: Option<String>,
 }
 
