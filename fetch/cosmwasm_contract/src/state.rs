@@ -41,10 +41,6 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
     singleton_read(storage, CONFIG_KEY)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct AccessControl {}
-
 pub fn refunds_add<S: Storage>(swap_id: u64, storage: &mut S) {
     let mut store = PrefixedStorage::new(REFUNDS_KEY, storage);
     store.set(&swap_id.to_be_bytes(), b"");
