@@ -19,8 +19,8 @@ pub const ERR_CAP_EXCEEDED: &str = "[FET_ERR_CAP_EXCEEDED] Amount would exceed c
 pub const ERR_ACCESS_CONTROL: &str = "[FET_ERR_ACCESS_CONTROL] ";
 pub const ERR_ACCESS_CONTROL_ONLY_ADMIN: &str = "[FET_ERR_ACCESS_CONTROL] Only Admin";
 pub const ERR_ACCESS_CONTROL_ONLY_RELAYER: &str = "[FET_ERR_ACCESS_CONTROL] Only Relayer";
-pub const ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE: &str = "[FET_ERR_ACCESS_CONTROL] Already have role";
-pub const ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE: &str = "[FET_ERR_ACCESS_CONTROL] Don't have role";
+pub const ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE: &str = "[FET_ERR_ACCESS_CONTROL] Already has role";
+pub const ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE: &str = "[FET_ERR_ACCESS_CONTROL] Doesn't have role";
 // funds
 pub const ERR_UNRECOGNIZED_DENOM: &str = "[FET_ERR_UNRECOGNIZED_DENOM] unrecognized denom";
 // api paused
