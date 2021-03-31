@@ -1,12 +1,11 @@
 use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
-use std::str::{from_utf8, FromStr};
+use std::str::{FromStr};
 
 use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE};
 
 pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
 
-pub const OWNER_KEY: &[u8] = b"OWNER_KEY";
 pub const ADMIN_ROLE: &str = "ADMIN_ROLE";
 pub const APPROVER_ROLE: &str = "APPROVER_ROLE";
 pub const MONITOR_ROLE: &str = "MONITOR_ROLE";
@@ -14,7 +13,6 @@ pub const RELAYER_ROLE: &str = "RELAYER_ROLE";
 
 #[derive(Debug, PartialEq)]
 pub enum AccessRole {
-    Owner,
     Admin,
     Relayer,
     Approver,
@@ -28,7 +26,6 @@ impl AccessRole {
             AccessRole::Relayer => RELAYER_ROLE,
             AccessRole::Approver => APPROVER_ROLE,
             AccessRole::Monitor => MONITOR_ROLE,
-            AccessRole::Owner => "",
         }
     }
     fn as_bytes(&self) -> &[u8] {
@@ -112,28 +109,4 @@ pub fn ac_revoke_role<S: Storage>(
     addr_roles.remove(role.as_bytes());
 
     Ok(true)
-}
-
-pub fn ac_get_owner<S: Storage>(storage: &S) -> StdResult<HumanAddr> {
-    let ac_store = access_control_read(storage);
-    match ac_store.get(OWNER_KEY) {
-        Some(addr) => match from_utf8(&addr) {
-            Ok(addr_str) => Ok(HumanAddr::from(addr_str)),
-            Err(_) => Err(StdError::invalid_utf8("Couldn't parse owner address")),
-        },
-        None => Err(StdError::generic_err("Owner not set")),
-    }
-}
-
-pub fn ac_set_owner<S: Storage>(storage: &mut S, owner: &HumanAddr) -> StdResult<bool> {
-    let have_owner = ac_get_owner(storage);
-    match have_owner {
-        Ok(_) => Err(StdError::generic_err("Owner cannot be changed")),
-        Err(_error) => {
-            // FIXME(LR) mtch on `_error` type
-            let mut ac_store = access_control(storage);
-            ac_store.set(OWNER_KEY, owner.as_str().as_bytes());
-            Ok(true)
-        }
-    }
 }

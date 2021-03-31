@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::access_control::{
-    ac_get_owner, ac_have_role, AccessRole, ADMIN_ROLE, APPROVER_ROLE, MONITOR_ROLE, RELAYER_ROLE,
+    ac_have_role, AccessRole, ADMIN_ROLE, APPROVER_ROLE, MONITOR_ROLE, RELAYER_ROLE,
 };
 use crate::contract::{
     amount_from_funds, handle, init, query, verify_not_paused_public_api,
@@ -131,17 +131,13 @@ mod init {
             .expect("unexpected reading state error");
         assert_eq!(state, expected_state);
 
-        // check roles
+        // check role
         ac_have_role(
             &deps.storage,
             &HumanAddr::from(DEFAULT_OWNER),
             &AccessRole::Admin,
         )
         .expect("owner should have admin role");
-        assert_eq!(
-            HumanAddr::from(DEFAULT_OWNER),
-            ac_get_owner(&deps.storage).unwrap()
-        );
     }
 
     #[test]

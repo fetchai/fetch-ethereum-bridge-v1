@@ -3,7 +3,7 @@ use cosmwasm_std::{
     HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
 };
 
-use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, ac_set_owner, AccessRole};
+use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRole};
 use crate::error::{
     ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
     ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED,
@@ -45,7 +45,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     let denom = msg.denom.unwrap_or(DEFAULT_DENOM.to_string());
 
-    ac_set_owner(&mut deps.storage, &env_message_sender)?;
     ac_add_role(&mut deps.storage, &env_message_sender, &AccessRole::Admin)?;
 
     let state = State {
