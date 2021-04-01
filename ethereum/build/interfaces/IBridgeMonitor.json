@@ -548,18 +548,18 @@
     "absolutePath": "interfaces/IBridgeMonitor.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        277
+        368
       ],
       "IBridgeMonitor": [
-        296
+        387
       ]
     },
-    "id": 297,
+    "id": 388,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 279,
+        "id": 370,
         "literals": [
           "solidity",
           "^",
@@ -571,16 +571,16 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "821:33:3"
+        "src": "821:33:4"
       },
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 280,
+        "id": 371,
         "nodeType": "ImportDirective",
-        "scope": 297,
-        "sourceUnit": 278,
-        "src": "856:29:3",
+        "scope": 388,
+        "sourceUnit": 369,
+        "src": "856:29:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -589,66 +589,66 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 282,
+              "id": 373,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 277,
-              "src": "1200:13:3",
+              "referencedDeclaration": 368,
+              "src": "1200:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$277",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 283,
+            "id": 374,
             "nodeType": "InheritanceSpecifier",
-            "src": "1200:13:3"
+            "src": "1200:13:4"
           }
         ],
         "contractDependencies": [
-          277
+          368
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 281,
+          "id": 372,
           "nodeType": "StructuredDocumentation",
-          "src": "888:283:3",
+          "src": "888:283:4",
           "text": " @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n         the Bridge contract."
         },
         "fullyImplemented": false,
-        "id": 296,
+        "id": 387,
         "linearizedBaseContracts": [
-          296,
-          277
+          387,
+          368
         ],
         "name": "IBridgeMonitor",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 284,
+              "id": 375,
               "nodeType": "StructuredDocumentation",
-              "src": "1220:353:3",
+              "src": "1220:353:4",
               "text": " @notice Pauses Public API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "432944c0",
-            "id": 289,
+            "id": 380,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pausePublicApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 287,
+              "id": 378,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 286,
+                  "id": 377,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 289,
-                  "src": "1607:19:3",
+                  "scope": 380,
+                  "src": "1607:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -656,10 +656,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 285,
+                    "id": 376,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1607:7:3",
+                    "src": "1607:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -668,46 +668,46 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1606:21:3"
+              "src": "1606:21:4"
             },
             "returnParameters": {
-              "id": 288,
+              "id": 379,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1636:0:3"
+              "src": "1636:0:4"
             },
-            "scope": 296,
-            "src": "1578:59:3",
+            "scope": 387,
+            "src": "1578:59:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
             "documentation": {
-              "id": 290,
+              "id": 381,
               "nodeType": "StructuredDocumentation",
-              "src": "1643:354:3",
+              "src": "1643:354:4",
               "text": " @notice Pauses Relayer API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "9f2c88bf",
-            "id": 295,
+            "id": 386,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pauseRelayerApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 293,
+              "id": 384,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 292,
+                  "id": 383,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 295,
-                  "src": "2032:19:3",
+                  "scope": 386,
+                  "src": "2032:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -715,10 +715,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 291,
+                    "id": 382,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2032:7:3",
+                    "src": "2032:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -727,26 +727,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2031:21:3"
+              "src": "2031:21:4"
             },
             "returnParameters": {
-              "id": 294,
+              "id": 385,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2061:0:3"
+              "src": "2061:0:4"
             },
-            "scope": 296,
-            "src": "2002:60:3",
+            "scope": 387,
+            "src": "2002:60:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 297,
-        "src": "1172:892:3"
+        "scope": 388,
+        "src": "1172:892:4"
       }
     ],
-    "src": "821:1244:3"
+    "src": "821:1244:4"
   },
   "contractName": "IBridgeMonitor",
   "dependencies": [
