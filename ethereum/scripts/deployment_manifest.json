@@ -63,14 +63,13 @@
         "Bridge": {
             "deployer_address": "0xC2e109Affd2FefD5B313350a4B2AdC75EC2e96B1",
             "deployer_public_key": "0x44dcd1e5e29add8d93c4c0ca6e1ef4b02871481c6b5212cd590cd4b7b5c9350802f213314f6b674c0dd7319cc51ed85d3132be7095bdc2929901ad921fcdf1dc",
-            "contract_address": "0x4d3033C0F894142a6D50B90da652b80Ca19D9884",
+            "contract_address": "0x603C3A1B5a6E327644c0A7D85Df5A13362442E69",
             "publish_source": true,
             "constructor_parameters": {
                 "ERC20Address": "0x6D7fF49d5fC4E9dD868F66Bd95B8BD24e0f9dCc9",
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "upperSwapLimit": 1000,
                 "swapMax": 1000,
                 "swapMin": 101,
                 "swapFee": 100,
@@ -149,7 +148,6 @@
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "upperSwapLimit": 1000,
                 "swapMax": 1000,
                 "swapMin": 101,
                 "swapFee": 100,
