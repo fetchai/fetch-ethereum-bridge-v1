@@ -747,8 +747,8 @@
             "documentation": {
               "id": 412,
               "nodeType": "StructuredDocumentation",
-              "src": "2496:802:6",
-              "text": " @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n         back to the user (this is by-design).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 withdrawn\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
+              "src": "2496:809:6",
+              "text": " @notice Refunds swap previously created by `swap(...)` call to this contract. The `reverseSwapFee` is *NOT* refunded\n         back to the user (this is by-design).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 withdrawn\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e779e30a",
             "id": 423,
@@ -768,7 +768,7 @@
                   "name": "id",
                   "nodeType": "VariableDeclaration",
                   "scope": 423,
-                  "src": "3319:9:6",
+                  "src": "3326:9:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -779,7 +779,7 @@
                     "id": 413,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3319:6:6",
+                    "src": "3326:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -794,7 +794,7 @@
                   "name": "to",
                   "nodeType": "VariableDeclaration",
                   "scope": 423,
-                  "src": "3330:10:6",
+                  "src": "3337:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -805,7 +805,7 @@
                     "id": 415,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3330:7:6",
+                    "src": "3337:7:6",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -821,7 +821,7 @@
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 423,
-                  "src": "3342:14:6",
+                  "src": "3349:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -832,7 +832,7 @@
                     "id": 417,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3342:7:6",
+                    "src": "3349:7:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -847,7 +847,7 @@
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
                   "scope": 423,
-                  "src": "3358:16:6",
+                  "src": "3365:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -858,7 +858,7 @@
                     "id": 419,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3358:6:6",
+                    "src": "3365:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -867,16 +867,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3318:57:6"
+              "src": "3325:57:6"
             },
             "returnParameters": {
               "id": 422,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3384:0:6"
+              "src": "3391:0:6"
             },
             "scope": 452,
-            "src": "3303:82:6",
+            "src": "3310:82:6",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -885,8 +885,8 @@
             "documentation": {
               "id": 424,
               "nodeType": "StructuredDocumentation",
-              "src": "3392:1422:6",
-              "text": " @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n         back to the user (= swap fee is waived = user will receive full `amount`).\n         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n         period of time, etc. ...).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 waived = user will receive whole `amount` value.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
+              "src": "3399:1429:6",
+              "text": " @notice Refunds swap previously created by `swap(...)` call to this contract, where `reverseSwapFee` *IS* refunded\n         back to the user (= swap fee is waived = user will receive full `amount`).\n         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n         period of time, etc. ...).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 waived = user will receive whole `amount` value.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "ab2235a3",
             "id": 435,
@@ -906,7 +906,7 @@
                   "name": "id",
                   "nodeType": "VariableDeclaration",
                   "scope": 435,
-                  "src": "4841:9:6",
+                  "src": "4855:9:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -917,7 +917,7 @@
                     "id": 425,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4841:6:6",
+                    "src": "4855:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -932,7 +932,7 @@
                   "name": "to",
                   "nodeType": "VariableDeclaration",
                   "scope": 435,
-                  "src": "4852:10:6",
+                  "src": "4866:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -943,7 +943,7 @@
                     "id": 427,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4852:7:6",
+                    "src": "4866:7:6",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -959,7 +959,7 @@
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 435,
-                  "src": "4864:14:6",
+                  "src": "4878:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -970,7 +970,7 @@
                     "id": 429,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4864:7:6",
+                    "src": "4878:7:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -985,7 +985,7 @@
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
                   "scope": 435,
-                  "src": "4880:16:6",
+                  "src": "4894:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -996,7 +996,7 @@
                     "id": 431,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4880:6:6",
+                    "src": "4894:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -1005,16 +1005,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4840:57:6"
+              "src": "4854:57:6"
             },
             "returnParameters": {
               "id": 434,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4906:0:6"
+              "src": "4920:0:6"
             },
             "scope": 452,
-            "src": "4819:88:6",
+            "src": "4833:88:6",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1023,8 +1023,8 @@
             "documentation": {
               "id": 436,
               "nodeType": "StructuredDocumentation",
-              "src": "4914:2009:6",
-              "text": " @notice Finalises swap initiated by counterpart contract on the other blockchain.\n         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n         blockchain.\n @dev Callable exclusively by `relayer` role\n @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n              to users (on the other blockchain).\n @param to - address where the refund will be transferred in to\n @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n               for purposes of quick querying of events on this blockchain.\n @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n                       create strong bond between this and other blockchain.\n @param amount - original amount specified in associated swap initiated on the other blockchain.\n                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
+              "src": "4928:2023:6",
+              "text": " @notice Finalises swap initiated by counterpart contract on the other blockchain.\n         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n         blockchain.\n @dev Callable exclusively by `relayer` role\n @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n              to users (on the other blockchain).\n @param to - address where the refund will be transferred in to\n @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n               for purposes of quick querying of events on this blockchain.\n @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n                       create strong bond between this and other blockchain.\n @param amount - original amount specified in associated swap initiated on the other blockchain.\n                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n                 what means that user receives `amount - reverseSwapFee`, or *nothing* if `amount <= reverseSwapFee`.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e5c119ca",
             "id": 451,
@@ -1044,7 +1044,7 @@
                   "name": "rid",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "6958:10:6",
+                  "src": "6986:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1055,7 +1055,7 @@
                     "id": 437,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6958:6:6",
+                    "src": "6986:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -1070,7 +1070,7 @@
                   "name": "to",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "6978:10:6",
+                  "src": "7006:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1081,7 +1081,7 @@
                     "id": 439,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6978:7:6",
+                    "src": "7006:7:6",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1097,7 +1097,7 @@
                   "name": "from",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "6998:20:6",
+                  "src": "7026:20:6",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -1108,7 +1108,7 @@
                     "id": 441,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6998:6:6",
+                    "src": "7026:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -1123,7 +1123,7 @@
                   "name": "originTxHash",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "7028:20:6",
+                  "src": "7056:20:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1134,7 +1134,7 @@
                     "id": 443,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7028:7:6",
+                    "src": "7056:7:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -1149,7 +1149,7 @@
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "7058:14:6",
+                  "src": "7086:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1160,7 +1160,7 @@
                     "id": 445,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7058:7:6",
+                    "src": "7086:7:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1175,7 +1175,7 @@
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
                   "scope": 451,
-                  "src": "7082:16:6",
+                  "src": "7110:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1186,7 +1186,7 @@
                     "id": 447,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
-                    "src": "7082:6:6",
+                    "src": "7110:6:6",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint64",
                       "typeString": "uint64"
@@ -1195,26 +1195,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6948:160:6"
+              "src": "6976:160:6"
             },
             "returnParameters": {
               "id": 450,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "7125:0:6"
+              "src": "7153:0:6"
             },
             "scope": 452,
-            "src": "6928:198:6",
+            "src": "6956:198:6",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
         "scope": 453,
-        "src": "2075:5053:6"
+        "src": "2075:5081:6"
       }
     ],
-    "src": "820:6309:6"
+    "src": "820:6337:6"
   },
   "contractName": "IBridgeRelayer",
   "dependencies": [
@@ -1222,9 +1222,9 @@
   ],
   "offset": [
     2075,
-    7128
+    7156
   ],
-  "sha1": "d798b7446bd4c181d8e4f5c9996283d870aedb3c",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n *         the Bridge contract.\n *         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n *         across chains.\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n *         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n *         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n *         to this contract.\n */\ninterface IBridgeRelayer is IBridgeCommon {\n\n    /**\n      * @notice Starts the new relay eon.\n      * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      *      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      *      relayer svc and the current one.\n      */\n    function newRelayEon() external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n      *         back to the user (this is by-design).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 withdrawn\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refund(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n      *         back to the user (= swap fee is waived = user will receive full `amount`).\n      *         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n      *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n      *         period of time, etc. ...).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 waived = user will receive whole `amount` value.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refundInFull(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Finalises swap initiated by counterpart contract on the other blockchain.\n      *         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n      *         blockchain.\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n      *              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n      *              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n      *              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n      *              to users (on the other blockchain).\n      * @param to - address where the refund will be transferred in to\n      * @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n      *               for purposes of quick querying of events on this blockchain.\n      * @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n      *                       create strong bond between this and other blockchain.\n      * @param amount - original amount specified in associated swap initiated on the other blockchain.\n      *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function reverseSwap(\n        uint64 rid,\n        address to,\n        string calldata from,\n        bytes32 originTxHash,\n        uint256 amount,\n        uint64 relayEon_\n        )\n        external;\n}\n",
+  "sha1": "83d561a3f10b6b764c2a11ab288ba8b33e5d636d",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n *         the Bridge contract.\n *         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n *         across chains.\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n *         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n *         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n *         to this contract.\n */\ninterface IBridgeRelayer is IBridgeCommon {\n\n    /**\n      * @notice Starts the new relay eon.\n      * @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      *      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      *      relayer svc and the current one.\n      */\n    function newRelayEon() external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `reverseSwapFee` is *NOT* refunded\n      *         back to the user (this is by-design).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 withdrawn\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refund(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `reverseSwapFee` *IS* refunded\n      *         back to the user (= swap fee is waived = user will receive full `amount`).\n      *         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n      *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n      *         period of time, etc. ...).\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n      *             **NOT** *reverse* swap id!\n      * @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n      *             call)\n      * @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n      *                 waived = user will receive whole `amount` value.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function refundInFull(uint64 id, address to, uint256 amount, uint64 relayEon_) external;\n\n\n    /**\n      * @notice Finalises swap initiated by counterpart contract on the other blockchain.\n      *         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n      *         blockchain.\n      *\n      * @dev Callable exclusively by `relayer` role\n      *\n      * @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n      *              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n      *              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n      *              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n      *              to users (on the other blockchain).\n      * @param to - address where the refund will be transferred in to\n      * @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n      *               for purposes of quick querying of events on this blockchain.\n      * @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n      *                       create strong bond between this and other blockchain.\n      * @param amount - original amount specified in associated swap initiated on the other blockchain.\n      *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n      *                 what means that user receives `amount - reverseSwapFee`, or *nothing* if `amount <= reverseSwapFee`.\n      *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n      *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n      *                 called at all!\n      * @param relayEon_ - current relay eon, ensures safe management of relaying process\n      */\n    function reverseSwap(\n        uint64 rid,\n        address to,\n        string calldata from,\n        bytes32 originTxHash,\n        uint256 amount,\n        uint64 relayEon_\n        )\n        external;\n}\n",
   "type": "interface"
 }

@@ -65,11 +65,11 @@ contract Bridge is IBridge, AccessControl {
     uint256 public supply;
     uint64 public  nextSwapId;
     uint64 public  relayEon;
-    mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* swapFee)
-    uint256 public swapMax;
-    uint256 public swapMin;
+    mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* reverseSwapFee)
+    uint256 public reverseSwapMax;
+    uint256 public reverseSwapMin;
     uint256 public cap;
-    uint256 public swapFee;
+    uint256 public reverseSwapFee;
     uint256 public pausedSinceBlockPublicApi;
     uint256 public pausedSinceBlockRelayerApi;
     uint256 public reverseAggregatedAllowance;
@@ -127,16 +127,16 @@ contract Bridge is IBridge, AccessControl {
     }
 
     modifier verifySwapAmount(uint256 amount) {
-        // NOTE(pb): Commenting-out check against `swapFee` in order to spare gas for user's Tx, relying solely on check
-        //  against `swapMin` only, which is ensured to be `>= swapFee` (by `_setLimits(...)` function).
-        //require(amount > swapFee, "Amount must be higher than fee");
-        require(amount >= swapMin, "Amount bellow lower limit");
-        require(amount <= swapMax, "Amount exceeds upper limit");
+        // NOTE(pb): Commenting-out check against `reverseSwapFee` in order to spare gas for user's Tx, relying solely on check
+        //  against `reverseSwapMin` only, which is ensured to be `>= reverseSwapFee` (by `_setReverseSwapLimits(...)` function).
+        //require(amount > reverseSwapFee, "Amount must be higher than fee");
+        require(amount >= reverseSwapMin, "Amount bellow lower limit");
+        require(amount <= reverseSwapMax, "Amount exceeds upper limit");
         _;
     }
 
     modifier verifyReverseSwapAmount(uint256 amount) {
-        require(amount <= swapMax, "Amount exceeds swap max limit");
+        require(amount <= reverseSwapMax, "Amount exceeds swap max limit");
         _;
     }
 
@@ -161,9 +161,9 @@ contract Bridge is IBridge, AccessControl {
      *                                      in aggregated form
      * @param reverseAggregatedAllowanceApproverCap_ - limits allowance value up to which can APPROVER_ROLE set
      *                                                 the allowance
-     * @param swapMax_ - value representing UPPER limit which can be transferred (this value INCLUDES swapFee)
-     * @param swapMin_ - value representing LOWER limit which can be transferred (this value INCLUDES swapFee)
-     * @param swapFee_ - represents fee which user has to pay for swap execution,
+     * @param reverseSwapMax_ - value representing UPPER limit which can be transferred (this value INCLUDES reverseSwapFee)
+     * @param reverseSwapMin_ - value representing LOWER limit which can be transferred (this value INCLUDES reverseSwapFee)
+     * @param reverseSwapFee_ - represents fee which user has to pay for swap execution,
      * @param pausedSinceBlockPublicApi_ - block number since which the Public API of the contract will be paused
      * @param pausedSinceBlockRelayerApi_ - block number since which the Relayer API of the contract will be paused
      * @param deleteProtectionPeriod_ - number of blocks(from contract deployment block) during which contract can
@@ -174,9 +174,9 @@ contract Bridge is IBridge, AccessControl {
         , uint256 cap_
         , uint256 reverseAggregatedAllowance_
         , uint256 reverseAggregatedAllowanceApproverCap_
-        , uint256 swapMax_
-        , uint256 swapMin_
-        , uint256 swapFee_
+        , uint256 reverseSwapMax_
+        , uint256 reverseSwapMin_
+        , uint256 reverseSwapFee_
         , uint256 pausedSinceBlockPublicApi_
         , uint256 pausedSinceBlockRelayerApi_
         , uint256 deleteProtectionPeriod_)
@@ -197,7 +197,7 @@ contract Bridge is IBridge, AccessControl {
         _setCap(cap_);
         _setReverseAggregatedAllowance(reverseAggregatedAllowance_);
         _setReverseAggregatedAllowanceApproverCap(reverseAggregatedAllowanceApproverCap_);
-        _setLimits(swapMax_, swapMin_, swapFee_);
+        _setReverseSwapLimits(reverseSwapMax_, reverseSwapMin_, reverseSwapFee_);
         _pausePublicApiSince(pausedSinceBlockPublicApi_);
         _pauseRelayerApiSince(pausedSinceBlockRelayerApi_);
     }
@@ -272,10 +272,10 @@ contract Bridge is IBridge, AccessControl {
     function getNextSwapId() external view override returns(uint64) {return nextSwapId;}
     function getRelayEon() external view override returns(uint64) {return relayEon;}
     function getRefund(uint64 swap_id) external view override returns(uint256) {return refunds[swap_id];}
-    function getSwapMax() external view override returns(uint256) {return swapMax;}
-    function getSwapMin() external view override returns(uint256) {return swapMin;}
+    function getSwapMax() external view override returns(uint256) {return reverseSwapMax;}
+    function getSwapMin() external view override returns(uint256) {return reverseSwapMin;}
     function getCap() external view override returns(uint256) {return cap;}
-    function getSwapFee() external view override returns(uint256) {return swapFee;}
+    function getSwapFee() external view override returns(uint256) {return reverseSwapFee;}
     function getPausedSinceBlockPublicApi() external view override returns(uint256) {return pausedSinceBlockPublicApi;}
     function getPausedSinceBlockRelayerApi() external view override returns(uint256) {return pausedSinceBlockRelayerApi;}
     function getReverseAggregatedAllowance() external view override returns(uint256) {return reverseAggregatedAllowance;}
@@ -310,7 +310,7 @@ contract Bridge is IBridge, AccessControl {
 
 
     /**
-      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded
+      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `reverseSwapFee` is *NOT* refunded
       *         back to the user (this is by-design).
       *
       * @dev Callable exclusively by `relayer` role
@@ -345,11 +345,11 @@ contract Bridge is IBridge, AccessControl {
 
         // NOTE(pb): Same calls are repeated in both branches of the if-else in order to minimise gas impact, comparing
         //  to implementation, where these calls would be present in the code just once, after if-else block.
-        if (amount > swapFee) {
+        if (amount > reverseSwapFee) {
             // NOTE(pb): No need to use safe math here, the overflow is prevented by `if` condition above.
-            uint256 effectiveAmount = amount - swapFee;
+            uint256 effectiveAmount = amount - reverseSwapFee;
             token.transfer(to, effectiveAmount);
-            emit SwapRefund(id, to, effectiveAmount, swapFee);
+            emit SwapRefund(id, to, effectiveAmount, reverseSwapFee);
         } else {
             // NOTE(pb): No transfer necessary in this case, since whole amount is taken as swap fee.
             emit SwapRefund(id, to, 0, amount);
@@ -365,7 +365,7 @@ contract Bridge is IBridge, AccessControl {
 
 
     /**
-      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded
+      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `reverseSwapFee` *IS* refunded
       *         back to the user (= swap fee is waived = user will receive full `amount`).
       *         Purpose of this method is to enable full refund in the situations when it si not user's fault that
       *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged
@@ -435,7 +435,7 @@ contract Bridge is IBridge, AccessControl {
       *                       create strong bond between this and other blockchain.
       * @param amount - original amount specified in associated swap initiated on the other blockchain.
       *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,
-      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.
+      *                 what means that user receives `amount - reverseSwapFee`, or *nothing* if `amount <= reverseSwapFee`.
       *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction
       *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been
       *                 called at all!
@@ -446,7 +446,7 @@ contract Bridge is IBridge, AccessControl {
         address to,
         string calldata from,
         bytes32 originTxHash,
-        uint256 amount, // This is original swap amount (= *includes* swapFee)
+        uint256 amount, // This is original swap amount (= *includes* reverseSwapFee)
         uint64 relayEon_
         )
         external
@@ -462,11 +462,11 @@ contract Bridge is IBridge, AccessControl {
 
         supply = supply.sub(amount, "Amount exceeds contract supply");
 
-        if (amount > swapFee) {
+        if (amount > reverseSwapFee) {
             // NOTE(pb): No need to use safe math here, the overflow is prevented by `if` condition above.
-            uint256 effectiveAmount = amount - swapFee;
+            uint256 effectiveAmount = amount - reverseSwapFee;
             token.transfer(to, effectiveAmount);
-            emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount, swapFee);
+            emit ReverseSwap(rid, to, from, originTxHash, effectiveAmount, reverseSwapFee);
         } else {
             // NOTE(pb): No transfer, no contract supply change since whole amount is taken as swap fee.
             emit ReverseSwap(rid, to, from, originTxHash, 0, amount);
@@ -594,21 +594,21 @@ contract Bridge is IBridge, AccessControl {
 
     /**
      * @notice Sets limits for swap amount
-     *         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`
-     * @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
-     * @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
-     * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
+     *         FUnction will revert if following consitency check fails: `swapfee_ <= reverseSwapMin_ <= reverseSwapMax_`
+     * @param reverseSwapMax_ : >= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
+     * @param reverseSwapMin_ : <= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
+     * @param reverseSwapFee_ : defines swap fee for **INCOMING** reverse swap (= `reverseSwap(...)` and `refund...(...) calls)`
      */
-    function setLimits(
-        uint256 swapMax_,
-        uint256 swapMin_,
-        uint256 swapFee_
+    function setReverseSwapLimits(
+        uint256 reverseSwapMax_,
+        uint256 reverseSwapMin_,
+        uint256 reverseSwapFee_
         )
         external
         override
         onlyOwner
     {
-        _setLimits(swapMax_, swapMin_, swapFee_);
+        _setReverseSwapLimits(reverseSwapMax_, reverseSwapMin_, reverseSwapFee_);
     }
 
 
@@ -727,20 +727,20 @@ contract Bridge is IBridge, AccessControl {
     }
 
 
-    function _setLimits(
-        uint256 swapMax_,
-        uint256 swapMin_,
-        uint256 swapFee_
+    function _setReverseSwapLimits(
+        uint256 reverseSwapMax_,
+        uint256 reverseSwapMin_,
+        uint256 reverseSwapFee_
         )
         internal
     {
-        require((swapFee_ <= swapMin_) && (swapMin_ <= swapMax_), "fee<=lower<=upper violated");
+        require((reverseSwapFee_ <= reverseSwapMin_) && (reverseSwapMin_ <= reverseSwapMax_), "fee<=lower<=upper violated");
 
-        swapMax = swapMax_;
-        swapMin = swapMin_;
-        swapFee = swapFee_;
+        reverseSwapMax = reverseSwapMax_;
+        reverseSwapMin = reverseSwapMin_;
+        reverseSwapFee = reverseSwapFee_;
 
-        emit LimitsUpdate(swapMax, swapMin, swapFee);
+        emit LimitsUpdate(reverseSwapMax, reverseSwapMin, reverseSwapFee);
     }
 
 

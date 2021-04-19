@@ -58,7 +58,7 @@ interface IBridgeCommon {
     function getSupply() external view returns(uint256);
     function getNextSwapId() external view returns(uint64);
     function getRelayEon() external view returns(uint64);
-    function getRefund(uint64 swap_id) external view returns(uint256); // swapId -> original swap amount(= *includes* swapFee)
+    function getRefund(uint64 swap_id) external view returns(uint256); // swapId -> original swap amount(= *includes* reverseSwapFee)
     function getSwapMax() external view returns(uint256);
     function getSwapMin() external view returns(uint256);
     function getCap() external view returns(uint256);

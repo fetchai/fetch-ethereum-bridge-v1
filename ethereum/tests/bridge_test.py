@@ -151,9 +151,9 @@ class BridgeSetup(BridgeConstructorParams):
             cap=token.toCanonical(1000),
             reverseAggregatedAllowance=token.toCanonical(1000),
             reverseAggregatedAllowanceApproverCap=token.toCanonical(2000),
-            swapMax = token.toCanonical(100),
-            swapMin = token.toCanonical(10),
-            swapFee = token.toCanonical(5),
+            reverseSwapMax = token.toCanonical(100),
+            reverseSwapMin = token.toCanonical(10),
+            reverseSwapFee = token.toCanonical(5),
             pausedSinceBlockPublicApi=0xffffffffffffffff,
             pausedSinceBlockRelayerApi=0xffffffffffffffff,
             deleteProtectionPeriod=13
@@ -171,7 +171,7 @@ class ValuesSetup:
     def default(cls, bridge: BridgeSetup):
         dest_swap_address="some weird encoded and loooooonooooooooger than normal address"
         return ValuesSetup(
-            amount=bridge.swapMin,
+            amount=bridge.reverseSwapMin,
             dest_swap_address=dest_swap_address,
             dest_swap_address_hash=brownie.web3.solidityKeccak(["string"], [dest_swap_address]),
             src_tx_hash=brownie.web3.solidityKeccak(["string"], ["some tx has"])
@@ -297,14 +297,14 @@ class BridgeTest:
         amount = self.vals.amount if amount is None else amount
         relay_eon = self.b.relayEon() if relay_eon is None else relay_eon
         caller = caller or self.users.relayer
-        swapFee = 0 if waive_fee else self.b.swapFee()
+        reverseSwapFee = 0 if waive_fee else self.b.reverseSwapFee()
 
         orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
 
-        effective_fee = swapFee if amount > swapFee else amount
+        effective_fee = reverseSwapFee if amount > reverseSwapFee else amount
         refunded_amount = amount - effective_fee
 
         #assert self.b.refunds(id) == 0
@@ -343,15 +343,15 @@ class BridgeTest:
         origin_tx_hash = self.vals.src_tx_hash if origin_tx_hash is None else origin_tx_hash
         relay_eon = self.b.relayEon() if relay_eon is None else relay_eon
         caller = caller or self.users.relayer
-        swapFee = self.b.swapFee()
+        reverseSwapFee = self.b.reverseSwapFee()
 
         orig_fees_accrued = self.b.getFeesAccrued()
         orig_bridge_supply = self.b.supply()
         orig_bridge_balance = self.t.balanceOf(self.b)
         orig_user_balance = self.t.balanceOf(to_user)
 
-        effective_amount = amount - swapFee if amount > swapFee else 0
-        effective_fee = swapFee if amount > swapFee else amount
+        effective_amount = amount - reverseSwapFee if amount > reverseSwapFee else 0
+        effective_fee = reverseSwapFee if amount > reverseSwapFee else amount
 
         tx = self.b.reverseSwap(rid, to_user, origin_from, origin_tx_hash, amount, relay_eon, {'from': caller})
 
@@ -568,18 +568,18 @@ class BridgeTest:
         return tx
 
 
-    def setLimits(self,
+    def setReverseSwapLimits(self,
                   swap_max,
                   swap_min,
                   swap_fee,
                   caller = None):
         caller = caller or self.users.owner
 
-        tx = self.b.setLimits(swap_max, swap_min, swap_fee, {'from': caller})
+        tx = self.b.setReverseSwapLimits(swap_max, swap_min, swap_fee, {'from': caller})
 
-        assert swap_max == self.b.swapMax()
-        assert swap_min == self.b.swapMin()
-        assert swap_fee == self.b.swapFee()
+        assert swap_max == self.b.reverseSwapMax()
+        assert swap_min == self.b.reverseSwapMin()
+        assert swap_fee == self.b.reverseSwapFee()
         assert swap_fee <= swap_min <= swap_max
 
         e = tx.events[str(EventType.LimitsUpdate)]
@@ -663,9 +663,9 @@ def bridgeFactory(Bridge, tokenFactory, accounts):
             b.cap,
             b.reverseAggregatedAllowance,
             b.reverseAggregatedAllowanceApproverCap,
-            b.swapMax,
-            b.swapMin,
-            b.swapFee,
+            b.reverseSwapMax,
+            b.reverseSwapMin,
+            b.reverseSwapFee,
             b.pausedSinceBlockPublicApi,
             b.pausedSinceBlockRelayerApi,
             b.deleteProtectionPeriod,
@@ -701,9 +701,9 @@ def isolate(fn_isolation):
 def test_initial_state(bridgeFactory):
     test: BridgeTest = bridgeFactory()
     assert test.b.getCap() == test.bridge.cap
-    assert test.b.getSwapMax() == test.bridge.swapMax
-    assert test.b.getSwapMin() == test.bridge.swapMin
-    assert test.b.getSwapFee() == test.bridge.swapFee
+    assert test.b.getSwapMax() == test.bridge.reverseSwapMax
+    assert test.b.getSwapMin() == test.bridge.reverseSwapMin
+    assert test.b.getSwapFee() == test.bridge.reverseSwapFee
     assert test.b.getReverseAggregatedAllowance() == test.bridge.reverseAggregatedAllowance
     assert test.b.getReverseAggregatedAllowanceApproverCap() == test.bridge.reverseAggregatedAllowanceApproverCap
     assert test.b.getRelayEon() == ((1<<64)-1)
@@ -821,10 +821,10 @@ def test_reverseSwap_amount_smaller_than_fee(bridgeFactory, accounts):
     test = BridgeTest(accounts)
     bridgeFactory(test)
     user = test.users.users[0]
-    swapFee = test.b.swapFee()
-    amount = test.bridge.swapMin + swapFee
+    reverseSwapFee = test.b.reverseSwapFee()
+    amount = test.bridge.reverseSwapMin + reverseSwapFee
 
-    amount_smaller_than_fee = swapFee - 1
+    amount_smaller_than_fee = reverseSwapFee - 1
     assert amount_smaller_than_fee > 1
 
     # Proof that it is possible to execute swap & reverseSwap successfully:
@@ -868,12 +868,12 @@ def test_refund_amount_smaller_than_fee(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
     user = test.users.users[0]
-    amount = test.bridge.swapFee
-    test.b.setLimits(test.bridge.swapMax, amount, amount)
+    amount = test.bridge.reverseSwapFee
+    test.b.setReverseSwapLimits(test.bridge.reverseSwapMax, amount, amount)
 
     swap_tx = test.swap(user=user, amount=amount)
 
-    test.b.setLimits(test.bridge.swapMax, amount+1, amount+1)
+    test.b.setReverseSwapLimits(test.bridge.reverseSwapMax, amount+1, amount+1)
 
     # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount)
@@ -935,7 +935,7 @@ def test_refund_in_full(bridgeFactory):
     amount = test.vals.amount
     swap_tx = test.swap(user=user, amount=amount)
     assert test.b.supply() == amount
-    assert test.b.swapFee() > 0
+    assert test.b.reverseSwapFee() > 0
 
     # ===   WHEN / TEST SUBJECT  ==========================
     tx = test.refund(id=swap_tx.events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
@@ -954,7 +954,7 @@ def test_swap_reverts_when_public_api_is_paused(bridgeFactory):
     test = bridgeFactory()
 
     user = test.users.users[0]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
     test.swap(user=user, amount=amount)
 
     test.pausePublicApiSince(0, caller=test.users.monitor)
@@ -973,7 +973,7 @@ def test_swap_successful_when_relayer_api_is_paused(bridgeFactory):
     test = bridgeFactory()
 
     user = test.users.users[0]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     test.pauseRelayerApiSince(0, caller=test.users.monitor)
 
@@ -1064,7 +1064,7 @@ def test_relayer_api_reverts_when_relayer_api_is_paused(bridgeFactory):
     test.standard_setup()
 
     user = test.users.users[0]
-    amount = test.bridge.swapMin + test.bridge.swapFee
+    amount = test.bridge.reverseSwapMin + test.bridge.reverseSwapFee
 
     # Adding 6 swaps to bump up supply and to prepare for refund & reverseSwap calls
     txs = [test.swap(user=user, amount=amount) for _ in range(0,6)]
@@ -1102,16 +1102,16 @@ def test_set_limits_basic(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = bridgeFactory()
 
-    new_swap_max = test.b.swapMax() + 1
-    new_swap_min = test.b.swapMin() + 1
-    new_swap_fee = test.b.swapFee() + 1
+    new_swap_max = test.b.reverseSwapMax() + 1
+    new_swap_min = test.b.reverseSwapMin() + 1
+    new_swap_fee = test.b.reverseSwapFee() + 1
 
     for u in test.users.notOwners:
         with brownie.reverts(revert_msg="Only admin role"):
-            test.setLimits(new_swap_max, new_swap_min, new_swap_fee, caller=u)
+            test.setReverseSwapLimits(new_swap_max, new_swap_min, new_swap_fee, caller=u)
 
     # ===   WHEN / TEST SUBJECT  ==========================
-    test.setLimits(new_swap_max, new_swap_min, new_swap_fee)
+    test.setReverseSwapLimits(new_swap_max, new_swap_min, new_swap_fee)
 
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
@@ -1132,7 +1132,7 @@ def test_set_limits_reverts(bridgeFactory):
     # ===   WHEN / TEST SUBJECT  ==========================
     for max, min, fee in permutations:
         with brownie.reverts(revert_msg="fee<=lower<=upper violated"):
-            test.setLimits(max, min, fee)
+            test.setReverseSwapLimits(max, min, fee)
 
     # ===   THEN / VERIFICATION:  =========================
     # Verification is done by `brownie.reverts(...)` above
@@ -1254,7 +1254,7 @@ def test_set_reverse_aggregated_allowance_over_approver_cap(bridgeFactory, accou
 def test_set_reverse_aggregated_allowance_refund(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = BridgeTest(accounts)
-    amount = test.bridge.swapMin + test.bridge.swapFee
+    amount = test.bridge.reverseSwapMin + test.bridge.reverseSwapFee
 
     test.bridge.reverseAggregatedAllowance = amount
     bridgeFactory(test)
@@ -1275,7 +1275,7 @@ def test_set_reverse_aggregated_allowance_refund(bridgeFactory, accounts):
 def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = BridgeTest(accounts)
-    amount = test.bridge.swapMin + test.bridge.swapFee
+    amount = test.bridge.reverseSwapMin + test.bridge.reverseSwapFee
 
     test.bridge.reverseAggregatedAllowance = amount
     bridgeFactory(test)
@@ -1296,7 +1296,7 @@ def test_set_reverse_aggregated_allowance_refund_in_full(bridgeFactory, accounts
 def test_set_reverse_aggregated_allowance_reverse_swap(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test = BridgeTest(accounts=accounts)
-    amount = test.bridge.swapMin + test.bridge.swapFee
+    amount = test.bridge.reverseSwapMin + test.bridge.reverseSwapFee
 
     test.bridge.reverseAggregatedAllowance = amount
     bridgeFactory(test)
@@ -1321,7 +1321,7 @@ def test_swap_max_limit_for_relayer_api(bridgeFactory, accounts):
     test.standard_setup()
 
     user = test.users.users[0]
-    amount = test.bridge.swapMin + test.bridge.swapFee
+    amount = test.bridge.reverseSwapMin + test.bridge.reverseSwapFee
 
     # Adding 6 swaps to bump up supply and to prepare for refund & reverseSwap calls
     txs = [test.swap(user=user, amount=amount) for _ in range(0,6)]
@@ -1331,10 +1331,10 @@ def test_swap_max_limit_for_relayer_api(bridgeFactory, accounts):
     test.refund(id=txs[1].events[str(EventType.Swap)]['id'], to_user=user, amount=amount, waive_fee=True)
     test.reverseSwap(rid=0, to_user=user, amount=amount)
 
-    test.setLimits(
+    test.setReverseSwapLimits(
         swap_max=amount-1,
-        swap_min=test.bridge.swapMin,
-        swap_fee=test.bridge.swapFee)
+        swap_min=test.bridge.reverseSwapMin,
+        swap_fee=test.bridge.reverseSwapFee)
 
     # ===   THEN / VERIFICATION:  =========================
     with brownie.reverts(revert_msg="Amount exceeds swap max limit"):
@@ -1357,8 +1357,8 @@ def test_fees_accrued(bridgeFactory):
     excess_amount = 1234
     test = bridgeFactory()
     user = test.users.users[0]
-    amount = test.bridge.swapMax
-    swap_fee = test.b.swapFee()
+    amount = test.bridge.reverseSwapMax
+    swap_fee = test.b.reverseSwapFee()
     orig_supply = test.b.supply()
     orig_fees_accrued = test.b.getFeesAccrued()
     orig_contract_balance = test.t.balanceOf(test.b)
@@ -1388,7 +1388,7 @@ def test_mint(bridgeFactory):
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
 
@@ -1417,7 +1417,7 @@ def test_burn(bridgeFactory):
     excess_amount = 1234
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     burn_amount = amount/2
     assert burn_amount > 0
@@ -1451,7 +1451,7 @@ def test_deposit(bridgeFactory):
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     from_user = test.users.owner
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
 
@@ -1485,7 +1485,7 @@ def test_withdraw(bridgeFactory):
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
     withdraw_amount = 972
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
@@ -1518,7 +1518,7 @@ def test_withdraw_fees(bridgeFactory):
     test: BridgeTest = bridgeFactory()
     user = test.users.users[0]
     target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
 
@@ -1553,7 +1553,7 @@ def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactor
     bridgeFactory(test)
     user = test.users.users[0]
     target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
     assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
@@ -1574,7 +1574,7 @@ def test_delete_contract_reverts_due_to_access_rights(bridgeFactory, accounts):
     bridgeFactory(test)
     user = test.users.users[0]
     target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
 
     #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
     brownie.chain.mine(delete_protection_period)
@@ -1598,7 +1598,7 @@ def test_delete_contract_passes_when_protection_period_reached(bridgeFactory, ac
 
     user = test.users.users[0]
     target_to_user = test.users.users[1]
-    amount = test.bridge.swapMax
+    amount = test.bridge.reverseSwapMax
     contract_address = test.b.address
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)

@@ -2160,7 +2160,7 @@
               "id": 322,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3264:2:3"
+              "src": "3271:2:3"
             },
             "returnParameters": {
               "id": 325,
@@ -2173,7 +2173,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 326,
-                  "src": "3289:7:3",
+                  "src": "3296:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2184,7 +2184,7 @@
                     "id": 323,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3289:7:3",
+                    "src": "3296:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2193,10 +2193,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3288:9:3"
+              "src": "3295:9:3"
             },
             "scope": 367,
-            "src": "3245:53:3",
+            "src": "3252:53:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2213,7 +2213,7 @@
               "id": 327,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3322:2:3"
+              "src": "3329:2:3"
             },
             "returnParameters": {
               "id": 330,
@@ -2226,7 +2226,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 331,
-                  "src": "3347:7:3",
+                  "src": "3354:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2237,7 +2237,7 @@
                     "id": 328,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3347:7:3",
+                    "src": "3354:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2246,10 +2246,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3346:9:3"
+              "src": "3353:9:3"
             },
             "scope": 367,
-            "src": "3303:53:3",
+            "src": "3310:53:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2266,7 +2266,7 @@
               "id": 332,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3376:2:3"
+              "src": "3383:2:3"
             },
             "returnParameters": {
               "id": 335,
@@ -2279,7 +2279,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 336,
-                  "src": "3401:7:3",
+                  "src": "3408:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2290,7 +2290,7 @@
                     "id": 333,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3401:7:3",
+                    "src": "3408:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2299,10 +2299,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3400:9:3"
+              "src": "3407:9:3"
             },
             "scope": 367,
-            "src": "3361:49:3",
+            "src": "3368:49:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2319,7 +2319,7 @@
               "id": 337,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3434:2:3"
+              "src": "3441:2:3"
             },
             "returnParameters": {
               "id": 340,
@@ -2332,7 +2332,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 341,
-                  "src": "3459:7:3",
+                  "src": "3466:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2343,7 +2343,7 @@
                     "id": 338,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3459:7:3",
+                    "src": "3466:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2352,10 +2352,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3458:9:3"
+              "src": "3465:9:3"
             },
             "scope": 367,
-            "src": "3415:53:3",
+            "src": "3422:53:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2372,7 +2372,7 @@
               "id": 342,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3496:2:3"
+              "src": "3503:2:3"
             },
             "returnParameters": {
               "id": 345,
@@ -2385,7 +2385,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 346,
-                  "src": "3521:7:3",
+                  "src": "3528:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2396,7 +2396,7 @@
                     "id": 343,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3521:7:3",
+                    "src": "3528:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2405,10 +2405,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3520:9:3"
+              "src": "3527:9:3"
             },
             "scope": 367,
-            "src": "3473:57:3",
+            "src": "3480:57:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2425,7 +2425,7 @@
               "id": 347,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3572:2:3"
+              "src": "3579:2:3"
             },
             "returnParameters": {
               "id": 350,
@@ -2438,7 +2438,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 351,
-                  "src": "3597:7:3",
+                  "src": "3604:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2449,7 +2449,7 @@
                     "id": 348,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3597:7:3",
+                    "src": "3604:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2458,10 +2458,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3596:9:3"
+              "src": "3603:9:3"
             },
             "scope": 367,
-            "src": "3535:71:3",
+            "src": "3542:71:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2478,7 +2478,7 @@
               "id": 352,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3649:2:3"
+              "src": "3656:2:3"
             },
             "returnParameters": {
               "id": 355,
@@ -2491,7 +2491,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 356,
-                  "src": "3674:7:3",
+                  "src": "3681:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2502,7 +2502,7 @@
                     "id": 353,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3674:7:3",
+                    "src": "3681:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2511,10 +2511,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3673:9:3"
+              "src": "3680:9:3"
             },
             "scope": 367,
-            "src": "3611:72:3",
+            "src": "3618:72:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2531,7 +2531,7 @@
               "id": 357,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3726:2:3"
+              "src": "3733:2:3"
             },
             "returnParameters": {
               "id": 360,
@@ -2544,7 +2544,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 361,
-                  "src": "3751:7:3",
+                  "src": "3758:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2555,7 +2555,7 @@
                     "id": 358,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3751:7:3",
+                    "src": "3758:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2564,10 +2564,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3750:9:3"
+              "src": "3757:9:3"
             },
             "scope": 367,
-            "src": "3688:72:3",
+            "src": "3695:72:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -2584,7 +2584,7 @@
               "id": 362,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3814:2:3"
+              "src": "3821:2:3"
             },
             "returnParameters": {
               "id": 365,
@@ -2597,7 +2597,7 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "scope": 366,
-                  "src": "3839:7:3",
+                  "src": "3846:7:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2608,7 +2608,7 @@
                     "id": 363,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3839:7:3",
+                    "src": "3846:7:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2617,28 +2617,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3838:9:3"
+              "src": "3845:9:3"
             },
             "scope": 367,
-            "src": "3765:83:3",
+            "src": "3772:83:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
         "scope": 368,
-        "src": "969:2882:3"
+        "src": "969:2889:3"
       }
     ],
-    "src": "820:3032:3"
+    "src": "820:3039:3"
   },
   "contractName": "IBridgeCommon",
   "dependencies": [],
   "offset": [
     969,
-    3851
+    3858
   ],
-  "sha1": "2bbf3208c75eaa4b6aed5759f3088c0e8f2c4bc2",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\n\n/**\n * @title Events for Bi-directional bridge transferring FET tokens between Ethereum and Fetch Mainnet-v2\n */\ninterface IBridgeCommon {\n\n    event Swap(uint64 indexed id, address indexed from, string indexed indexedTo, string to, uint256 amount);\n\n    event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);\n    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);\n    event PausePublicApi(uint256 sinceBlock);\n    event PauseRelayerApi(uint256 sinceBlock);\n    event NewRelayEon(uint64 eon);\n\n    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);\n    event CapUpdate(uint256 value);\n    event ReverseAggregatedAllowanceUpdate(uint256 value);\n    event ReverseAggregatedAllowanceApproverCapUpdate(uint256 value);\n    event Withdraw(address indexed targetAddress, uint256 amount);\n    event Deposit(address indexed fromAddress, uint256 amount);\n    event FeesWithdrawal(address indexed targetAddress, uint256 amount);\n    event DeleteContract(address targetAddress, uint256 amount);\n    // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract\n    //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to\n    //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can\n    //  identify events for mint, resp. burn, calls by filtering ERC20 Transfer events with `from == ZERO_ADDR  &&\n    //  to == Bridge.address` for MINT operation, resp `from == Bridge.address` and `to == ZERO_ADDR` for BURN operation.\n    //event Mint(uint256 amount);\n    //event Burn(uint256 amount);\n\n    function getApproverRole() external view returns(bytes32);\n    function getMonitorRole() external view returns(bytes32);\n    function getRelayerRole() external view returns(bytes32);\n\n    function getToken() external view returns(address);\n    function getEarliestDelete() external view returns(uint256);\n    function getSupply() external view returns(uint256);\n    function getNextSwapId() external view returns(uint64);\n    function getRelayEon() external view returns(uint64);\n    function getRefund(uint64 swap_id) external view returns(uint256); // swapId -> original swap amount(= *includes* swapFee)\n    function getSwapMax() external view returns(uint256);\n    function getSwapMin() external view returns(uint256);\n    function getCap() external view returns(uint256);\n    function getSwapFee() external view returns(uint256);\n    function getFeesAccrued() external view returns(uint256);\n    function getPausedSinceBlockPublicApi() external view returns(uint256);\n    function getPausedSinceBlockRelayerApi() external view returns(uint256);\n    function getReverseAggregatedAllowance() external view returns(uint256);\n    function getReverseAggregatedAllowanceApproverCap() external view returns(uint256);\n\n}\n",
+  "sha1": "e2b21546a6326f54dcc7724c8922e2f40d57998b",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\n\n/**\n * @title Events for Bi-directional bridge transferring FET tokens between Ethereum and Fetch Mainnet-v2\n */\ninterface IBridgeCommon {\n\n    event Swap(uint64 indexed id, address indexed from, string indexed indexedTo, string to, uint256 amount);\n\n    event SwapRefund(uint64 indexed id, address indexed to, uint256 refundedAmount, uint256 fee);\n    event ReverseSwap(uint64 indexed rid, address indexed to, string indexed from, bytes32 originTxHash, uint256 effectiveAmount, uint256 fee);\n    event PausePublicApi(uint256 sinceBlock);\n    event PauseRelayerApi(uint256 sinceBlock);\n    event NewRelayEon(uint64 eon);\n\n    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);\n    event CapUpdate(uint256 value);\n    event ReverseAggregatedAllowanceUpdate(uint256 value);\n    event ReverseAggregatedAllowanceApproverCapUpdate(uint256 value);\n    event Withdraw(address indexed targetAddress, uint256 amount);\n    event Deposit(address indexed fromAddress, uint256 amount);\n    event FeesWithdrawal(address indexed targetAddress, uint256 amount);\n    event DeleteContract(address targetAddress, uint256 amount);\n    // NOTE(pb): It is NOT necessary to have dedicated events here for Mint & Burn operations, since ERC20 contract\n    //  already emits the `Transfer(from, to, amount)` events, with `from`, resp. `to`, address parameter value set to\n    //  ZERO_ADDRESS (= address(0) = 0x00...00) for `mint`, resp `burn`, calls to ERC20 contract. That way we can\n    //  identify events for mint, resp. burn, calls by filtering ERC20 Transfer events with `from == ZERO_ADDR  &&\n    //  to == Bridge.address` for MINT operation, resp `from == Bridge.address` and `to == ZERO_ADDR` for BURN operation.\n    //event Mint(uint256 amount);\n    //event Burn(uint256 amount);\n\n    function getApproverRole() external view returns(bytes32);\n    function getMonitorRole() external view returns(bytes32);\n    function getRelayerRole() external view returns(bytes32);\n\n    function getToken() external view returns(address);\n    function getEarliestDelete() external view returns(uint256);\n    function getSupply() external view returns(uint256);\n    function getNextSwapId() external view returns(uint64);\n    function getRelayEon() external view returns(uint64);\n    function getRefund(uint64 swap_id) external view returns(uint256); // swapId -> original swap amount(= *includes* reverseSwapFee)\n    function getSwapMax() external view returns(uint256);\n    function getSwapMin() external view returns(uint256);\n    function getCap() external view returns(uint256);\n    function getSwapFee() external view returns(uint256);\n    function getFeesAccrued() external view returns(uint256);\n    function getPausedSinceBlockPublicApi() external view returns(uint256);\n    function getPausedSinceBlockRelayerApi() external view returns(uint256);\n    function getReverseAggregatedAllowance() external view returns(uint256);\n    function getReverseAggregatedAllowanceApproverCap() external view returns(uint256);\n\n}\n",
   "type": "interface"
 }

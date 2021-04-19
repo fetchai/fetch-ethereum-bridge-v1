@@ -726,29 +726,6 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "swapMax_",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "swapMin_",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "swapFee_",
-          "type": "uint256"
-        }
-      ],
-      "name": "setLimits",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
           "name": "value",
           "type": "uint256"
         }
@@ -767,6 +744,29 @@
         }
       ],
       "name": "setReverseAggregatedAllowanceApproverCap",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "reverseSwapMax_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "reverseSwapMin_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "reverseSwapFee_",
+          "type": "uint256"
+        }
+      ],
+      "name": "setReverseSwapLimits",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

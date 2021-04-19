@@ -53,7 +53,7 @@ interface IBridgeRelayer is IBridgeCommon {
 
 
     /**
-      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded
+      * @notice Refunds swap previously created by `swap(...)` call to this contract. The `reverseSwapFee` is *NOT* refunded
       *         back to the user (this is by-design).
       *
       * @dev Callable exclusively by `relayer` role
@@ -70,7 +70,7 @@ interface IBridgeRelayer is IBridgeCommon {
 
 
     /**
-      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded
+      * @notice Refunds swap previously created by `swap(...)` call to this contract, where `reverseSwapFee` *IS* refunded
       *         back to the user (= swap fee is waived = user will receive full `amount`).
       *         Purpose of this method is to enable full refund in the situations when it si not user's fault that
       *         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged
@@ -111,7 +111,7 @@ interface IBridgeRelayer is IBridgeCommon {
       *                       create strong bond between this and other blockchain.
       * @param amount - original amount specified in associated swap initiated on the other blockchain.
       *                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,
-      *                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.
+      *                 what means that user receives `amount - reverseSwapFee`, or *nothing* if `amount <= reverseSwapFee`.
       *                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction
       *                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been
       *                 called at all!
