@@ -44,12 +44,16 @@ def get_owner_account(
         # IF env var to key file is provided
         priv_key_pwd = os.environ.get(priv_key_pwd_env_var, None)
         if priv_key_pwd is None:
+            print(
+                f'The DEPLOYMENT_PRIV_KEY_PWD env var is not defined, trying to proceed with prompting '
+                f'password from stdin.')
             priv_key_pwd = getpass.getpass("Password for private key: ")
         with open(_priv_key_path) as f:
             encr_pk_json = json.load(f)
         pk = Account.decrypt(encr_pk_json, priv_key_pwd)
         owner = accounts.add(pk)
     else:
+        print(f'The DEPLOYMENT_PRIV_KEY_PATH env var is not defined, trying to proceed with web3 provider accounts.')
         # If not use default accounts
         owner = accounts[0]
 

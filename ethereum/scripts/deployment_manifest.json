@@ -48,35 +48,23 @@
         }
     },
     "kovan": {
-        "FetERC20Mock": {
-            "deployer_address": "0xC2e109Affd2FefD5B313350a4B2AdC75EC2e96B1",
-            "deployer_public_key": "0x44dcd1e5e29add8d93c4c0ca6e1ef4b02871481c6b5212cd590cd4b7b5c9350802f213314f6b674c0dd7319cc51ed85d3132be7095bdc2929901ad921fcdf1dc",
-            "contract_address": "0x6D7fF49d5fC4E9dD868F66Bd95B8BD24e0f9dCc9",
-            "publish_source": true,
-            "constructor_parameters": {
-                "name": "Fetch",
-                "symbol": "FET",
-                "initialSupply": 1152997575000000000000000000,
-                "decimals_": 18
-            }
-        },
+        "FetERC20Mock": null,
         "Bridge": {
             "deployer_address": "0xC2e109Affd2FefD5B313350a4B2AdC75EC2e96B1",
             "deployer_public_key": "0x44dcd1e5e29add8d93c4c0ca6e1ef4b02871481c6b5212cd590cd4b7b5c9350802f213314f6b674c0dd7319cc51ed85d3132be7095bdc2929901ad921fcdf1dc",
-            "contract_address": "0x4d3033C0F894142a6D50B90da652b80Ca19D9884",
+            "contract_address": "0xC7010b94263A2Fe05a389fe6aC37708150B65487",
             "publish_source": true,
             "constructor_parameters": {
                 "ERC20Address": "0x6D7fF49d5fC4E9dD868F66Bd95B8BD24e0f9dCc9",
-                "cap": 1000000,
-                "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "upperSwapLimit": 1000,
-                "swapMax": 1000,
-                "swapMin": 101,
-                "swapFee": 100,
+                "cap": 30000000000000000000000000,
+                "reverseAggregatedAllowance": 1000000000000000000000000,
+                "reverseAggregatedAllowanceApproverCap": 1000000000000000000000000,
+                "swapMax": 100000000000000000000000,
+                "swapMin": 100000000000000000000,
+                "swapFee": 50000000000000000000,
                 "pausedSinceBlockPublicApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "pausedSinceBlockRelayerApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "deleteProtectionPeriod": 10
+                "deleteProtectionPeriod": 1000
             },
             "admin_wallet": {
                 "address": "0x47a74716353f6d2b2083b351d85E51cD589E6ff0",
@@ -88,11 +76,11 @@
             },
             "monitor_wallet": {
                 "address": "0x7A83AA9C547f08d0C1627E5b4bbdA526B6d26FB7",
-                "funding": 10000000000000000000
+                "funding": 100000000000000000
             },
             "approver_wallet": {
                 "address": "0x61B30ee76eE880670e745AFFc353A6BF0c9fF6D1",
-                "funding": 10000000000000000000
+                "funding": 100000000000000000
             }
         }
     },
@@ -149,7 +137,6 @@
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                "upperSwapLimit": 1000,
                 "swapMax": 1000,
                 "swapMin": 101,
                 "swapFee": 100,

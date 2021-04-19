@@ -825,30 +825,30 @@
     "absolutePath": "interfaces/IBridge.sol",
     "exportedSymbols": {
       "IBridge": [
-        12
+        103
       ],
       "IBridgeAdmin": [
-        88
+        179
       ],
       "IBridgeCommon": [
-        276
+        367
       ],
       "IBridgeMonitor": [
-        295
+        386
       ],
       "IBridgePublic": [
-        310
+        401
       ],
       "IBridgeRelayer": [
-        361
+        452
       ]
     },
-    "id": 13,
+    "id": 104,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 1,
+        "id": 92,
         "literals": [
           "solidity",
           "^",
@@ -860,38 +860,38 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "820:33:0"
+        "src": "820:33:1"
       },
       {
         "absolutePath": "interfaces/IBridgePublic.sol",
         "file": "./IBridgePublic.sol",
-        "id": 2,
+        "id": 93,
         "nodeType": "ImportDirective",
-        "scope": 13,
-        "sourceUnit": 311,
-        "src": "855:29:0",
+        "scope": 104,
+        "sourceUnit": 402,
+        "src": "855:29:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
         "absolutePath": "interfaces/IBridgeRelayer.sol",
         "file": "./IBridgeRelayer.sol",
-        "id": 3,
+        "id": 94,
         "nodeType": "ImportDirective",
-        "scope": 13,
-        "sourceUnit": 362,
-        "src": "885:30:0",
+        "scope": 104,
+        "sourceUnit": 453,
+        "src": "885:30:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
         "absolutePath": "interfaces/IBridgeAdmin.sol",
         "file": "./IBridgeAdmin.sol",
-        "id": 4,
+        "id": 95,
         "nodeType": "ImportDirective",
-        "scope": 13,
-        "sourceUnit": 89,
-        "src": "916:28:0",
+        "scope": 104,
+        "sourceUnit": 180,
+        "src": "916:28:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -900,85 +900,85 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 6,
+              "id": 97,
               "name": "IBridgePublic",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 310,
-              "src": "2841:13:0",
+              "referencedDeclaration": 401,
+              "src": "2841:13:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgePublic_$310",
+                "typeIdentifier": "t_contract$_IBridgePublic_$401",
                 "typeString": "contract IBridgePublic"
               }
             },
-            "id": 7,
+            "id": 98,
             "nodeType": "InheritanceSpecifier",
-            "src": "2841:13:0"
+            "src": "2841:13:1"
           },
           {
             "baseName": {
-              "id": 8,
+              "id": 99,
               "name": "IBridgeRelayer",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 361,
-              "src": "2856:14:0",
+              "referencedDeclaration": 452,
+              "src": "2856:14:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeRelayer_$361",
+                "typeIdentifier": "t_contract$_IBridgeRelayer_$452",
                 "typeString": "contract IBridgeRelayer"
               }
             },
-            "id": 9,
+            "id": 100,
             "nodeType": "InheritanceSpecifier",
-            "src": "2856:14:0"
+            "src": "2856:14:1"
           },
           {
             "baseName": {
-              "id": 10,
+              "id": 101,
               "name": "IBridgeAdmin",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 88,
-              "src": "2872:12:0",
+              "referencedDeclaration": 179,
+              "src": "2872:12:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeAdmin_$88",
+                "typeIdentifier": "t_contract$_IBridgeAdmin_$179",
                 "typeString": "contract IBridgeAdmin"
               }
             },
-            "id": 11,
+            "id": 102,
             "nodeType": "InheritanceSpecifier",
-            "src": "2872:12:0"
+            "src": "2872:12:1"
           }
         ],
         "contractDependencies": [
-          88,
-          276,
-          295,
-          310,
-          361
+          179,
+          367,
+          386,
+          401,
+          452
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 5,
+          "id": 96,
           "nodeType": "StructuredDocumentation",
-          "src": "947:1872:0",
+          "src": "947:1872:1",
           "text": " @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n         In the case of a refund, user will be charged a swap fee configured in this contract.\n @dev There are three primary actions defining business logic of this contract:\n       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)\n       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally\n                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role\n       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively\n                        by `relayer` role\n      Swap Fees for `swap(...)` operations (direction from this contract to are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n      which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back to\n      this contract.\n      ! IMPORTANT !: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued* and\n      *excess funds* sent to the address of this contract via *direct* `ERC20.transfer(...)`.\n      Implication is, that excess funds **are treated** as swap fees.\n      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20\n      contracts, and do the reconciliation."
         },
         "fullyImplemented": false,
-        "id": 12,
+        "id": 103,
         "linearizedBaseContracts": [
-          12,
-          88,
-          295,
-          361,
-          310,
-          276
+          103,
+          179,
+          386,
+          452,
+          401,
+          367
         ],
         "name": "IBridge",
         "nodeType": "ContractDefinition",
         "nodes": [],
-        "scope": 13,
-        "src": "2820:67:0"
+        "scope": 104,
+        "src": "2820:67:1"
       }
     ],
-    "src": "820:2068:0"
+    "src": "820:2068:1"
   },
   "contractName": "IBridge",
   "dependencies": [
