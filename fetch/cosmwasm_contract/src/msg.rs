@@ -10,9 +10,11 @@ pub type Uint128 = cosmwasm_std::Uint128;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub cap: Uint128,
-    pub upper_swap_limit: Uint128,
-    pub lower_swap_limit: Uint128,
-    pub swap_fee: Uint128,
+    pub swap_max: Uint128,
+    pub swap_min: Uint128,
+    pub reverse_swap_max: Uint128,
+    pub reverse_swap_min: Uint128,
+    pub reverse_swap_fee: Uint128,
     pub reverse_aggregated_allowance: Uint128,
     pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub paused_since_block: Option<u64>,
@@ -88,10 +90,15 @@ pub enum HandleMsg {
         amount: Uint128,
     },
 
+    SetReverseLimits {
+        reverse_swap_min: Uint128,
+        reverse_swap_max: Uint128,
+        reverse_swap_fee: Uint128,
+    },
+
     SetLimits {
         swap_min: Uint128,
         swap_max: Uint128,
-        swap_fee: Uint128,
     },
 
     // Access Control
@@ -118,6 +125,7 @@ pub enum QueryMsg {
     Supply {},
     ReverseAggregatedAllowance {},
     SwapMax {},
+    ReverseSwapMax {},
     Cap {},
     PausedPublicApiSince {},
     PausedRelayerApiSince {},
@@ -143,6 +151,7 @@ pub struct SupplyResponse {
 
 pub type CapResponse = SupplyResponse;
 pub type SwapMaxResponse = SupplyResponse;
+pub type ReverseSwapMaxResponse = SupplyResponse;
 pub type ReverseAggregatedAllowanceResponse = SupplyResponse;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

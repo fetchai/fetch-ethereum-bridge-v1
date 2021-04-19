@@ -12,8 +12,8 @@ use crate::error::{
 };
 use crate::msg::{
     CapResponse, DenomResponse, HandleMsg, InitMsg, PausedSinceBlockResponse, QueryMsg,
-    RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
-    SwapMaxResponse, Uint128,
+    RelayEonResponse, ReverseAggregatedAllowanceResponse, ReverseSwapMaxResponse, RoleResponse,
+    SupplyResponse, SwapMaxResponse, Uint128,
 };
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
@@ -39,7 +39,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     let contract_addr_human = deps.api.human_address(&env.contract.address)?;
 
-    if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
+    if msg.reverse_swap_min > msg.reverse_swap_max || msg.reverse_swap_min <= msg.reverse_swap_fee {
+        return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
+    }
+
+    if msg.swap_min > msg.swap_max {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
@@ -53,12 +57,14 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         next_swap_id: 0,
         sealed_reverse_swap_id: 0,
         relay_eon: 0,
-        upper_swap_limit: msg.upper_swap_limit,
-        lower_swap_limit: msg.lower_swap_limit,
+        swap_max: msg.swap_max,
+        swap_min: msg.swap_min,
+        reverse_swap_max: msg.reverse_swap_max,
+        reverse_swap_min: msg.reverse_swap_min,
+        reverse_swap_fee: msg.reverse_swap_fee,
         reverse_aggregated_allowance: msg.reverse_aggregated_allowance,
         reverse_aggregated_allowance_approver_cap: msg.reverse_aggregated_allowance_approver_cap,
         cap: msg.cap,
-        swap_fee: msg.swap_fee,
         paused_since_block_public_api,
         paused_since_block_relayer_api,
         denom,
@@ -137,11 +143,20 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::SetReverseAggregatedAllowanceApproverCap { amount } => {
             try_set_reverse_aggregated_allowance_approver_cap(deps, &env, amount)
         }
-        HandleMsg::SetLimits {
-            swap_min,
-            swap_max,
-            swap_fee,
-        } => try_set_limits(deps, &env, swap_min, swap_max, swap_fee),
+        HandleMsg::SetLimits { swap_min, swap_max } => {
+            try_set_limits(deps, &env, swap_min, swap_max)
+        }
+        HandleMsg::SetReverseLimits {
+            reverse_swap_min,
+            reverse_swap_max,
+            reverse_swap_fee,
+        } => try_set_reverse_limits(
+            deps,
+            &env,
+            reverse_swap_min,
+            reverse_swap_max,
+            reverse_swap_fee,
+        ),
         HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, role, address),
         HandleMsg::RevokeRole { role, address } => try_revoke_role(deps, &env, role, address),
         HandleMsg::RenounceRole { role } => try_renounce_role(deps, &env, role),
@@ -200,16 +215,17 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     only_relayer(env, &deps.storage, &deps.api)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
+    verify_reverse_swap_amount_limits(amount, state)?;
     verify_aggregated_reverse_allowance(amount, state)?;
 
     if amount > state.supply {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
     }
 
-    if amount > state.swap_fee {
+    if amount > state.reverse_swap_fee {
         // NOTE(LR) when amount == fee, amount will still be consumed
         // FIXME(LR) not fair for user IMO
-        let swap_fee = state.swap_fee;
+        let swap_fee = state.reverse_swap_fee;
         let effective_amount = (amount - swap_fee)?;
         let to_canonical = deps.api.canonical_address(&to)?;
         let rtx = send_tokens_from_contract(
@@ -297,6 +313,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
+    verify_swap_amount_limits(amount, state)?;
     verify_aggregated_reverse_allowance(amount, state)?;
 
     if amount > state.supply {
@@ -378,7 +395,16 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    _try_refund(deps, env, state, id, to, amount, relay_eon, state.swap_fee)
+    _try_refund(
+        deps,
+        env,
+        state,
+        id,
+        to,
+        amount,
+        relay_eon,
+        state.reverse_swap_fee,
+    )
 }
 
 fn try_refund_in_full<S: Storage, A: Api, Q: Querier>(
@@ -487,8 +513,12 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
     let env_message_sender = deps.api.human_address(&env.message.sender)?;
 
     let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
+    let increased_supply = state.supply + amount;
+    if increased_supply > state.cap {
+        return Err(StdError::generic_err(ERR_CAP_EXCEEDED));
+    }
     config(&mut deps.storage).update(|mut state| {
-        state.supply += amount;
+        state.supply = increased_supply;
         Ok(state)
     })?;
 
@@ -661,6 +691,37 @@ fn try_set_limits<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     swap_min: Uint128,
     swap_max: Uint128,
+) -> StdResult<HandleResponse> {
+    only_admin(env, &deps.storage, &deps.api)?;
+
+    if swap_min > swap_max {
+        return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
+    }
+    config(&mut deps.storage).update(|mut state| {
+        state.swap_min = swap_min;
+        state.swap_max = swap_max;
+        Ok(state)
+    })?;
+
+    let log = vec![
+        log("action", "set_limits"),
+        log("swap_min", swap_min),
+        log("swap_max", swap_max),
+    ];
+
+    let r = HandleResponse {
+        messages: vec![],
+        log,
+        data: None,
+    };
+    Ok(r)
+}
+
+fn try_set_reverse_limits<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: &Env,
+    swap_min: Uint128,
+    swap_max: Uint128,
     swap_fee: Uint128,
 ) -> StdResult<HandleResponse> {
     only_admin(env, &deps.storage, &deps.api)?;
@@ -669,14 +730,14 @@ fn try_set_limits<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
     config(&mut deps.storage).update(|mut state| {
-        state.swap_fee = swap_fee;
-        state.lower_swap_limit = swap_min;
-        state.upper_swap_limit = swap_max;
+        state.reverse_swap_fee = swap_fee;
+        state.reverse_swap_min = swap_min;
+        state.reverse_swap_max = swap_max;
         Ok(state)
     })?;
 
     let log = vec![
-        log("action", "set_limits"),
+        log("action", "set_reverse_limits"),
         log("swap_fee", swap_fee),
         log("swap_min", swap_min),
         log("swap_max", swap_max),
@@ -842,9 +903,19 @@ fn _verify_not_paused(env: &Env, paused_since_block: u64) -> HandleResult {
 }
 
 fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
-    if amount < state.lower_swap_limit {
+    if amount < state.swap_min {
         Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
-    } else if amount > state.upper_swap_limit {
+    } else if amount > state.swap_max {
+        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
+    } else {
+        Ok(HandleResponse::default())
+    }
+}
+
+fn verify_reverse_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
+    if amount < state.reverse_swap_min {
+        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
+    } else if amount > state.reverse_swap_max {
         Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
     } else {
         Ok(HandleResponse::default())
@@ -946,7 +1017,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         }),
         QueryMsg::Cap {} => to_binary(&CapResponse { amount: state.cap }),
         QueryMsg::SwapMax {} => to_binary(&SwapMaxResponse {
-            amount: state.upper_swap_limit,
+            amount: state.swap_max,
+        }),
+        QueryMsg::ReverseSwapMax {} => to_binary(&ReverseSwapMaxResponse {
+            amount: state.reverse_swap_max,
         }),
         QueryMsg::ReverseAggregatedAllowance {} => to_binary(&ReverseAggregatedAllowanceResponse {
             amount: state.reverse_aggregated_allowance,

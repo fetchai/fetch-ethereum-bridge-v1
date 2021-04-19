@@ -82,11 +82,13 @@ mod init {
     ) -> StdResult<InitResponse> {
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
+            swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
             reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
-            upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
-            lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
-            swap_fee: cu128!(DEFAULT_SWAP_FEE),
+            reverse_swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            reverse_swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             denom: Some(DEFAULT_DENUM.to_string()),
         };
@@ -110,12 +112,14 @@ mod init {
             next_swap_id: 0,
             sealed_reverse_swap_id: 0,
             relay_eon: 0,
-            upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
-            lower_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            reverse_swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_fee: cu128!(DEFAULT_SWAP_FEE),
             cap: cu128!(DEFAULT_CAP),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
             reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
-            swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block_public_api: u64::MAX,
             paused_since_block_relayer_api: u64::MAX,
             denom: DEFAULT_DENUM.to_string(),
@@ -146,11 +150,13 @@ mod init {
 
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
+            swap_max: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            swap_min: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
             reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
-            upper_swap_limit: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
-            lower_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
-            swap_fee: cu128!(DEFAULT_SWAP_FEE),
+            reverse_swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            reverse_swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             denom: None,
         };
@@ -159,16 +165,38 @@ mod init {
     }
 
     #[test]
-    fn failure_init_inconsistent_swap_limits_fee_larger_than_lower() {
+    fn failure_init_inconsistent_reverse_swap_limits_lower_larger_than_upper() {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {
             cap: cu128!(DEFAULT_CAP),
+            swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
             reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
-            upper_swap_limit: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
-            lower_swap_limit: cu128!(DEFAULT_SWAP_FEE),
-            swap_fee: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_max: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_swap_min: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            reverse_swap_fee: cu128!(DEFAULT_SWAP_FEE),
+            paused_since_block: None,
+            denom: None,
+        };
+        let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
+        expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
+    }
+
+    #[test]
+    fn failure_init_inconsistent_reverse_swap_limits_fee_larger_than_lower() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let msg = InitMsg {
+            cap: cu128!(DEFAULT_CAP),
+            swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            swap_min: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
+            reverse_aggregated_allowance: cu128!(DEFAULT_RA_ALLOWANCE),
+            reverse_aggregated_allowance_approver_cap: cu128!(DEFAULT_RA_ALLOWANCE_APPROVER_CAP),
+            reverse_swap_max: cu128!(DEFAULT_SWAP_UPPER_LIMIT),
+            reverse_swap_min: cu128!(DEFAULT_SWAP_FEE),
+            reverse_swap_fee: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             paused_since_block: None,
             denom: None,
         };
@@ -1177,6 +1205,43 @@ mod reverse_swap {
     }
 
     #[test]
+    fn failure_reverse_swap_limits_violated() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let relayer = "relayer";
+        let deposited = DEFAULT_SWAP_UPPER_LIMIT + 1u128;
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+
+        let response = reverse_swap(
+            &mut deps,
+            relayer,
+            0u64,
+            "user_account",
+            "eth_account",
+            "HHHHHHHHHAAAAASSSSSSSH",
+            deposited,
+            0u64,
+        );
+        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
+
+        let response = reverse_swap(
+            &mut deps,
+            relayer,
+            0u64,
+            "user_account",
+            "eth_account",
+            "HHHHHHHHHAAAAASSSSSSSH",
+            0u128,
+            0u64,
+        );
+        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
+
+        assert_state_unchanged(&deps, deposited);
+    }
+
+    #[test]
     fn failure_reverse_swap_paused_relayer_api() {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
@@ -1470,6 +1535,36 @@ mod refund {
         let eon = 0u64;
         let response = refund(&mut deps, relayer, id, fet_account, amount, eon);
         expect_error!(response, ERR_CONTRACT_PAUSED);
+    }
+
+    #[test]
+    fn failure_refund_reverse_swap_limits_violated() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let relayer = "new_relayer";
+        let deposited = DEFAULT_SWAP_UPPER_LIMIT + 1u128;
+        let fet_account = "user_account";
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+        swap(
+            &mut deps,
+            fet_account,
+            "some_eth_account",
+            DEFAULT_SWAP_LOWER_LIMIT,
+        )
+        .unwrap();
+
+        let id = 0u64;
+        let eon = 0u64;
+
+        let amount = deposited;
+        let response = refund(&mut deps, relayer, id, fet_account, amount, eon);
+        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
+
+        let amount = 1u128;
+        let response = refund(&mut deps, relayer, id, fet_account, amount, eon);
+        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
     }
 
     #[test]
@@ -1850,14 +1945,28 @@ mod set_limits {
     fn set_limits(
         mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
         caller: &str,
-        fee: u128,
         min: u128,
         max: u128,
     ) -> StdResult<HandleResponse> {
         let msg = HandleMsg::SetLimits {
             swap_min: cu128!(min),
             swap_max: cu128!(max),
-            swap_fee: cu128!(fee),
+        };
+        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        handle(&mut deps, env, msg)
+    }
+
+    fn set_reverse_limits(
+        mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        fee: u128,
+        min: u128,
+        max: u128,
+    ) -> StdResult<HandleResponse> {
+        let msg = HandleMsg::SetReverseLimits {
+            reverse_swap_min: cu128!(min),
+            reverse_swap_max: cu128!(max),
+            reverse_swap_fee: cu128!(fee),
         };
         let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
@@ -1868,27 +1977,57 @@ mod set_limits {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
+        let min = 20u128;
+        let max = 30u128;
+        let response = set_limits(&mut deps, DEFAULT_OWNER, min, max).unwrap();
+
+        // check handle response
+        assert_eq!(0, response.messages.len());
+        assert_eq!(3, response.log.len());
+        assert!(response.log[0].key == "action" && response.log[0].value == "set_limits");
+        assert!(response.log[1].key == "swap_min" && response.log[1].value == (min).to_string());
+        assert!(response.log[2].key == "swap_max" && response.log[2].value == (max).to_string());
+
+        // check state
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(min), state.swap_min);
+        assert_eq!(cu128!(max), state.swap_max);
+
+        // query
+        let query_msg = QueryMsg::SwapMax {};
+        let response = query(&deps, query_msg).unwrap();
+        assert_eq!(
+            format!("{{\"amount\":\"{}\"}}", max),
+            str_from_binary!(response)
+        );
+    }
+
+    #[test]
+    fn success_set_reverse_limits() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
         let fee = 10u128;
         let min = 20u128;
         let max = 30u128;
-        let response = set_limits(&mut deps, DEFAULT_OWNER, fee, min, max).unwrap();
+        let response = set_reverse_limits(&mut deps, DEFAULT_OWNER, fee, min, max).unwrap();
 
         // check handle response
         assert_eq!(0, response.messages.len());
         assert_eq!(4, response.log.len());
-        assert!(response.log[0].key == "action" && response.log[0].value == "set_limits");
+        assert!(response.log[0].key == "action" && response.log[0].value == "set_reverse_limits");
         assert!(response.log[1].key == "swap_fee" && response.log[1].value == (fee).to_string());
         assert!(response.log[2].key == "swap_min" && response.log[2].value == (min).to_string());
         assert!(response.log[3].key == "swap_max" && response.log[3].value == (max).to_string());
 
         // check state
         let state = config_read(&deps.storage).load().unwrap();
-        assert_eq!(cu128!(fee), state.swap_fee);
-        assert_eq!(cu128!(min), state.lower_swap_limit);
-        assert_eq!(cu128!(max), state.upper_swap_limit);
+        assert_eq!(cu128!(fee), state.reverse_swap_fee);
+        assert_eq!(cu128!(min), state.reverse_swap_min);
+        assert_eq!(cu128!(max), state.reverse_swap_max);
 
         // query
-        let query_msg = QueryMsg::SwapMax {};
+        let query_msg = QueryMsg::ReverseSwapMax {};
         let response = query(&deps, query_msg).unwrap();
         assert_eq!(
             format!("{{\"amount\":\"{}\"}}", max),
@@ -1901,33 +2040,63 @@ mod set_limits {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
-        let fee = 10u128;
         let min = 20u128;
         let max = 30u128;
-        let response = set_limits(&mut deps, "not_admin", fee, min, max);
+        let response = set_limits(&mut deps, "not_admin", min, max);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
         let state = config_read(&deps.storage).load().unwrap();
-        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
-        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
-        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.swap_min);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.swap_max);
     }
 
     #[test]
-    fn failure_set_limits_unconsistent_limits() {
+    fn failure_set_reverse_limits_not_admin() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let fee = 10u128;
+        let min = 20u128;
+        let max = 30u128;
+        let response = set_reverse_limits(&mut deps, "not_admin", fee, min, max);
+
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.reverse_swap_fee);
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.reverse_swap_min);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.reverse_swap_max);
+    }
+
+    #[test]
+    fn failure_set_limits_inconsistent_limits() {
+        let mut deps = mock_dependencies(20, &[]);
+        init_default(&mut deps).unwrap();
+
+        let min = 40u128;
+        let max = 30u128;
+        let response = set_limits(&mut deps, DEFAULT_OWNER, min, max);
+
+        expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
+        let state = config_read(&deps.storage).load().unwrap();
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.swap_min);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.swap_max);
+    }
+
+    #[test]
+    fn failure_set_reverse_limits_inconsistent_limits() {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
         let fee = 20u128;
         let min = 20u128;
         let max = 10u128;
-        let response = set_limits(&mut deps, DEFAULT_OWNER, fee, min, max);
+        let response = set_reverse_limits(&mut deps, DEFAULT_OWNER, fee, min, max);
 
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
         let state = config_read(&deps.storage).load().unwrap();
-        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
-        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
-        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.reverse_swap_fee);
+        assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.reverse_swap_min);
+        assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.reverse_swap_max);
     }
 }
 
