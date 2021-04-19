@@ -706,16 +706,16 @@
     "absolutePath": "interfaces/IBridgeAdmin.sol",
     "exportedSymbols": {
       "IBridgeAdmin": [
-        185
+        179
       ],
       "IBridgeCommon": [
-        368
+        367
       ],
       "IBridgeMonitor": [
-        387
+        386
       ]
     },
-    "id": 186,
+    "id": 180,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
@@ -739,8 +739,8 @@
         "file": "./IBridgeCommon.sol",
         "id": 106,
         "nodeType": "ImportDirective",
-        "scope": 186,
-        "sourceUnit": 369,
+        "scope": 180,
+        "sourceUnit": 368,
         "src": "855:29:2",
         "symbolAliases": [],
         "unitAlias": ""
@@ -750,8 +750,8 @@
         "file": "./IBridgeMonitor.sol",
         "id": 107,
         "nodeType": "ImportDirective",
-        "scope": 186,
-        "sourceUnit": 388,
+        "scope": 180,
+        "sourceUnit": 387,
         "src": "885:30:2",
         "symbolAliases": [],
         "unitAlias": ""
@@ -764,10 +764,10 @@
               "id": 109,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 368,
+              "referencedDeclaration": 367,
               "src": "1370:13:2",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$367",
                 "typeString": "contract IBridgeCommon"
               }
             },
@@ -780,10 +780,10 @@
               "id": 111,
               "name": "IBridgeMonitor",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 387,
+              "referencedDeclaration": 386,
               "src": "1385:14:2",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeMonitor_$387",
+                "typeIdentifier": "t_contract$_IBridgeMonitor_$386",
                 "typeString": "contract IBridgeMonitor"
               }
             },
@@ -793,8 +793,8 @@
           }
         ],
         "contractDependencies": [
-          368,
-          387
+          367,
+          386
         ],
         "contractKind": "interface",
         "documentation": {
@@ -804,11 +804,11 @@
           "text": " @title *Administrative* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this administrative interface can be called exclusively by administrator(s) of\n         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change\n         supply transferred across the Bridge."
         },
         "fullyImplemented": false,
-        "id": 185,
+        "id": 179,
         "linearizedBaseContracts": [
-          185,
-          387,
-          368
+          179,
+          386,
+          367
         ],
         "name": "IBridgeAdmin",
         "nodeType": "ContractDefinition",
@@ -817,34 +817,28 @@
             "documentation": {
               "id": 113,
               "nodeType": "StructuredDocumentation",
-              "src": "1407:346:2",
-              "text": " @notice Returns amount of excess FET ERC20 tokens which were sent to address of this contract via direct ERC20\n         transfer (by calling ERC20.transfer(...)), without interacting with API of this contract, what can happen\n         only by mistake.\n @return targetAddress : address to send tokens to"
+              "src": "1406:235:2",
+              "text": " @notice Mints provided amount of FET tokens.\n         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n @param amount - number of FET tokens to mint."
             },
-            "functionSelector": "888ff935",
+            "functionSelector": "a0712d68",
             "id": 118,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "getFeesAccrued",
+            "name": "mint",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 114,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "1781:2:2"
-            },
-            "returnParameters": {
-              "id": 117,
+              "id": 116,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 116,
+                  "id": 115,
                   "mutability": "mutable",
-                  "name": "",
+                  "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 118,
-                  "src": "1806:7:2",
+                  "src": "1660:14:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -852,10 +846,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 115,
+                    "id": 114,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1806:7:2",
+                    "src": "1660:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -864,11 +858,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1805:9:2"
+              "src": "1659:16:2"
             },
-            "scope": 185,
-            "src": "1758:57:2",
-            "stateMutability": "view",
+            "returnParameters": {
+              "id": 117,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1684:0:2"
+            },
+            "scope": 179,
+            "src": "1646:39:2",
+            "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
@@ -876,15 +876,15 @@
             "documentation": {
               "id": 119,
               "nodeType": "StructuredDocumentation",
-              "src": "1822:235:2",
-              "text": " @notice Mints provided amount of FET tokens.\n         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n @param amount - number of FET tokens to mint."
+              "src": "1692:235:2",
+              "text": " @notice Burns provided amount of FET tokens.\n         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n @param amount - number of FET tokens to burn."
             },
-            "functionSelector": "a0712d68",
+            "functionSelector": "42966c68",
             "id": 124,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "mint",
+            "name": "burn",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 122,
@@ -897,7 +897,7 @@
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 124,
-                  "src": "2076:14:2",
+                  "src": "1946:14:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -908,7 +908,7 @@
                     "id": 120,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2076:7:2",
+                    "src": "1946:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -917,16 +917,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2075:16:2"
+              "src": "1945:16:2"
             },
             "returnParameters": {
               "id": 123,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2100:0:2"
+              "src": "1970:0:2"
             },
-            "scope": 185,
-            "src": "2062:39:2",
+            "scope": 179,
+            "src": "1932:39:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -935,15 +935,15 @@
             "documentation": {
               "id": 125,
               "nodeType": "StructuredDocumentation",
-              "src": "2108:235:2",
-              "text": " @notice Burns provided amount of FET tokens.\n         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n @param amount - number of FET tokens to burn."
+              "src": "1978:337:2",
+              "text": " @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other\n         blockchain.\n         This cap affects(limits) all operations which *increase* contract's `supply` value = `swap(...)` and\n         `mint(...)`.\n @param value - new cap value."
             },
-            "functionSelector": "42966c68",
+            "functionSelector": "47786d37",
             "id": 130,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "burn",
+            "name": "setCap",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 128,
@@ -953,10 +953,10 @@
                   "constant": false,
                   "id": 127,
                   "mutability": "mutable",
-                  "name": "amount",
+                  "name": "value",
                   "nodeType": "VariableDeclaration",
                   "scope": 130,
-                  "src": "2362:14:2",
+                  "src": "2336:13:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -967,7 +967,7 @@
                     "id": 126,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2362:7:2",
+                    "src": "2336:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -976,16 +976,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2361:16:2"
+              "src": "2335:15:2"
             },
             "returnParameters": {
               "id": 129,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2386:0:2"
+              "src": "2359:0:2"
             },
-            "scope": 185,
-            "src": "2348:39:2",
+            "scope": 179,
+            "src": "2320:40:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -994,15 +994,15 @@
             "documentation": {
               "id": 131,
               "nodeType": "StructuredDocumentation",
-              "src": "2394:337:2",
-              "text": " @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other\n         blockchain.\n         This cap affects(limits) all operations which *increase* contract's `supply` value = `swap(...)` and\n         `mint(...)`.\n @param value - new cap value."
+              "src": "2367:433:2",
+              "text": " @notice Sets value of `reverseAggregatedAllowance` state variable.\n         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored\n         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored\n         supply decrease operations (= `withdraw(...)` & `burn(...)`).\n @param value - new cap value."
             },
-            "functionSelector": "47786d37",
+            "functionSelector": "a85553d5",
             "id": 136,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "setCap",
+            "name": "setReverseAggregatedAllowance",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 134,
@@ -1015,7 +1015,7 @@
                   "name": "value",
                   "nodeType": "VariableDeclaration",
                   "scope": 136,
-                  "src": "2752:13:2",
+                  "src": "2844:13:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1026,7 +1026,7 @@
                     "id": 132,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2752:7:2",
+                    "src": "2844:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1035,16 +1035,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2751:15:2"
+              "src": "2843:15:2"
             },
             "returnParameters": {
               "id": 135,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2775:0:2"
+              "src": "2867:0:2"
             },
-            "scope": 185,
-            "src": "2736:40:2",
+            "scope": 179,
+            "src": "2805:63:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1053,15 +1053,15 @@
             "documentation": {
               "id": 137,
               "nodeType": "StructuredDocumentation",
-              "src": "2783:433:2",
-              "text": " @notice Sets value of `reverseAggregatedAllowance` state variable.\n         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored\n         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored\n         supply decrease operations (= `withdraw(...)` & `burn(...)`).\n @param value - new cap value."
+              "src": "2874:238:2",
+              "text": " @notice Sets value of `reverseAggregatedAllowanceCap` state variable.\n         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.\n @param value - new cap value (absolute)"
             },
-            "functionSelector": "a85553d5",
+            "functionSelector": "0f42e312",
             "id": 142,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "setReverseAggregatedAllowance",
+            "name": "setReverseAggregatedAllowanceApproverCap",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 140,
@@ -1074,7 +1074,7 @@
                   "name": "value",
                   "nodeType": "VariableDeclaration",
                   "scope": 142,
-                  "src": "3260:13:2",
+                  "src": "3167:13:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1085,7 +1085,7 @@
                     "id": 138,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3260:7:2",
+                    "src": "3167:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1094,16 +1094,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3259:15:2"
+              "src": "3166:15:2"
             },
             "returnParameters": {
               "id": 141,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3283:0:2"
+              "src": "3190:0:2"
             },
-            "scope": 185,
-            "src": "3221:63:2",
+            "scope": 179,
+            "src": "3117:74:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1112,28 +1112,28 @@
             "documentation": {
               "id": 143,
               "nodeType": "StructuredDocumentation",
-              "src": "3290:238:2",
-              "text": " @notice Sets value of `reverseAggregatedAllowanceCap` state variable.\n         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.\n @param value - new cap value (absolute)"
+              "src": "3198:457:2",
+              "text": " @notice Sets limits for swap amount\n         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`\n @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`"
             },
-            "functionSelector": "0f42e312",
-            "id": 148,
+            "functionSelector": "189ae5f2",
+            "id": 152,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "setReverseAggregatedAllowanceApproverCap",
+            "name": "setLimits",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 146,
+              "id": 150,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
                   "id": 145,
                   "mutability": "mutable",
-                  "name": "value",
+                  "name": "swapMax_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 148,
-                  "src": "3583:13:2",
+                  "scope": 152,
+                  "src": "3679:16:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1144,66 +1144,7 @@
                     "id": 144,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3583:7:2",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "3582:15:2"
-            },
-            "returnParameters": {
-              "id": 147,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "3606:0:2"
-            },
-            "scope": 185,
-            "src": "3533:74:2",
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "documentation": {
-              "id": 149,
-              "nodeType": "StructuredDocumentation",
-              "src": "3614:457:2",
-              "text": " @notice Sets limits for swap amount\n         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`\n @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`"
-            },
-            "functionSelector": "189ae5f2",
-            "id": 158,
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "setLimits",
-            "nodeType": "FunctionDefinition",
-            "parameters": {
-              "id": 156,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 151,
-                  "mutability": "mutable",
-                  "name": "swapMax_",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 158,
-                  "src": "4095:16:2",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 150,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "4095:7:2",
+                    "src": "3679:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1213,12 +1154,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 153,
+                  "id": 147,
                   "mutability": "mutable",
                   "name": "swapMin_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 158,
-                  "src": "4113:16:2",
+                  "scope": 152,
+                  "src": "3697:16:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1226,10 +1167,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 152,
+                    "id": 146,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4113:7:2",
+                    "src": "3697:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1239,12 +1180,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 155,
+                  "id": 149,
                   "mutability": "mutable",
                   "name": "swapFee_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 158,
-                  "src": "4131:16:2",
+                  "scope": 152,
+                  "src": "3715:16:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1252,10 +1193,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 154,
+                    "id": 148,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4131:7:2",
+                    "src": "3715:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1264,46 +1205,46 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4094:54:2"
+              "src": "3678:54:2"
             },
             "returnParameters": {
-              "id": 157,
+              "id": 151,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4157:0:2"
+              "src": "3741:0:2"
             },
-            "scope": 185,
-            "src": "4076:82:2",
+            "scope": 179,
+            "src": "3660:82:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
             "documentation": {
-              "id": 159,
+              "id": 153,
               "nodeType": "StructuredDocumentation",
-              "src": "4165:302:2",
+              "src": "3749:302:2",
               "text": " @notice Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to\n       another Bridge system, and **NO** other purpose.\n @param targetAddress : address to send tokens to\n @param amount : amount of tokens to withdraw"
             },
             "functionSelector": "f3fef3a3",
-            "id": 166,
+            "id": 160,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "withdraw",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 164,
+              "id": 158,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 161,
+                  "id": 155,
                   "mutability": "mutable",
                   "name": "targetAddress",
                   "nodeType": "VariableDeclaration",
-                  "scope": 166,
-                  "src": "4490:21:2",
+                  "scope": 160,
+                  "src": "4074:21:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1311,10 +1252,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 160,
+                    "id": 154,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4490:7:2",
+                    "src": "4074:7:2",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1325,12 +1266,71 @@
                 },
                 {
                   "constant": false,
+                  "id": 157,
+                  "mutability": "mutable",
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 160,
+                  "src": "4097:14:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 156,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "4097:7:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "4073:39:2"
+            },
+            "returnParameters": {
+              "id": 159,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "4121:0:2"
+            },
+            "scope": 179,
+            "src": "4056:66:2",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 161,
+              "nodeType": "StructuredDocumentation",
+              "src": "4129:652:2",
+              "text": " @dev Deposits funds back in to the contract supply.\n      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.\n      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as\n            recipient/beneficiary and Tx sender address as sender.\n            This means that address passed in as the Tx sender, must have already crated allowance by calling the\n            `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)` *before* calling this(`deposit(...)`) call.\n @param amount : deposit amount"
+            },
+            "functionSelector": "b6b55f25",
+            "id": 166,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deposit",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 164,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
                   "id": 163,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "scope": 166,
-                  "src": "4513:14:2",
+                  "src": "4803:14:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1341,7 +1341,7 @@
                     "id": 162,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4513:7:2",
+                    "src": "4803:7:2",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1350,16 +1350,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4489:39:2"
+              "src": "4802:16:2"
             },
             "returnParameters": {
               "id": 165,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4537:0:2"
+              "src": "4827:0:2"
             },
-            "scope": 185,
-            "src": "4472:66:2",
+            "scope": 179,
+            "src": "4786:42:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1368,15 +1368,15 @@
             "documentation": {
               "id": 167,
               "nodeType": "StructuredDocumentation",
-              "src": "4545:652:2",
-              "text": " @dev Deposits funds back in to the contract supply.\n      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.\n      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as\n            recipient/beneficiary and Tx sender address as sender.\n            This means that address passed in as the Tx sender, must have already crated allowance by calling the\n            `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)` *before* calling this(`deposit(...)`) call.\n @param amount : deposit amount"
+              "src": "4835:635:2",
+              "text": " @notice Withdraw fees accrued so far.\n         !IMPORTANT!: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued*\n                      and *excess funds* sent to the contract's address via *direct* `ERC20.transfer(...)`.\n                      Implication is that excess funds **are treated** as swap fees.\n                      The only way how to separate these two is off-chain, by replaying events from this and\n                      Fet ERC20 contracts and do the reconciliation.\n @param targetAddress : address to send tokens to."
             },
-            "functionSelector": "b6b55f25",
+            "functionSelector": "164e68de",
             "id": 172,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "deposit",
+            "name": "withdrawFees",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 170,
@@ -1386,39 +1386,40 @@
                   "constant": false,
                   "id": 169,
                   "mutability": "mutable",
-                  "name": "amount",
+                  "name": "targetAddress",
                   "nodeType": "VariableDeclaration",
                   "scope": 172,
-                  "src": "5219:14:2",
+                  "src": "5497:21:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
                   },
                   "typeName": {
                     "id": 168,
-                    "name": "uint256",
+                    "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "5219:7:2",
+                    "src": "5497:7:2",
+                    "stateMutability": "nonpayable",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
                     }
                   },
                   "visibility": "internal"
                 }
               ],
-              "src": "5218:16:2"
+              "src": "5496:23:2"
             },
             "returnParameters": {
               "id": 171,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "5243:0:2"
+              "src": "5528:0:2"
             },
-            "scope": 185,
-            "src": "5202:42:2",
+            "scope": 179,
+            "src": "5475:54:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1427,15 +1428,15 @@
             "documentation": {
               "id": 173,
               "nodeType": "StructuredDocumentation",
-              "src": "5251:635:2",
-              "text": " @notice Withdraw fees accrued so far.\n         !IMPORTANT!: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued*\n                      and *excess funds* sent to the contract's address via *direct* `ERC20.transfer(...)`.\n                      Implication is that excess funds **are treated** as swap fees.\n                      The only way how to separate these two is off-chain, by replaying events from this and\n                      Fet ERC20 contracts and do the reconciliation.\n @param targetAddress : address to send tokens to."
+              "src": "5536:319:2",
+              "text": " @notice Delete the contract, transfers the remaining token and ether balance to the specified\n         payoutAddress\n @param targetAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens\n @dev owner only + only on or after `earliestDelete` block"
             },
-            "functionSelector": "164e68de",
+            "functionSelector": "2637a477",
             "id": 178,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "withdrawFees",
+            "name": "deleteContract",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 176,
@@ -1448,67 +1449,7 @@
                   "name": "targetAddress",
                   "nodeType": "VariableDeclaration",
                   "scope": 178,
-                  "src": "5913:21:2",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 174,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "5913:7:2",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "5912:23:2"
-            },
-            "returnParameters": {
-              "id": 177,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "5944:0:2"
-            },
-            "scope": 185,
-            "src": "5891:54:2",
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "documentation": {
-              "id": 179,
-              "nodeType": "StructuredDocumentation",
-              "src": "5952:319:2",
-              "text": " @notice Delete the contract, transfers the remaining token and ether balance to the specified\n         payoutAddress\n @param targetAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens\n @dev owner only + only on or after `earliestDelete` block"
-            },
-            "functionSelector": "2637a477",
-            "id": 184,
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "deleteContract",
-            "nodeType": "FunctionDefinition",
-            "parameters": {
-              "id": 182,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 181,
-                  "mutability": "mutable",
-                  "name": "targetAddress",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 184,
-                  "src": "6300:29:2",
+                  "src": "5884:29:2",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1516,10 +1457,10 @@
                     "typeString": "address payable"
                   },
                   "typeName": {
-                    "id": 180,
+                    "id": 174,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6300:15:2",
+                    "src": "5884:15:2",
                     "stateMutability": "payable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address_payable",
@@ -1529,26 +1470,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6299:31:2"
+              "src": "5883:31:2"
             },
             "returnParameters": {
-              "id": 183,
+              "id": 177,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "6339:0:2"
+              "src": "5923:0:2"
             },
-            "scope": 185,
-            "src": "6276:64:2",
+            "scope": 179,
+            "src": "5860:64:2",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 186,
-        "src": "1344:4998:2"
+        "scope": 180,
+        "src": "1344:4582:2"
       }
     ],
-    "src": "820:5523:2"
+    "src": "820:5107:2"
   },
   "contractName": "IBridgeAdmin",
   "dependencies": [
@@ -1557,9 +1498,9 @@
   ],
   "offset": [
     1344,
-    6342
+    5926
   ],
-  "sha1": "d8294ff791873c3db1875c45f20024e667f09c2d",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\nimport \"./IBridgeMonitor.sol\";\n\n\n/**\n * @title *Administrative* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this administrative interface can be called exclusively by administrator(s) of\n *         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change\n *         supply transferred across the Bridge.\n */\ninterface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {\n\n    /**\n     * @notice Returns amount of excess FET ERC20 tokens which were sent to address of this contract via direct ERC20\n     *         transfer (by calling ERC20.transfer(...)), without interacting with API of this contract, what can happen\n     *         only by mistake.\n     *\n     * @return targetAddress : address to send tokens to\n     */\n    function getFeesAccrued() external view returns(uint256);\n\n\n    /**\n     * @notice Mints provided amount of FET tokens.\n     *         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n     * @param amount - number of FET tokens to mint.\n     */\n    function mint(uint256 amount) external;\n\n\n    /**\n     * @notice Burns provided amount of FET tokens.\n     *         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n     * @param amount - number of FET tokens to burn.\n     */\n    function burn(uint256 amount) external;\n\n\n    /**\n     * @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other\n     *         blockchain.\n     *         This cap affects(limits) all operations which *increase* contract's `supply` value = `swap(...)` and\n     *         `mint(...)`.\n     * @param value - new cap value.\n     */\n    function setCap(uint256 value) external;\n\n\n    /**\n     * @notice Sets value of `reverseAggregatedAllowance` state variable.\n     *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored\n     *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored\n     *         supply decrease operations (= `withdraw(...)` & `burn(...)`).\n     * @param value - new cap value.\n     */\n    function setReverseAggregatedAllowance(uint256 value) external;\n\n    /**\n     * @notice Sets value of `reverseAggregatedAllowanceCap` state variable.\n     *         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.\n     * @param value - new cap value (absolute)\n     */\n    function setReverseAggregatedAllowanceApproverCap(uint256 value) external;\n\n\n    /**\n     * @notice Sets limits for swap amount\n     *         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`\n     * @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n     * @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n     * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`\n     */\n    function setLimits(uint256 swapMax_, uint256 swapMin_, uint256 swapFee_) external;\n\n\n    /**\n     * @notice Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to\n     *       another Bridge system, and **NO** other purpose.\n     * @param targetAddress : address to send tokens to\n     * @param amount : amount of tokens to withdraw\n     */\n    function withdraw(address targetAddress, uint256 amount) external;\n\n\n    /**\n     * @dev Deposits funds back in to the contract supply.\n     *      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.\n     *      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as\n     *            recipient/beneficiary and Tx sender address as sender.\n     *            This means that address passed in as the Tx sender, must have already crated allowance by calling the\n     *            `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)` *before* calling this(`deposit(...)`) call.\n     * @param amount : deposit amount\n     */\n    function deposit(uint256 amount) external;\n\n\n    /**\n     * @notice Withdraw fees accrued so far.\n     *         !IMPORTANT!: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued*\n     *                      and *excess funds* sent to the contract's address via *direct* `ERC20.transfer(...)`.\n     *                      Implication is that excess funds **are treated** as swap fees.\n     *                      The only way how to separate these two is off-chain, by replaying events from this and\n     *                      Fet ERC20 contracts and do the reconciliation.\n     *\n     * @param targetAddress : address to send tokens to.\n     */\n    function withdrawFees(address targetAddress) external;\n\n\n    /**\n     * @notice Delete the contract, transfers the remaining token and ether balance to the specified\n     *         payoutAddress\n     * @param targetAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens\n     * @dev owner only + only on or after `earliestDelete` block\n     */\n    function deleteContract(address payable targetAddress) external;\n}\n",
+  "sha1": "4ea24eb4b73e01fa29de7d81b2e5930db56dc60b",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\nimport \"./IBridgeMonitor.sol\";\n\n\n/**\n * @title *Administrative* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this administrative interface can be called exclusively by administrator(s) of\n *         the Bridge contract, since it allows to configure essential parameters of the the Bridge, and change\n *         supply transferred across the Bridge.\n */\ninterface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {\n    /**\n     * @notice Mints provided amount of FET tokens.\n     *         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n     * @param amount - number of FET tokens to mint.\n     */\n    function mint(uint256 amount) external;\n\n\n    /**\n     * @notice Burns provided amount of FET tokens.\n     *         This is to reflect changes in minted Native FET token supply on the Fetch Native Mainnet-v2 blockchain.\n     * @param amount - number of FET tokens to burn.\n     */\n    function burn(uint256 amount) external;\n\n\n    /**\n     * @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other\n     *         blockchain.\n     *         This cap affects(limits) all operations which *increase* contract's `supply` value = `swap(...)` and\n     *         `mint(...)`.\n     * @param value - new cap value.\n     */\n    function setCap(uint256 value) external;\n\n\n    /**\n     * @notice Sets value of `reverseAggregatedAllowance` state variable.\n     *         This affects(limits) operations which *decrease* contract's `supply` value via **RELAYER** authored\n     *         operations (= `reverseSwap(...)` and `refund(...)`). It does **NOT** affect **ADMINISTRATION** authored\n     *         supply decrease operations (= `withdraw(...)` & `burn(...)`).\n     * @param value - new cap value.\n     */\n    function setReverseAggregatedAllowance(uint256 value) external;\n\n    /**\n     * @notice Sets value of `reverseAggregatedAllowanceCap` state variable.\n     *         This limits APPROVER_ROLE from top - value up to which can approver rise the allowance.\n     * @param value - new cap value (absolute)\n     */\n    function setReverseAggregatedAllowanceApproverCap(uint256 value) external;\n\n\n    /**\n     * @notice Sets limits for swap amount\n     *         FUnction will revert if following consitency check fails: `swapfee_ <= swapMin_ <= swapMax_`\n     * @param swapMax_ : >= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n     * @param swapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)\n     * @param swapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`\n     */\n    function setLimits(uint256 swapMax_, uint256 swapMin_, uint256 swapFee_) external;\n\n\n    /**\n     * @notice Withdraws amount from contract's supply, which is supposed to be done exclusively for relocating funds to\n     *       another Bridge system, and **NO** other purpose.\n     * @param targetAddress : address to send tokens to\n     * @param amount : amount of tokens to withdraw\n     */\n    function withdraw(address targetAddress, uint256 amount) external;\n\n\n    /**\n     * @dev Deposits funds back in to the contract supply.\n     *      Dedicated to increase contract's supply, usually(but not necessarily) after previous withdrawal from supply.\n     *      NOTE: This call needs preexisting ERC20 allowance >= `amount` for address of this Bridge contract as\n     *            recipient/beneficiary and Tx sender address as sender.\n     *            This means that address passed in as the Tx sender, must have already crated allowance by calling the\n     *            `ERC20.approve(from, ADDR_OF_BRIDGE_CONTRACT, amount)` *before* calling this(`deposit(...)`) call.\n     * @param amount : deposit amount\n     */\n    function deposit(uint256 amount) external;\n\n\n    /**\n     * @notice Withdraw fees accrued so far.\n     *         !IMPORTANT!: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued*\n     *                      and *excess funds* sent to the contract's address via *direct* `ERC20.transfer(...)`.\n     *                      Implication is that excess funds **are treated** as swap fees.\n     *                      The only way how to separate these two is off-chain, by replaying events from this and\n     *                      Fet ERC20 contracts and do the reconciliation.\n     *\n     * @param targetAddress : address to send tokens to.\n     */\n    function withdrawFees(address targetAddress) external;\n\n\n    /**\n     * @notice Delete the contract, transfers the remaining token and ether balance to the specified\n     *         payoutAddress\n     * @param targetAddress address to transfer the balances to. Ensure that this is able to handle ERC20 tokens\n     * @dev owner only + only on or after `earliestDelete` block\n     */\n    function deleteContract(address payable targetAddress) external;\n}\n",
   "type": "interface"
 }

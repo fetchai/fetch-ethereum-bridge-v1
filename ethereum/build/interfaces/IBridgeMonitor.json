@@ -331,6 +331,19 @@
     },
     {
       "inputs": [],
+      "name": "getFeesAccrued",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getMonitorRole",
       "outputs": [
         {
@@ -548,18 +561,18 @@
     "absolutePath": "interfaces/IBridgeMonitor.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        368
+        367
       ],
       "IBridgeMonitor": [
-        387
+        386
       ]
     },
-    "id": 388,
+    "id": 387,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 370,
+        "id": 369,
         "literals": [
           "solidity",
           "^",
@@ -576,10 +589,10 @@
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 371,
+        "id": 370,
         "nodeType": "ImportDirective",
-        "scope": 388,
-        "sourceUnit": 369,
+        "scope": 387,
+        "sourceUnit": 368,
         "src": "856:29:4",
         "symbolAliases": [],
         "unitAlias": ""
@@ -589,65 +602,65 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 373,
+              "id": 372,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 368,
+              "referencedDeclaration": 367,
               "src": "1200:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$367",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 374,
+            "id": 373,
             "nodeType": "InheritanceSpecifier",
             "src": "1200:13:4"
           }
         ],
         "contractDependencies": [
-          368
+          367
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 372,
+          "id": 371,
           "nodeType": "StructuredDocumentation",
           "src": "888:283:4",
           "text": " @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n         the Bridge contract."
         },
         "fullyImplemented": false,
-        "id": 387,
+        "id": 386,
         "linearizedBaseContracts": [
-          387,
-          368
+          386,
+          367
         ],
         "name": "IBridgeMonitor",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 375,
+              "id": 374,
               "nodeType": "StructuredDocumentation",
               "src": "1220:353:4",
               "text": " @notice Pauses Public API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "432944c0",
-            "id": 380,
+            "id": 379,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pausePublicApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 378,
+              "id": 377,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 377,
+                  "id": 376,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 380,
+                  "scope": 379,
                   "src": "1607:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -656,7 +669,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 376,
+                    "id": 375,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "1607:7:4",
@@ -671,12 +684,12 @@
               "src": "1606:21:4"
             },
             "returnParameters": {
-              "id": 379,
+              "id": 378,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "1636:0:4"
             },
-            "scope": 387,
+            "scope": 386,
             "src": "1578:59:4",
             "stateMutability": "nonpayable",
             "virtual": false,
@@ -684,29 +697,29 @@
           },
           {
             "documentation": {
-              "id": 381,
+              "id": 380,
               "nodeType": "StructuredDocumentation",
               "src": "1643:354:4",
               "text": " @notice Pauses Relayer API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "9f2c88bf",
-            "id": 386,
+            "id": 385,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pauseRelayerApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 384,
+              "id": 383,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 383,
+                  "id": 382,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 386,
+                  "scope": 385,
                   "src": "2032:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -715,7 +728,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 382,
+                    "id": 381,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "2032:7:4",
@@ -730,19 +743,19 @@
               "src": "2031:21:4"
             },
             "returnParameters": {
-              "id": 385,
+              "id": 384,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "2061:0:4"
             },
-            "scope": 387,
+            "scope": 386,
             "src": "2002:60:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 388,
+        "scope": 387,
         "src": "1172:892:4"
       }
     ],

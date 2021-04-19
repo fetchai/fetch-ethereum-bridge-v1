@@ -118,12 +118,11 @@ contract Bridge is IBridge, AccessControl {
 
     modifier verifyPublicAPINotPaused() {
         require(pausedSinceBlockPublicApi > block.number, "Contract has been paused");
-        _verifyRelayerApiNotPaused();
         _;
     }
 
     modifier verifyRelayerApiNotPaused() {
-        _verifyRelayerApiNotPaused();
+        require(pausedSinceBlockRelayerApi > block.number, "Contract has been paused");
         _;
     }
 
@@ -702,10 +701,6 @@ contract Bridge is IBridge, AccessControl {
 
     function _isOwner() internal view returns(bool) {
         return hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    }
-
-    function _verifyRelayerApiNotPaused() internal view {
-        require(pausedSinceBlockRelayerApi > block.number, "Contract has been paused");
     }
 
     /**

@@ -331,6 +331,19 @@
     },
     {
       "inputs": [],
+      "name": "getFeesAccrued",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getMonitorRole",
       "outputs": [
         {
@@ -623,18 +636,18 @@
     "absolutePath": "interfaces/IBridgeRelayer.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        368
+        367
       ],
       "IBridgeRelayer": [
-        453
+        452
       ]
     },
-    "id": 454,
+    "id": 453,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 404,
+        "id": 403,
         "literals": [
           "solidity",
           "^",
@@ -651,10 +664,10 @@
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 405,
+        "id": 404,
         "nodeType": "ImportDirective",
-        "scope": 454,
-        "sourceUnit": 369,
+        "scope": 453,
+        "sourceUnit": 368,
         "src": "855:29:6",
         "symbolAliases": [],
         "unitAlias": ""
@@ -664,67 +677,67 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 407,
+              "id": 406,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 368,
+              "referencedDeclaration": 367,
               "src": "2103:13:6",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$367",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 408,
+            "id": 407,
             "nodeType": "InheritanceSpecifier",
             "src": "2103:13:6"
           }
         ],
         "contractDependencies": [
-          368
+          367
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 406,
+          "id": 405,
           "nodeType": "StructuredDocumentation",
           "src": "887:1187:6",
           "text": " @title *Relayer* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this relayer-level interface can be called exclusively by relayer(s) of\n         the Bridge contract.\n         It is offers set of methods to perform relaying functionality of the Bridge = transferring swaps\n         across chains.\n @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n         In the case of a refund, user will be charged a swap fee configured in this contract.\n         Swap Fees for `swap(...)` operations (direction from this contract to Native Fetch Mainnet-v2 are handled by\n         the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n         which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back\n         to this contract."
         },
         "fullyImplemented": false,
-        "id": 453,
+        "id": 452,
         "linearizedBaseContracts": [
-          453,
-          368
+          452,
+          367
         ],
         "name": "IBridgeRelayer",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 409,
+              "id": 408,
               "nodeType": "StructuredDocumentation",
               "src": "2124:328:6",
               "text": " @notice Starts the new relay eon.\n @dev Relay eon concept is part of the design in order to ensure safe management of hand-over between two\n      relayer services. It provides clean isolation of potentially still pending transactions from previous\n      relayer svc and the current one."
             },
             "functionSelector": "c533c4c9",
-            "id": 412,
+            "id": 411,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "newRelayEon",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 410,
+              "id": 409,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "2477:2:6"
             },
             "returnParameters": {
-              "id": 411,
+              "id": 410,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "2488:0:6"
             },
-            "scope": 453,
+            "scope": 452,
             "src": "2457:32:6",
             "stateMutability": "nonpayable",
             "virtual": false,
@@ -732,29 +745,29 @@
           },
           {
             "documentation": {
-              "id": 413,
+              "id": 412,
               "nodeType": "StructuredDocumentation",
               "src": "2496:802:6",
               "text": " @notice Refunds swap previously created by `swap(...)` call to this contract. The `swapFee` is *NOT* refunded\n         back to the user (this is by-design).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 withdrawn\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e779e30a",
-            "id": 424,
+            "id": 423,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "refund",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 422,
+              "id": 421,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 415,
+                  "id": 414,
                   "mutability": "mutable",
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 424,
+                  "scope": 423,
                   "src": "3319:9:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -763,7 +776,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 414,
+                    "id": 413,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "3319:6:6",
@@ -776,11 +789,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 417,
+                  "id": 416,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 424,
+                  "scope": 423,
                   "src": "3330:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -789,7 +802,7 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 416,
+                    "id": 415,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
                     "src": "3330:7:6",
@@ -803,11 +816,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 419,
+                  "id": 418,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 424,
+                  "scope": 423,
                   "src": "3342:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -816,7 +829,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 418,
+                    "id": 417,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "3342:7:6",
@@ -829,11 +842,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 421,
+                  "id": 420,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 424,
+                  "scope": 423,
                   "src": "3358:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -842,7 +855,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 420,
+                    "id": 419,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "3358:6:6",
@@ -857,12 +870,12 @@
               "src": "3318:57:6"
             },
             "returnParameters": {
-              "id": 423,
+              "id": 422,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "3384:0:6"
             },
-            "scope": 453,
+            "scope": 452,
             "src": "3303:82:6",
             "stateMutability": "nonpayable",
             "virtual": false,
@@ -870,29 +883,29 @@
           },
           {
             "documentation": {
-              "id": 425,
+              "id": 424,
               "nodeType": "StructuredDocumentation",
               "src": "3392:1422:6",
               "text": " @notice Refunds swap previously created by `swap(...)` call to this contract, where `swapFee` *IS* refunded\n         back to the user (= swap fee is waived = user will receive full `amount`).\n         Purpose of this method is to enable full refund in the situations when it si not user's fault that\n         swap needs to be refunded (e.g. when Fetch Native Mainnet-v2 will become unavailable for prolonged\n         period of time, etc. ...).\n @dev Callable exclusively by `relayer` role\n @param id - swap id to refund - must be swap id of swap originally created by `swap(...)` call to this contract,\n             **NOT** *reverse* swap id!\n @param to - address where the refund will be transferred in to(IDENTICAL to address used in associated `swap`\n             call)\n @param amount - original amount specified in associated `swap` call = it INCLUDES swap fee, which will be\n                 waived = user will receive whole `amount` value.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "ab2235a3",
-            "id": 436,
+            "id": 435,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "refundInFull",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 434,
+              "id": 433,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 427,
+                  "id": 426,
                   "mutability": "mutable",
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 436,
+                  "scope": 435,
                   "src": "4841:9:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -901,7 +914,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 426,
+                    "id": 425,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "4841:6:6",
@@ -914,11 +927,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 429,
+                  "id": 428,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 436,
+                  "scope": 435,
                   "src": "4852:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -927,7 +940,7 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 428,
+                    "id": 427,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
                     "src": "4852:7:6",
@@ -941,11 +954,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 431,
+                  "id": 430,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 436,
+                  "scope": 435,
                   "src": "4864:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -954,7 +967,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 430,
+                    "id": 429,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "4864:7:6",
@@ -967,11 +980,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 433,
+                  "id": 432,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 436,
+                  "scope": 435,
                   "src": "4880:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -980,7 +993,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 432,
+                    "id": 431,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "4880:6:6",
@@ -995,12 +1008,12 @@
               "src": "4840:57:6"
             },
             "returnParameters": {
-              "id": 435,
+              "id": 434,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "4906:0:6"
             },
-            "scope": 453,
+            "scope": 452,
             "src": "4819:88:6",
             "stateMutability": "nonpayable",
             "virtual": false,
@@ -1008,29 +1021,29 @@
           },
           {
             "documentation": {
-              "id": 437,
+              "id": 436,
               "nodeType": "StructuredDocumentation",
               "src": "4914:2009:6",
               "text": " @notice Finalises swap initiated by counterpart contract on the other blockchain.\n         This call sends swapped tokens to `to` address value user specified in original swap on the **OTHER**\n         blockchain.\n @dev Callable exclusively by `relayer` role\n @param rid - reverse swap id - unique identifier of the swap initiated on the **OTHER** blockchain.\n              This id is, by definition, sequentially growing number incremented by 1 for each new swap initiated\n              the other blockchain. **However**, it is *NOT* ensured that *all* swaps from the other blockchain\n              will be transferred to this (Ethereum) blockchain, since some of these swaps can be refunded back\n              to users (on the other blockchain).\n @param to - address where the refund will be transferred in to\n @param from - source address from which user transferred tokens from on the other blockchain. Present primarily\n               for purposes of quick querying of events on this blockchain.\n @param originTxHash - transaction hash for swap initiated on the **OTHER** blockchain. Present in order to\n                       create strong bond between this and other blockchain.\n @param amount - original amount specified in associated swap initiated on the other blockchain.\n                 Swap fee is *withdrawn* from the `amount` user specified in the swap on the other blockchain,\n                 what means that user receives `amount - swapFee`, or *nothing* if `amount <= swapFee`.\n                 Pleas mind that `amount > 0`, otherways relayer will pay Tx fee for executing the transaction\n                 which will have *NO* effect (= like this function `refundInFull(...)` would *not* have been\n                 called at all!\n @param relayEon_ - current relay eon, ensures safe management of relaying process"
             },
             "functionSelector": "e5c119ca",
-            "id": 452,
+            "id": 451,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "reverseSwap",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 450,
+              "id": 449,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 439,
+                  "id": 438,
                   "mutability": "mutable",
                   "name": "rid",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "6958:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -1039,7 +1052,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 438,
+                    "id": 437,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "6958:6:6",
@@ -1052,11 +1065,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 441,
+                  "id": 440,
                   "mutability": "mutable",
                   "name": "to",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "6978:10:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -1065,7 +1078,7 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 440,
+                    "id": 439,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
                     "src": "6978:7:6",
@@ -1079,11 +1092,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 443,
+                  "id": 442,
                   "mutability": "mutable",
                   "name": "from",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "6998:20:6",
                   "stateVariable": false,
                   "storageLocation": "calldata",
@@ -1092,7 +1105,7 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 442,
+                    "id": 441,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
                     "src": "6998:6:6",
@@ -1105,11 +1118,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 445,
+                  "id": 444,
                   "mutability": "mutable",
                   "name": "originTxHash",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "7028:20:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -1118,7 +1131,7 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 444,
+                    "id": 443,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
                     "src": "7028:7:6",
@@ -1131,11 +1144,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 447,
+                  "id": 446,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "7058:14:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -1144,7 +1157,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 446,
+                    "id": 445,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "7058:7:6",
@@ -1157,11 +1170,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 449,
+                  "id": 448,
                   "mutability": "mutable",
                   "name": "relayEon_",
                   "nodeType": "VariableDeclaration",
-                  "scope": 452,
+                  "scope": 451,
                   "src": "7082:16:6",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -1170,7 +1183,7 @@
                     "typeString": "uint64"
                   },
                   "typeName": {
-                    "id": 448,
+                    "id": 447,
                     "name": "uint64",
                     "nodeType": "ElementaryTypeName",
                     "src": "7082:6:6",
@@ -1185,19 +1198,19 @@
               "src": "6948:160:6"
             },
             "returnParameters": {
-              "id": 451,
+              "id": 450,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "7125:0:6"
             },
-            "scope": 453,
+            "scope": 452,
             "src": "6928:198:6",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 454,
+        "scope": 453,
         "src": "2075:5053:6"
       }
     ],
