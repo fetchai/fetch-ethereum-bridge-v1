@@ -535,9 +535,9 @@ contract Bridge is IBridge, AccessControl {
     {
         // NOTE(pb): The `supply` shall be adjusted by minted amount.
         supply = supply.add(amount);
-        require(cap >= supply, "Minting would exceed the cap");
         token.mint(address(this), amount);
     }
+
 
     /**
      * @notice Burns provided amount of FET tokens.
@@ -674,7 +674,6 @@ contract Bridge is IBridge, AccessControl {
         onlyOwner
     {
         supply = supply.add(amount);
-        require(cap >= supply, "Deposit would exceed the cap");
         token.transferFrom(msg.sender, address(this), amount);
         emit Deposit(msg.sender, amount);
     }

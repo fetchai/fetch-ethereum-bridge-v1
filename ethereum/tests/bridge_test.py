@@ -1226,27 +1226,55 @@ def test_set_cap_basic(bridgeFactory):
     # All necessary verification is already implemented inside of the test subject method called above.
 
 
-def test_all_contract_methods_for_adding_supply_revert_on_cap_violation(bridgeFactory):
+def test_public_contract_api_for_adding_supply_revert_on_cap_violation(bridgeFactory):
     # ===   GIVEN / PRECONDITIONS:  =======================
     test: BridgeTest = bridgeFactory()
 
     orig_supply = test.b.getSupply()
-    room = test.vals.amount
-    test.setCap(orig_supply + room)
-    amount = room + 1
+    amount = test.bridge.swapMax
+    assert amount > 0
+
+    test.b.setCap(orig_supply + amount - 1)
+
 
     # ===   WHEN / TEST SUBJECT  ==========================
     with brownie.reverts(revert_msg="Swap would exceed cap"):
         test.swap(user=test.users.users[0], amount=amount)
 
-    with brownie.reverts(revert_msg="Deposit would exceed the cap"):
-        test.deposit(amount)
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+    # Proving negative
+    test.swap(user=test.users.users[0], amount=amount - 1)
 
-    with brownie.reverts(revert_msg="Minting would exceed the cap"):
-        test.mint(amount)
+
+def test_admin_contract_api_for_adding_supply_can_go_over_cap(bridgeFactory):
+    # ===   GIVEN / PRECONDITIONS:  =======================
+    test: BridgeTest = bridgeFactory()
+
+    orig_supply = test.b.getSupply()
+    test.setCap(orig_supply)
+
+    amount = 10
+
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.t.approve(test.b.address, amount)
+    test.deposit(amount)
 
     # ===   THEN / VERIFICATION:  =========================
     # Verification is done by `brownie.reverts(...)` above
+    assert orig_supply + amount == test.b.getSupply()
+
+
+    # ===   WHEN / TEST SUBJECT  ==========================
+    test.mint(amount)
+
+    # ===   THEN / VERIFICATION:  =========================
+    # Verification is done by `brownie.reverts(...)` above
+    assert orig_supply + 2*amount == test.b.getSupply()
+
+    assert orig_supply == test.b.getCap()
+
 
 
 def test_set_reverse_aggregated_allowance_approver_cap(bridgeFactory, accounts):
