@@ -276,7 +276,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             log("action", "reverse_swap"),
             log("rid", rid),
             log("to", to),
-            log("from", sender),
+            log("sender", sender),
             log("origin_tx_hash", origin_tx_hash),
             log("amount", effective_amount),
             log("swap_fee", swap_fee),
