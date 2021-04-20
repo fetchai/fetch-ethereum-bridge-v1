@@ -7,8 +7,9 @@ use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRol
 use crate::error::{
     ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
     ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED,
-    ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
-    ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
+    ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_REVERSE_SWAP_LIMITS_INCONSISTENT,
+    ERR_REVERSE_SWAP_LIMITS_VIOLATED, ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT,
+    ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
 use crate::msg::{
     CapResponse, DenomResponse, HandleMsg, InitMsg, PausedSinceBlockResponse, QueryMsg,
@@ -40,7 +41,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let contract_addr_human = deps.api.human_address(&env.contract.address)?;
 
     if msg.reverse_swap_min > msg.reverse_swap_max || msg.reverse_swap_min <= msg.reverse_swap_fee {
-        return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
+        return Err(StdError::generic_err(ERR_REVERSE_SWAP_LIMITS_INCONSISTENT));
     }
 
     if msg.swap_min > msg.swap_max {
@@ -513,12 +514,8 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
     let env_message_sender = deps.api.human_address(&env.message.sender)?;
 
     let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
-    let increased_supply = state.supply + amount;
-    if increased_supply > state.cap {
-        return Err(StdError::generic_err(ERR_CAP_EXCEEDED));
-    }
     config(&mut deps.storage).update(|mut state| {
-        state.supply = increased_supply;
+        state.supply += amount;
         Ok(state)
     })?;
 
@@ -727,7 +724,7 @@ fn try_set_reverse_limits<S: Storage, A: Api, Q: Querier>(
     only_admin(env, &deps.storage, &deps.api)?;
 
     if swap_min <= swap_fee || swap_min > swap_max {
-        return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
+        return Err(StdError::generic_err(ERR_REVERSE_SWAP_LIMITS_INCONSISTENT));
     }
     config(&mut deps.storage).update(|mut state| {
         state.reverse_swap_fee = swap_fee;
@@ -914,9 +911,9 @@ fn verify_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
 
 fn verify_reverse_swap_amount_limits(amount: Uint128, state: &State) -> HandleResult {
     if amount < state.reverse_swap_min {
-        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
+        Err(StdError::generic_err(ERR_REVERSE_SWAP_LIMITS_VIOLATED))
     } else if amount > state.reverse_swap_max {
-        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
+        Err(StdError::generic_err(ERR_REVERSE_SWAP_LIMITS_VIOLATED))
     } else {
         Ok(HandleResponse::default())
     }

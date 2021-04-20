@@ -15,8 +15,8 @@ use crate::error::{
     ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE,
     ERR_ACCESS_CONTROL_ONLY_ADMIN, ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED,
     ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED, ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED,
-    ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED,
-    ERR_UNRECOGNIZED_DENOM,
+    ERR_REVERSE_SWAP_LIMITS_INCONSISTENT, ERR_REVERSE_SWAP_LIMITS_VIOLATED, ERR_SUPPLY_EXCEEDED,
+    ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, Uint128};
 use crate::state::{config_read, State};
@@ -181,7 +181,7 @@ mod init {
             denom: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
-        expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
+        expect_error!(response, ERR_REVERSE_SWAP_LIMITS_INCONSISTENT);
     }
 
     #[test]
@@ -203,7 +203,9 @@ mod init {
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         match response {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, ERR_SWAP_LIMITS_INCONSISTENT),
+            Err(StdError::GenericErr { msg, .. }) => {
+                assert_eq!(msg, ERR_REVERSE_SWAP_LIMITS_INCONSISTENT)
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -1224,7 +1226,7 @@ mod reverse_swap {
             deposited,
             0u64,
         );
-        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
+        expect_error!(response, ERR_REVERSE_SWAP_LIMITS_VIOLATED);
 
         let response = reverse_swap(
             &mut deps,
@@ -1236,7 +1238,7 @@ mod reverse_swap {
             0u128,
             0u64,
         );
-        expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
+        expect_error!(response, ERR_REVERSE_SWAP_LIMITS_VIOLATED);
 
         assert_state_unchanged(&deps, deposited);
     }
@@ -1538,7 +1540,7 @@ mod refund {
     }
 
     #[test]
-    fn failure_refund_reverse_swap_limits_violated() {
+    fn failure_refund_swap_limits_violated() {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
@@ -2092,7 +2094,7 @@ mod set_limits {
         let max = 10u128;
         let response = set_reverse_limits(&mut deps, DEFAULT_OWNER, fee, min, max);
 
-        expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
+        expect_error!(response, ERR_REVERSE_SWAP_LIMITS_INCONSISTENT);
         let state = config_read(&deps.storage).load().unwrap();
         assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.reverse_swap_fee);
         assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.reverse_swap_min);

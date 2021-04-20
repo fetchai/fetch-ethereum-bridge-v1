@@ -9,8 +9,12 @@ NB(LR) **don't** change, used as keywords by external code
 
 // limits error messages
 pub const ERR_SWAP_LIMITS_INCONSISTENT: &str =
-    "[FET_ERR_SWAP_LIMITS_INCONSISTENT] inconsistent swap fee and swap limits";
-pub const ERR_SWAP_LIMITS_VIOLATED: &str = "[FET_ERROR_SWAP_LIMITS] Swap limits violated";
+    "[FET_ERR_SWAP_LIMITS_INCONSISTENT] inconsistent swap limits";
+pub const ERR_REVERSE_SWAP_LIMITS_INCONSISTENT: &str =
+    "[FET_ERR_REVERSE_SWAP_LIMITS_INCONSISTENT] inconsistent reverse swap fee and limits";
+pub const ERR_SWAP_LIMITS_VIOLATED: &str = "[FET_ERR_SWAP_LIMITS] Swap limits violated";
+pub const ERR_REVERSE_SWAP_LIMITS_VIOLATED: &str =
+    "[FET_ERR_REVERSE_SWAP_LIMITS] Reverse Swap limits violated";
 pub const ERR_SUPPLY_EXCEEDED: &str = "[FET_ERR_SUPPLY_EXCEEDED] Amount would exceed supply";
 pub const ERR_RA_ALLOWANCE_EXCEEDED: &str =
     "[FET_ERR_RA_ALLOWANCE_EXCEEDED] Amount would exceed reverse aggregated allowance";
