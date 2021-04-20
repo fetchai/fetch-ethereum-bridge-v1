@@ -66,14 +66,16 @@ contract Bridge is IBridge, AccessControl {
     uint64 public  nextSwapId;
     uint64 public  relayEon;
     mapping(uint64 => uint256) public refunds; // swapId -> original swap amount(= *includes* reverseSwapFee)
+    uint256 public swapMax;
+    uint256 public swapMin;
     uint256 public reverseSwapMax;
     uint256 public reverseSwapMin;
-    uint256 public cap;
     uint256 public reverseSwapFee;
     uint256 public pausedSinceBlockPublicApi;
     uint256 public pausedSinceBlockRelayerApi;
     uint256 public reverseAggregatedAllowance;
     uint256 public reverseAggregatedAllowanceApproverCap;
+    uint256 public cap;
 
 
     /* Only callable by owner */
@@ -127,11 +129,13 @@ contract Bridge is IBridge, AccessControl {
     }
 
     modifier verifySwapAmount(uint256 amount) {
-        // NOTE(pb): Commenting-out check against `reverseSwapFee` in order to spare gas for user's Tx, relying solely on check
-        //  against `reverseSwapMin` only, which is ensured to be `>= reverseSwapFee` (by `_setReverseSwapLimits(...)` function).
-        //require(amount > reverseSwapFee, "Amount must be higher than fee");
-        require(amount >= reverseSwapMin, "Amount bellow lower limit");
-        require(amount <= reverseSwapMax, "Amount exceeds upper limit");
+        require(amount >= swapMin, "Amount below swap min limit");
+        require(amount <= swapMax, "Amount exceeds swap max limit");
+        _;
+    }
+
+    modifier verifyRefundAmount(uint256 amount) {
+        require(amount <= swapMax, "Amount exceeds swap max limit");
         _;
     }
 
@@ -174,6 +178,8 @@ contract Bridge is IBridge, AccessControl {
         , uint256 cap_
         , uint256 reverseAggregatedAllowance_
         , uint256 reverseAggregatedAllowanceApproverCap_
+        , uint256 swapMax_
+        , uint256 swapMin_
         , uint256 reverseSwapMax_
         , uint256 reverseSwapMin_
         , uint256 reverseSwapFee_
@@ -197,6 +203,7 @@ contract Bridge is IBridge, AccessControl {
         _setCap(cap_);
         _setReverseAggregatedAllowance(reverseAggregatedAllowance_);
         _setReverseAggregatedAllowanceApproverCap(reverseAggregatedAllowanceApproverCap_);
+        _setSwapLimits(swapMax_, swapMin_);
         _setReverseSwapLimits(reverseSwapMax_, reverseSwapMin_, reverseSwapFee_);
         _pausePublicApiSince(pausedSinceBlockPublicApi_);
         _pauseRelayerApiSince(pausedSinceBlockRelayerApi_);
@@ -272,14 +279,16 @@ contract Bridge is IBridge, AccessControl {
     function getNextSwapId() external view override returns(uint64) {return nextSwapId;}
     function getRelayEon() external view override returns(uint64) {return relayEon;}
     function getRefund(uint64 swap_id) external view override returns(uint256) {return refunds[swap_id];}
-    function getSwapMax() external view override returns(uint256) {return reverseSwapMax;}
-    function getSwapMin() external view override returns(uint256) {return reverseSwapMin;}
-    function getCap() external view override returns(uint256) {return cap;}
-    function getSwapFee() external view override returns(uint256) {return reverseSwapFee;}
+    function getSwapMax() external view override returns(uint256) {return swapMax;}
+    function getSwapMin() external view override returns(uint256) {return swapMin;}
+    function getReverseSwapMax() external view override returns(uint256) {return reverseSwapMax;}
+    function getReverseSwapMin() external view override returns(uint256) {return reverseSwapMin;}
+    function getReverseSwapFee() external view override returns(uint256) {return reverseSwapFee;}
     function getPausedSinceBlockPublicApi() external view override returns(uint256) {return pausedSinceBlockPublicApi;}
     function getPausedSinceBlockRelayerApi() external view override returns(uint256) {return pausedSinceBlockRelayerApi;}
     function getReverseAggregatedAllowance() external view override returns(uint256) {return reverseAggregatedAllowance;}
     function getReverseAggregatedAllowanceApproverCap() external view override returns(uint256) {return reverseAggregatedAllowanceApproverCap;}
+    function getCap() external view override returns(uint256) {return cap;}
 
 
     // **********************************************************
@@ -333,7 +342,7 @@ contract Bridge is IBridge, AccessControl {
         override
         verifyRelayerApiNotPaused
         verifyTxRelayEon(relayEon_)
-        verifyReverseSwapAmount(amount)
+        verifyRefundAmount(amount)
         onlyRelayer
         verifyRefundSwapId(id)
     {
@@ -394,7 +403,7 @@ contract Bridge is IBridge, AccessControl {
         override
         verifyRelayerApiNotPaused
         verifyTxRelayEon(relayEon_)
-        verifyReverseSwapAmount(amount)
+        verifyRefundAmount(amount)
         onlyRelayer
         verifyRefundSwapId(id)
     {
@@ -593,8 +602,26 @@ contract Bridge is IBridge, AccessControl {
 
 
     /**
-     * @notice Sets limits for swap amount
-     *         FUnction will revert if following consitency check fails: `swapfee_ <= reverseSwapMin_ <= reverseSwapMax_`
+     * @notice Sets limits for amount value provided in `swap(...)` call
+     *         Method call will revert if following consistency check fails: `swapMin_ <= swapMax_`
+     * @param swapMax_ : >= swap amount of **OUTGOING** `swap(...)` call
+     * @param swapMin_ : <= swap amount of **OUTGOING** `swap(...)` call
+     */
+    function setSwapLimits(
+        uint256 swapMax_,
+        uint256 swapMin_
+        )
+        external
+        override
+        onlyOwner
+    {
+        _setSwapLimits(swapMax_, swapMin_);
+    }
+
+
+    /**
+     * @notice Sets limits for amount provided in all reverse swap operations
+     *         FUnction will revert if following consistency check fails: `reverseSwapFee_ <= reverseSwapMin_ <= reverseSwapMax_`
      * @param reverseSwapMax_ : >= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
      * @param reverseSwapMin_ : <= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
      * @param reverseSwapFee_ : defines swap fee for **INCOMING** reverse swap (= `reverseSwap(...)` and `refund...(...) calls)`
@@ -727,6 +754,21 @@ contract Bridge is IBridge, AccessControl {
     }
 
 
+    function _setSwapLimits(
+        uint256 swapMax_,
+        uint256 swapMin_
+        )
+        internal
+    {
+        require(swapMin_ <= swapMax_, "min <= max violated");
+
+        swapMax = swapMax_;
+        swapMin = swapMin_;
+
+        emit SwapLimitsUpdate(swapMax, swapMin);
+    }
+
+
     function _setReverseSwapLimits(
         uint256 reverseSwapMax_,
         uint256 reverseSwapMin_,
@@ -734,13 +776,13 @@ contract Bridge is IBridge, AccessControl {
         )
         internal
     {
-        require((reverseSwapFee_ <= reverseSwapMin_) && (reverseSwapMin_ <= reverseSwapMax_), "fee<=lower<=upper violated");
+        require((reverseSwapFee_ <= reverseSwapMin_) && (reverseSwapMin_ <= reverseSwapMax_), "fee <= min <= max violated");
 
         reverseSwapMax = reverseSwapMax_;
         reverseSwapMin = reverseSwapMin_;
         reverseSwapFee = reverseSwapFee_;
 
-        emit LimitsUpdate(reverseSwapMax, reverseSwapMin, reverseSwapFee);
+        emit ReverseSwapLimitsUpdate(reverseSwapMax, reverseSwapMin, reverseSwapFee);
     }
 
 

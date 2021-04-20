@@ -75,31 +75,6 @@
       "inputs": [
         {
           "indexed": false,
-          "internalType": "uint256",
-          "name": "max",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "min",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "fee",
-          "type": "uint256"
-        }
-      ],
-      "name": "LimitsUpdate",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
           "internalType": "uint64",
           "name": "eon",
           "type": "uint64"
@@ -207,6 +182,31 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "max",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "min",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReverseSwapLimitsUpdate",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "uint64",
           "name": "id",
@@ -238,6 +238,25 @@
         }
       ],
       "name": "Swap",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "max",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "min",
+          "type": "uint256"
+        }
+      ],
+      "name": "SwapLimitsUpdate",
       "type": "event"
     },
     {
@@ -467,7 +486,7 @@
     },
     {
       "inputs": [],
-      "name": "getSupply",
+      "name": "getReverseSwapFee",
       "outputs": [
         {
           "internalType": "uint256",
@@ -480,7 +499,33 @@
     },
     {
       "inputs": [],
-      "name": "getSwapFee",
+      "name": "getReverseSwapMax",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getReverseSwapMin",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSupply",
       "outputs": [
         {
           "internalType": "uint256",
@@ -561,18 +606,18 @@
     "absolutePath": "interfaces/IBridgeMonitor.sol",
     "exportedSymbols": {
       "IBridgeCommon": [
-        367
+        391
       ],
       "IBridgeMonitor": [
-        386
+        410
       ]
     },
-    "id": 387,
+    "id": 411,
     "license": "Apache-2.0",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 369,
+        "id": 393,
         "literals": [
           "solidity",
           "^",
@@ -589,10 +634,10 @@
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
-        "id": 370,
+        "id": 394,
         "nodeType": "ImportDirective",
-        "scope": 387,
-        "sourceUnit": 368,
+        "scope": 411,
+        "sourceUnit": 392,
         "src": "856:29:4",
         "symbolAliases": [],
         "unitAlias": ""
@@ -602,65 +647,65 @@
         "baseContracts": [
           {
             "baseName": {
-              "id": 372,
+              "id": 396,
               "name": "IBridgeCommon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 367,
+              "referencedDeclaration": 391,
               "src": "1200:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$367",
+                "typeIdentifier": "t_contract$_IBridgeCommon_$391",
                 "typeString": "contract IBridgeCommon"
               }
             },
-            "id": 373,
+            "id": 397,
             "nodeType": "InheritanceSpecifier",
             "src": "1200:13:4"
           }
         ],
         "contractDependencies": [
-          367
+          391
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 371,
+          "id": 395,
           "nodeType": "StructuredDocumentation",
           "src": "888:283:4",
           "text": " @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n         the Bridge contract."
         },
         "fullyImplemented": false,
-        "id": 386,
+        "id": 410,
         "linearizedBaseContracts": [
-          386,
-          367
+          410,
+          391
         ],
         "name": "IBridgeMonitor",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 374,
+              "id": 398,
               "nodeType": "StructuredDocumentation",
               "src": "1220:353:4",
               "text": " @notice Pauses Public API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "432944c0",
-            "id": 379,
+            "id": 403,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pausePublicApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 377,
+              "id": 401,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 376,
+                  "id": 400,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 379,
+                  "scope": 403,
                   "src": "1607:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -669,7 +714,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 375,
+                    "id": 399,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "1607:7:4",
@@ -684,12 +729,12 @@
               "src": "1606:21:4"
             },
             "returnParameters": {
-              "id": 378,
+              "id": 402,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "1636:0:4"
             },
-            "scope": 386,
+            "scope": 410,
             "src": "1578:59:4",
             "stateMutability": "nonpayable",
             "virtual": false,
@@ -697,29 +742,29 @@
           },
           {
             "documentation": {
-              "id": 380,
+              "id": 404,
               "nodeType": "StructuredDocumentation",
               "src": "1643:354:4",
               "text": " @notice Pauses Relayer API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "9f2c88bf",
-            "id": 385,
+            "id": 409,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "pauseRelayerApiSince",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 383,
+              "id": 407,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 382,
+                  "id": 406,
                   "mutability": "mutable",
                   "name": "blockNumber",
                   "nodeType": "VariableDeclaration",
-                  "scope": 385,
+                  "scope": 409,
                   "src": "2032:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -728,7 +773,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 381,
+                    "id": 405,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
                     "src": "2032:7:4",
@@ -743,19 +788,19 @@
               "src": "2031:21:4"
             },
             "returnParameters": {
-              "id": 384,
+              "id": 408,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "2061:0:4"
             },
-            "scope": 386,
+            "scope": 410,
             "src": "2002:60:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 387,
+        "scope": 411,
         "src": "1172:892:4"
       }
     ],

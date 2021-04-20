@@ -55,6 +55,8 @@ def deploy(network_manifest: NetworkManifest, owner: Account) -> network.contrac
         , constructor_params.cap
         , constructor_params.reverseAggregatedAllowance
         , constructor_params.reverseAggregatedAllowanceApproverCap
+        , constructor_params.swapMax
+        , constructor_params.swapMin
         , constructor_params.reverseSwapMax
         , constructor_params.reverseSwapMin
         , constructor_params.reverseSwapFee

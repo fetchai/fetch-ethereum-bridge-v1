@@ -58,6 +58,12 @@ class BridgeConstructorParams(ContractConstructorParamsBase):
     reverseAggregatedAllowanceApproverCap: int = field(
         metadata=int_int_metadata_config)
 
+    swapMax: int = field(
+        metadata=int_int_metadata_config)
+
+    swapMin: int = field(
+        metadata=int_int_metadata_config)
+
     reverseSwapMax: int = field(
         metadata=int_int_metadata_config)
 

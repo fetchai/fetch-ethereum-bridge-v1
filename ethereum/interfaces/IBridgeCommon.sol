@@ -33,7 +33,8 @@ interface IBridgeCommon {
     event PauseRelayerApi(uint256 sinceBlock);
     event NewRelayEon(uint64 eon);
 
-    event LimitsUpdate(uint256 max, uint256 min, uint256 fee);
+    event SwapLimitsUpdate(uint256 max, uint256 min);
+    event ReverseSwapLimitsUpdate(uint256 max, uint256 min, uint256 fee);
     event CapUpdate(uint256 value);
     event ReverseAggregatedAllowanceUpdate(uint256 value);
     event ReverseAggregatedAllowanceApproverCapUpdate(uint256 value);
@@ -61,12 +62,14 @@ interface IBridgeCommon {
     function getRefund(uint64 swap_id) external view returns(uint256); // swapId -> original swap amount(= *includes* reverseSwapFee)
     function getSwapMax() external view returns(uint256);
     function getSwapMin() external view returns(uint256);
-    function getCap() external view returns(uint256);
-    function getSwapFee() external view returns(uint256);
+    function getReverseSwapMax() external view returns(uint256);
+    function getReverseSwapMin() external view returns(uint256);
+    function getReverseSwapFee() external view returns(uint256);
     function getFeesAccrued() external view returns(uint256);
     function getPausedSinceBlockPublicApi() external view returns(uint256);
     function getPausedSinceBlockRelayerApi() external view returns(uint256);
     function getReverseAggregatedAllowance() external view returns(uint256);
     function getReverseAggregatedAllowanceApproverCap() external view returns(uint256);
+    function getCap() external view returns(uint256);
 
 }

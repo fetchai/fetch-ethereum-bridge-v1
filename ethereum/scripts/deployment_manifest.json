@@ -13,15 +13,17 @@
             }
         },
         "Bridge": {
-            "deployer_address": "0x736C8F5d78DC0cAC65DF4Ac050166894cB48d316",
+            "deployer_address": "0x2e19D5347d8aeBF3002dF4302889504859ca7d35",
             "deployer_public_key": "",
-            "contract_address": "0x27DA932B108f0225686F05cEb94D52ef717e3d51",
+            "contract_address": "0x2653af7360C16416876281483664C4bFF3618352",
             "publish_source": false,
             "constructor_parameters": {
                 "ERC20Address": "0xc92AbB92C1351CdDE790972050816b759c73822b",
                 "cap": 1000000,
                 "reverseAggregatedAllowance": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
                 "reverseAggregatedAllowanceApproverCap": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "swapMax": 2000,
+                "swapMin": 201,
                 "reverseSwapMax": 1000,
                 "reverseSwapMin": 101,
                 "reverseSwapFee": 100,
@@ -59,6 +61,8 @@
                 "cap": 30000000000000000000000000,
                 "reverseAggregatedAllowance": 1000000000000000000000000,
                 "reverseAggregatedAllowanceApproverCap": 1000000000000000000000000,
+                "swapMax": 1000000000000000000000000,
+                "swapMin": 100000000000000000000,
                 "reverseSwapMax": 100000000000000000000000,
                 "reverseSwapMin": 100000000000000000000,
                 "reverseSwapFee": 50000000000000000000,
@@ -96,18 +100,23 @@
                 "cap": 30000000000000000000000000,
                 "reverseAggregatedAllowance": 1000000000000000000000000,
                 "reverseAggregatedAllowanceApproverCap": 1000000000000000000000000,
-                "reverseSwapMax": 3000000000000000000000000,
+                "swapMax": 1000000000000000000000000,
+                "swapMin": 100000000000000000000,
+                "reverseSwapMax": 100000000000000000000000,
                 "reverseSwapMin": 100000000000000000000,
                 "reverseSwapFee": 50000000000000000000,
-                "pausedSinceBlockPublicApi": "0xfffffffffffffffffffffffffffffffffff",
-                "pausedSinceBlockRelayerApi": "0xfffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockPublicApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "pausedSinceBlockRelayerApi": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "deleteProtectionPeriod": 2427508
             },
             "admin_wallet": {
                 "address": "0x5a8de252ea228deCe61638C336fE43ac8166166a",
                 "funding": 0
             },
-            "relayer_wallet": null,
+            "relayer_wallet": {
+                "address": "0xf3cbe467e301B02Bbc939D9Deb4f6aCA291c2258",
+                "funding": 0
+            },
             "monitor_wallet": null,
             "approver_wallet": null
         }
@@ -137,6 +146,8 @@
                 "cap": 1000000,
                 "reverseAggregatedAllowance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "reverseAggregatedAllowanceApproverCap": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "swapMax": 2000,
+                "swapMin": 201,
                 "reverseSwapMax": 1000,
                 "reverseSwapMin": 101,
                 "reverseSwapFee": 100,

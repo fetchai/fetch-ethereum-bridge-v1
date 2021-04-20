@@ -77,11 +77,20 @@ interface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {
 
 
     /**
-     * @notice Sets limits for reverse swap amount
-     *         FUnction will revert if following consitency check fails: `swapfee_ <= reverseSwapMin_ <= reverseSwapMax_`
+     * @notice Sets limits for amount value provided in `swap(...)` call
+     *         Method call will revert if following consistency check fails: `swapMin_ <= swapMax_`
+     * @param swapMax_ : >= swap amount of **OUTGOING** `swap(...)` call
+     * @param swapMin_ : <= swap amount of **OUTGOING** `swap(...)` call
+     */
+    function setSwapLimits(uint256 swapMax_, uint256 swapMin_) external;
+
+
+    /**
+     * @notice Sets limits for amount provided in all reverse swap operations
+     *         FUnction will revert if following consistency check fails: `reverseSwapFee_ <= reverseSwapMin_ <= reverseSwapMax_`
      * @param reverseSwapMax_ : >= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
-     * @param reverseSwapMin_ : <= swap amount, applies for **OUTGOING** swap (= `swap(...)` call)
-     * @param reverseSwapFee_ : defines swap fee for **INCOMING** swap (= `reverseSwap(...)` call), and `refund(...)`
+     * @param reverseSwapMin_ : <= reverse swap amount, applies for **INCOMING** reverse swap (= `reverseSwap(...)` call)
+     * @param reverseSwapFee_ : defines swap fee for **INCOMING** reverse swap (= `reverseSwap(...)` and `refund...(...) calls)`
      */
     function setReverseSwapLimits(uint256 reverseSwapMax_, uint256 reverseSwapMin_, uint256 reverseSwapFee_) external;
 
