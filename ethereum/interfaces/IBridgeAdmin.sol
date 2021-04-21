@@ -51,8 +51,8 @@ interface IBridgeAdmin is IBridgeCommon, IBridgeMonitor {
     /**
      * @notice Sets cap (max) value of `supply` this contract can hold = the value of tokens transferred to the other
      *         blockchain.
-     *         This cap affects(limits) all operations which *increase* contract's `supply` value = `swap(...)` and
-     *         `mint(...)`.
+     *         This cap affects(limits) public operations which *increase* contract's `supply` value (= `swap(...)`),
+     *         however admin level operations are **NOT** limited (= `deposit(...)` & `mint(...)`).
      * @param value - new cap value.
      */
     function setCap(uint256 value) external;
