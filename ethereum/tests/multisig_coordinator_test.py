@@ -102,3 +102,70 @@ def test_propose(multisig_coord, accounts):
     assert expected_expired_since_block == expiredSinceBlock
     assert signee in set(signees)
     assert expected_signature in set(signatures)
+
+
+def test_propose_reverts_if_not_expired(multisig_coord, accounts):
+    expectd_action = 'xyz test action'
+    expected_action_data = '{"a_key": "a value"}'
+    expected_signature = '{"s": 3, "r": 2, "v": 1}'
+    current_nonce = multisig_coord.coordinationNonce()
+    expected_expired_since_block = brownie.web3.eth.blockNumber + setup.timeount + 1
+    signee = setup.multisig_signatories[0]
+
+    multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+
+    with brownie.reverts(revert_msg="expiration block NOT reached"):
+        multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+
+
+def test_propose_reverts_if_empty_action(multisig_coord, accounts):
+    expectd_action = 'xyz test action'
+    expected_action_data = '{"a_key": "a value"}'
+    expected_signature = '{"s": 3, "r": 2, "v": 1}'
+    current_nonce = multisig_coord.coordinationNonce()
+    expected_expired_since_block = brownie.web3.eth.blockNumber + setup.timeount + 1
+    signee = setup.multisig_signatories[0]
+
+    with brownie.reverts(revert_msg="empty action"):
+        multisig_coord.propose(current_nonce, '', expected_action_data, expected_signature, {'from': signee})
+
+    # proving opposite
+    multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+
+
+def test_sign_reverts_if_already_voted(multisig_coord, accounts):
+    expectd_action = 'xyz test action'
+    expected_action_data = '{"a_key": "a value"}'
+    expected_signature = '{"s": 3, "r": 2, "v": 1}'
+    current_nonce = multisig_coord.coordinationNonce()
+    expected_expired_since_block = brownie.web3.eth.blockNumber + setup.timeount + 1
+    signee = setup.multisig_signatories[0]
+
+    multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+
+    with brownie.reverts(revert_msg="member already signed"):
+        multisig_coord.sign(current_nonce + 1, expected_signature, {'from': signee})
+
+
+def test_sign_from_whole_committee(multisig_coord, accounts):
+    expectd_action = 'xyz test action'
+    expected_action_data = '{"a_key": "a value"}'
+    expected_signature = '{"s": 3, "r": 2, "v": 1}'
+    current_nonce = multisig_coord.coordinationNonce()
+    expected_expired_since_block = brownie.web3.eth.blockNumber + setup.timeount + 1
+    signee = setup.multisig_signatories[0]
+
+
+    signatures = [expected_signature]
+    multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+    new_nonce = current_nonce + 1
+    for s in setup.multisig_signatories[1:]:
+        sig = f'signature:{s}'
+        signatures.append(sig)
+        multisig_coord.sign(new_nonce, sig, {'from': s})
+
+    # proving opposite
+    for s, sig in zip(setup.multisig_signatories, signatures):
+        with brownie.reverts(revert_msg="member already signed"):
+            multisig_coord.sign(new_nonce, sig, {'from': s})
+
