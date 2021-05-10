@@ -169,3 +169,51 @@ def test_sign_from_whole_committee(multisig_coord, accounts):
         with brownie.reverts(revert_msg="member already signed"):
             multisig_coord.sign(new_nonce, sig, {'from': s})
 
+
+def test_admin_config(multisig_coord, accounts):
+    expectd_action = 'xyz test action'
+    expected_action_data = '{"a_key": "a value"}'
+    expected_signature = '{"s": 3, "r": 2, "v": 1}'
+    current_nonce = multisig_coord.coordinationNonce()
+    expected_expired_since_block = brownie.web3.eth.blockNumber + setup.timeount + 1
+    signee = setup.multisig_signatories[0]
+
+    multisig_coord.propose(current_nonce, expectd_action, expected_action_data, expected_signature, {'from': signee})
+
+    new_threshold = 7
+    new_committee_size = 10
+    new_committee = [accounts.add().address for i in range(0, new_committee_size)]
+    new_timeout = setup.timeount + 10
+
+    # WHEN (test subject)
+    multisig_coord.configure(new_committee, new_threshold, new_timeout, {'from': setup.owner})
+
+    # THEN
+    nextCoordinationNonce, threshold, timeout, committee = multisig_coord.getCoordinationSetup()
+
+    assert new_threshold == threshold
+    assert new_timeout == timeout
+    assert new_committee_size == len(committee)
+
+    new_committee_set = set(new_committee)
+    for member in committee:
+        assert member in new_committee_set
+
+        idx = multisig_coord.committeeMap(member)
+        assert 0 < idx <= len(committee)
+        assert member == multisig_coord.committee(idx - 1)
+
+    nextCoordinationNonce_2, \
+    action, \
+    actionData, \
+    expiredSinceBlock, \
+    signees, \
+    signatures = multisig_coord.getSigningState()
+
+    assert nextCoordinationNonce == nextCoordinationNonce_2
+    assert current_nonce + 2 == nextCoordinationNonce
+    assert "" == action
+    assert "" == actionData
+    assert 0 == expiredSinceBlock
+    assert 0 == len(signees)
+    assert 0 == len(signatures)
