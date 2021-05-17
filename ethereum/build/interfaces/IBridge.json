@@ -852,24 +852,21 @@
         "literals": [
           "solidity",
           "^",
-          "0.6",
-          ".0",
-          "||",
-          "^",
-          "0.7",
+          "0.8",
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "820:33:1"
+        "src": "820:23:1"
       },
       {
         "absolutePath": "interfaces/IBridgePublic.sol",
         "file": "./IBridgePublic.sol",
         "id": 93,
+        "nameLocation": "-1:-1:-1",
         "nodeType": "ImportDirective",
         "scope": 104,
         "sourceUnit": 403,
-        "src": "855:29:1",
+        "src": "845:29:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -877,10 +874,11 @@
         "absolutePath": "interfaces/IBridgeRelayer.sol",
         "file": "./IBridgeRelayer.sol",
         "id": 94,
+        "nameLocation": "-1:-1:-1",
         "nodeType": "ImportDirective",
         "scope": 104,
         "sourceUnit": 454,
-        "src": "885:30:1",
+        "src": "875:30:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -888,10 +886,11 @@
         "absolutePath": "interfaces/IBridgeAdmin.sol",
         "file": "./IBridgeAdmin.sol",
         "id": 95,
+        "nameLocation": "-1:-1:-1",
         "nodeType": "ImportDirective",
         "scope": 104,
         "sourceUnit": 186,
-        "src": "916:28:1",
+        "src": "906:28:1",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -902,63 +901,45 @@
             "baseName": {
               "id": 97,
               "name": "IBridgePublic",
-              "nodeType": "UserDefinedTypeName",
+              "nodeType": "IdentifierPath",
               "referencedDeclaration": 402,
-              "src": "2841:13:1",
-              "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgePublic_$402",
-                "typeString": "contract IBridgePublic"
-              }
+              "src": "2831:13:1"
             },
             "id": 98,
             "nodeType": "InheritanceSpecifier",
-            "src": "2841:13:1"
+            "src": "2831:13:1"
           },
           {
             "baseName": {
               "id": 99,
               "name": "IBridgeRelayer",
-              "nodeType": "UserDefinedTypeName",
+              "nodeType": "IdentifierPath",
               "referencedDeclaration": 453,
-              "src": "2856:14:1",
-              "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeRelayer_$453",
-                "typeString": "contract IBridgeRelayer"
-              }
+              "src": "2846:14:1"
             },
             "id": 100,
             "nodeType": "InheritanceSpecifier",
-            "src": "2856:14:1"
+            "src": "2846:14:1"
           },
           {
             "baseName": {
               "id": 101,
               "name": "IBridgeAdmin",
-              "nodeType": "UserDefinedTypeName",
+              "nodeType": "IdentifierPath",
               "referencedDeclaration": 185,
-              "src": "2872:12:1",
-              "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeAdmin_$185",
-                "typeString": "contract IBridgeAdmin"
-              }
+              "src": "2862:12:1"
             },
             "id": 102,
             "nodeType": "InheritanceSpecifier",
-            "src": "2872:12:1"
+            "src": "2862:12:1"
           }
         ],
-        "contractDependencies": [
-          185,
-          368,
-          387,
-          402,
-          453
-        ],
+        "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
           "id": 96,
           "nodeType": "StructuredDocumentation",
-          "src": "947:1872:1",
+          "src": "937:1872:1",
           "text": " @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n         In the case of a refund, user will be charged a swap fee configured in this contract.\n @dev There are three primary actions defining business logic of this contract:\n       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)\n       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally\n                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role\n       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively\n                        by `relayer` role\n      Swap Fees for `swap(...)` operations (direction from this contract to are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n      which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back to\n      this contract.\n      ! IMPORTANT !: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued* and\n      *excess funds* sent to the address of this contract via *direct* `ERC20.transfer(...)`.\n      Implication is, that excess funds **are treated** as swap fees.\n      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20\n      contracts, and do the reconciliation."
         },
         "fullyImplemented": false,
@@ -972,27 +953,23 @@
           368
         ],
         "name": "IBridge",
+        "nameLocation": "2820:7:1",
         "nodeType": "ContractDefinition",
         "nodes": [],
         "scope": 104,
-        "src": "2820:67:1"
+        "src": "2810:67:1",
+        "usedErrors": []
       }
     ],
-    "src": "820:2068:1"
+    "src": "820:2058:1"
   },
   "contractName": "IBridge",
-  "dependencies": [
-    "IBridgeAdmin",
-    "IBridgeCommon",
-    "IBridgeMonitor",
-    "IBridgePublic",
-    "IBridgeRelayer"
-  ],
+  "dependencies": [],
   "offset": [
-    2820,
-    2887
+    2810,
+    2877
   ],
-  "sha1": "066e2be9bce1f1cae2a6382b250e5fbc6e6794bb",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgePublic.sol\";\nimport \"./IBridgeRelayer.sol\";\nimport \"./IBridgeAdmin.sol\";\n\n\n/**\n * @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n * @dev There are three primary actions defining business logic of this contract:\n *       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)\n *       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally\n *                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role\n *       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively\n *                        by `relayer` role\n *\n *      Swap Fees for `swap(...)` operations (direction from this contract to are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *      which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back to\n *      this contract.\n *\n *      ! IMPORTANT !: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued* and\n *      *excess funds* sent to the address of this contract via *direct* `ERC20.transfer(...)`.\n *      Implication is, that excess funds **are treated** as swap fees.\n *      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20\n *      contracts, and do the reconciliation.\n */\ninterface IBridge is IBridgePublic, IBridgeRelayer, IBridgeAdmin {}\n",
+  "sha1": "10f977828df747c8e645a18297ca1b7c7348ae48",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.8.0;\n\nimport \"./IBridgePublic.sol\";\nimport \"./IBridgeRelayer.sol\";\nimport \"./IBridgeAdmin.sol\";\n\n\n/**\n * @title Bi-directional bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n *\n * @notice This bridge allows to transfer [ERC20-FET] tokens from Ethereum Mainnet to [Native FET] tokens on Fetch\n *         Native Mainnet-v2 and **other way around** (= it is bi-directional).\n *         User will be *charged* swap fee defined in counterpart contract deployed on Fetch Native Mainnet-v2.\n *         In the case of a refund, user will be charged a swap fee configured in this contract.\n *\n * @dev There are three primary actions defining business logic of this contract:\n *       * `swap(...)`: initiates swap of tokens from Ethereum to Fetch Native Mainnet-v2, callable by anyone (= users)\n *       * `reverseSwap(...)`: finalises the swap of tokens in *opposite* direction = receives swap originally\n *                             initiated on Fetch Native Mainnet-v2, callable exclusively by `relayer` role\n *       * `refund(...)`: refunds swap originally initiated in this contract(by `swap(...)` call), callable exclusively\n *                        by `relayer` role\n *\n *      Swap Fees for `swap(...)` operations (direction from this contract to are handled by the counterpart contract on Fetch Native Mainnet-v2, **except** for refunds, for\n *      which user is charged swap fee defined by this contract (since relayer needs to send refund transaction back to\n *      this contract.\n *\n *      ! IMPORTANT !: Current design of this contract does *NOT* allow to distinguish between *swap fees accrued* and\n *      *excess funds* sent to the address of this contract via *direct* `ERC20.transfer(...)`.\n *      Implication is, that excess funds **are treated** as swap fees.\n *      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20\n *      contracts, and do the reconciliation.\n */\ninterface IBridge is IBridgePublic, IBridgeRelayer, IBridgeAdmin {}\n",
   "type": "interface"
 }

@@ -640,7 +640,7 @@ def tokenFactory(FetERC20Mock, accounts):
         u = test.users
         t = test.token
 
-        contract = FetERC20Mock.deploy("Fetch", "FET", t.initialSupply, t.decimals_, {'from': u.owner})
+        contract = FetERC20Mock.deploy("Fetch", "FET", t.initialSupply, {'from': u.owner})
 
         for user in u.users:
             contract.transfer(user, t.userFunds)

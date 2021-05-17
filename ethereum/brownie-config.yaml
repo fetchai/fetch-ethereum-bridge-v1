@@ -36,12 +36,12 @@ networks:
 compiler:
     evm_version: null
     solc:
-        version: 0.7.6
+        version: 0.8.4
         optimizer:
             enabled: true
             runs: 200
         remappings:
-            - "@openzeppelin=openzeppelin/contracts"
+            - "@openzeppelin=./openzeppelin/contracts"
     vyper:
         version: null
 

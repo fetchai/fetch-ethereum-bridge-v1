@@ -555,24 +555,21 @@
         "literals": [
           "solidity",
           "^",
-          "0.6",
-          ".0",
-          "||",
-          "^",
-          "0.7",
+          "0.8",
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "820:33:5"
+        "src": "820:23:5"
       },
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
         "id": 390,
+        "nameLocation": "-1:-1:-1",
         "nodeType": "ImportDirective",
         "scope": 403,
         "sourceUnit": 369,
-        "src": "855:29:5",
+        "src": "845:29:5",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -583,27 +580,21 @@
             "baseName": {
               "id": 392,
               "name": "IBridgeCommon",
-              "nodeType": "UserDefinedTypeName",
+              "nodeType": "IdentifierPath",
               "referencedDeclaration": 368,
-              "src": "1125:13:5",
-              "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
-                "typeString": "contract IBridgeCommon"
-              }
+              "src": "1115:13:5"
             },
             "id": 393,
             "nodeType": "InheritanceSpecifier",
-            "src": "1125:13:5"
+            "src": "1115:13:5"
           }
         ],
-        "contractDependencies": [
-          368
-        ],
+        "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
           "id": 391,
           "nodeType": "StructuredDocumentation",
-          "src": "887:210:5",
+          "src": "877:210:5",
           "text": " @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n @notice Methods of this public interface is allow users to interact with Bridge contract."
         },
         "fullyImplemented": false,
@@ -613,13 +604,14 @@
           368
         ],
         "name": "IBridgePublic",
+        "nameLocation": "1098:13:5",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
               "id": 394,
               "nodeType": "StructuredDocumentation",
-              "src": "1146:2061:5",
+              "src": "1136:2061:5",
               "text": " @notice Initiates swap, which will be relayed to the other blockchain.\n         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n         in desc. for `refund(...)` call.\n @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      on the other blockchain.\n      Callable by anyone.\n @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n                             in to.\n                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n                             The **CORRECT** means, in this context, that address is valid *AND* user really\n                             intended this particular address value as destination = that address is NOT lets say\n                             copy-paste mistake made by user. Reason being that when user provided valid address\n                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n                             the swap will be relayed to the other blockchain!\n                             The **VALID** means that provided value successfully passes consistency checks of\n                             valid address of **OTHER** blockchain. In the case when user provides invalid\n                             address value, relayer will execute refund - please see desc. for `refund()` call\n                             for more details."
             },
             "functionSelector": "deb4a6d2",
@@ -628,6 +620,7 @@
             "kind": "function",
             "modifiers": [],
             "name": "swap",
+            "nameLocation": "3211:4:5",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 399,
@@ -638,9 +631,10 @@
                   "id": 396,
                   "mutability": "mutable",
                   "name": "amount",
+                  "nameLocation": "3224:6:5",
                   "nodeType": "VariableDeclaration",
                   "scope": 401,
-                  "src": "3226:14:5",
+                  "src": "3216:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -651,7 +645,7 @@
                     "id": 395,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3226:7:5",
+                    "src": "3216:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -664,9 +658,10 @@
                   "id": 398,
                   "mutability": "mutable",
                   "name": "destinationAddress",
+                  "nameLocation": "3248:18:5",
                   "nodeType": "VariableDeclaration",
                   "scope": 401,
-                  "src": "3242:34:5",
+                  "src": "3232:34:5",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -677,7 +672,7 @@
                     "id": 397,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3242:6:5",
+                    "src": "3232:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -686,36 +681,35 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3225:52:5"
+              "src": "3215:52:5"
             },
             "returnParameters": {
               "id": 400,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3286:0:5"
+              "src": "3276:0:5"
             },
             "scope": 402,
-            "src": "3212:75:5",
+            "src": "3202:75:5",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
         "scope": 403,
-        "src": "1098:2191:5"
+        "src": "1088:2191:5",
+        "usedErrors": []
       }
     ],
-    "src": "820:2470:5"
+    "src": "820:2460:5"
   },
   "contractName": "IBridgePublic",
-  "dependencies": [
-    "IBridgeCommon"
-  ],
+  "dependencies": [],
   "offset": [
-    1098,
-    3289
+    1088,
+    3279
   ],
-  "sha1": "6414e3afe4a549cd13e1cbffcbd15b38aeda6772",
-  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n *\n * @notice Methods of this public interface is allow users to interact with Bridge contract.\n */\ninterface IBridgePublic is IBridgeCommon {\n\n    /**\n      * @notice Initiates swap, which will be relayed to the other blockchain.\n      *         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n      *         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n      *         in desc. for `refund(...)` call.\n      *\n      * @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      *      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      *      on the other blockchain.\n      *      Callable by anyone.\n      *\n      * @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n      *                             in to.\n      *                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n      *                             The **CORRECT** means, in this context, that address is valid *AND* user really\n      *                             intended this particular address value as destination = that address is NOT lets say\n      *                             copy-paste mistake made by user. Reason being that when user provided valid address\n      *                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n      *                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n      *                             the swap will be relayed to the other blockchain!\n      *                             The **VALID** means that provided value successfully passes consistency checks of\n      *                             valid address of **OTHER** blockchain. In the case when user provides invalid\n      *                             address value, relayer will execute refund - please see desc. for `refund()` call\n      *                             for more details.\n      */\n    function swap(uint256 amount, string calldata destinationAddress) external;\n}\n",
+  "sha1": "f7294e3120c6db2933cd093366b3701b0f81598d",
+  "source": "// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.8.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title Public interface of the Bridge for transferring FET tokens between Ethereum and Fetch Mainnet-v2\n *\n * @notice Methods of this public interface is allow users to interact with Bridge contract.\n */\ninterface IBridgePublic is IBridgeCommon {\n\n    /**\n      * @notice Initiates swap, which will be relayed to the other blockchain.\n      *         Swap might fail, if `destinationAddress` value is invalid (see bellow), in which case the swap will be\n      *         refunded back to user. Swap fee will be *WITHDRAWN* from `amount` in that case - please see details\n      *         in desc. for `refund(...)` call.\n      *\n      * @dev Swap call will create unique identifier (swap id), which is, by design, sequentially growing by 1 per each\n      *      new swap created, and so uniquely identifies each swap. This identifier is referred to as \"reverse swap id\"\n      *      on the other blockchain.\n      *      Callable by anyone.\n      *\n      * @param destinationAddress - address on **OTHER** blockchain where the swap effective amount will be transferred\n      *                             in to.\n      *                             User is **RESPONSIBLE** for providing the **CORRECT** and valid value.\n      *                             The **CORRECT** means, in this context, that address is valid *AND* user really\n      *                             intended this particular address value as destination = that address is NOT lets say\n      *                             copy-paste mistake made by user. Reason being that when user provided valid address\n      *                             value, but made mistake = address is of someone else (e.g. copy-paste mistake), then\n      *                             there is **NOTHING** what can be done to recover funds back to user (= refund) once\n      *                             the swap will be relayed to the other blockchain!\n      *                             The **VALID** means that provided value successfully passes consistency checks of\n      *                             valid address of **OTHER** blockchain. In the case when user provides invalid\n      *                             address value, relayer will execute refund - please see desc. for `refund()` call\n      *                             for more details.\n      */\n    function swap(uint256 amount, string calldata destinationAddress) external;\n}\n",
   "type": "interface"
 }

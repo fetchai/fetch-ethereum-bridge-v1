@@ -17,10 +17,10 @@
 //
 //------------------------------------------------------------------------------
 
-pragma solidity ^0.6.0 || ^0.7.0;
+pragma solidity ^0.8.0;
 
-import "../openzeppelin/contracts/access/AccessControl.sol";
-import "../openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/access/AccessControlEnumerable.sol";
+import "@openzeppelin/utils/math/SafeMath.sol";
 import "../interfaces/IERC20Token.sol";
 import "../interfaces/IBridge.sol";
 
@@ -50,7 +50,7 @@ import "../interfaces/IBridge.sol";
  *      The only way how to separate these two is to do it *off-chain*, by replaying events from this and FET ERC20
  *      contracts, and do the reconciliation.
  */
-contract Bridge is IBridge, AccessControl {
+contract Bridge is IBridge, AccessControlEnumerable {
     using SafeMath for uint256;
 
     /// @notice **********    CONSTANTS    ***********
@@ -305,7 +305,9 @@ contract Bridge is IBridge, AccessControl {
         //  The only case, where this increment operation will lead to overflow, by-design, is the **VERY 1st**
         //  increment = very 1st call of this contract method, when the `relayEon` is by-design & intentionally
         //  initialised to MAX_LIMIT<uint64> value, so the resulting value of the `relayEon` after increment will be `0`
-        relayEon += 1;
+        unchecked {
+            relayEon += 1;
+        }
         emit NewRelayEon(relayEon);
     }
 

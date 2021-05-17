@@ -563,24 +563,21 @@
         "literals": [
           "solidity",
           "^",
-          "0.6",
-          ".0",
-          "||",
-          "^",
-          "0.7",
+          "0.8",
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "821:33:4"
+        "src": "821:23:4"
       },
       {
         "absolutePath": "interfaces/IBridgeCommon.sol",
         "file": "./IBridgeCommon.sol",
         "id": 371,
+        "nameLocation": "-1:-1:-1",
         "nodeType": "ImportDirective",
         "scope": 388,
         "sourceUnit": 369,
-        "src": "856:29:4",
+        "src": "846:29:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -591,27 +588,21 @@
             "baseName": {
               "id": 373,
               "name": "IBridgeCommon",
-              "nodeType": "UserDefinedTypeName",
+              "nodeType": "IdentifierPath",
               "referencedDeclaration": 368,
-              "src": "1200:13:4",
-              "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBridgeCommon_$368",
-                "typeString": "contract IBridgeCommon"
-              }
+              "src": "1190:13:4"
             },
             "id": 374,
             "nodeType": "InheritanceSpecifier",
-            "src": "1200:13:4"
+            "src": "1190:13:4"
           }
         ],
-        "contractDependencies": [
-          368
-        ],
+        "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
           "id": 372,
           "nodeType": "StructuredDocumentation",
-          "src": "888:283:4",
+          "src": "878:283:4",
           "text": " @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n        and Fetch Mainnet-v2.\n @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n         the Bridge contract."
         },
         "fullyImplemented": false,
@@ -621,13 +612,14 @@
           368
         ],
         "name": "IBridgeMonitor",
+        "nameLocation": "1172:14:4",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
               "id": 375,
               "nodeType": "StructuredDocumentation",
-              "src": "1220:353:4",
+              "src": "1210:353:4",
               "text": " @notice Pauses Public API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "432944c0",
@@ -636,6 +628,7 @@
             "kind": "function",
             "modifiers": [],
             "name": "pausePublicApiSince",
+            "nameLocation": "1577:19:4",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 378,
@@ -646,9 +639,10 @@
                   "id": 377,
                   "mutability": "mutable",
                   "name": "blockNumber",
+                  "nameLocation": "1605:11:4",
                   "nodeType": "VariableDeclaration",
                   "scope": 380,
-                  "src": "1607:19:4",
+                  "src": "1597:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -659,7 +653,7 @@
                     "id": 376,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1607:7:4",
+                    "src": "1597:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -668,16 +662,16 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1606:21:4"
+              "src": "1596:21:4"
             },
             "returnParameters": {
               "id": 379,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1636:0:4"
+              "src": "1626:0:4"
             },
             "scope": 387,
-            "src": "1578:59:4",
+            "src": "1568:59:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -686,7 +680,7 @@
             "documentation": {
               "id": 381,
               "nodeType": "StructuredDocumentation",
-              "src": "1643:354:4",
+              "src": "1633:354:4",
               "text": " @notice Pauses Relayer API since the specified block number\n @param blockNumber block number since which non-admin interaction will be paused (for all\n        block.number >= blockNumber).\n @dev Delegate only\n      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`."
             },
             "functionSelector": "9f2c88bf",
@@ -695,6 +689,7 @@
             "kind": "function",
             "modifiers": [],
             "name": "pauseRelayerApiSince",
+            "nameLocation": "2001:20:4",
             "nodeType": "FunctionDefinition",
             "parameters": {
               "id": 384,
@@ -705,9 +700,10 @@
                   "id": 383,
                   "mutability": "mutable",
                   "name": "blockNumber",
+                  "nameLocation": "2030:11:4",
                   "nodeType": "VariableDeclaration",
                   "scope": 386,
-                  "src": "2032:19:4",
+                  "src": "2022:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -718,7 +714,7 @@
                     "id": 382,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2032:7:4",
+                    "src": "2022:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -727,36 +723,35 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2031:21:4"
+              "src": "2021:21:4"
             },
             "returnParameters": {
               "id": 385,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2061:0:4"
+              "src": "2051:0:4"
             },
             "scope": 387,
-            "src": "2002:60:4",
+            "src": "1992:60:4",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
         "scope": 388,
-        "src": "1172:892:4"
+        "src": "1162:892:4",
+        "usedErrors": []
       }
     ],
-    "src": "821:1244:4"
+    "src": "821:1234:4"
   },
   "contractName": "IBridgeMonitor",
-  "dependencies": [
-    "IBridgeCommon"
-  ],
+  "dependencies": [],
   "offset": [
-    1172,
-    2064
+    1162,
+    2054
   ],
-  "sha1": "a6f11b2813e00d20b468feee41f27d93439c2c4a",
-  "source": "\n// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.6.0 || ^0.7.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n *         the Bridge contract.\n *\n */\ninterface IBridgeMonitor is IBridgeCommon {\n    /**\n     * @notice Pauses Public API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pausePublicApiSince(uint256 blockNumber) external;\n\n    /**\n     * @notice Pauses Relayer API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pauseRelayerApiSince(uint256 blockNumber) external;\n}\n",
+  "sha1": "c8763f95bef93cb8cb598bf7b39155bc848bd8be",
+  "source": "\n// SPDX-License-Identifier:Apache-2.0\n//------------------------------------------------------------------------------\n//\n//   Copyright 2021 Fetch.AI Limited\n//\n//   Licensed under the Apache License, Version 2.0 (the \"License\");\n//   you may not use this file except in compliance with the License.\n//   You may obtain a copy of the License at\n//\n//       http://www.apache.org/licenses/LICENSE-2.0\n//\n//   Unless required by applicable law or agreed to in writing, software\n//   distributed under the License is distributed on an \"AS IS\" BASIS,\n//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//   See the License for the specific language governing permissions and\n//   limitations under the License.\n//\n//------------------------------------------------------------------------------\n\npragma solidity ^0.8.0;\n\nimport \"./IBridgeCommon.sol\";\n\n\n/**\n * @title *Monitor* interface of Bi-directional bridge for transfer of FET tokens between Ethereum\n *        and Fetch Mainnet-v2.\n *\n * @notice By design, all methods of this monitor-level interface can be called monitor and admin roles of\n *         the Bridge contract.\n *\n */\ninterface IBridgeMonitor is IBridgeCommon {\n    /**\n     * @notice Pauses Public API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pausePublicApiSince(uint256 blockNumber) external;\n\n    /**\n     * @notice Pauses Relayer API since the specified block number\n     * @param blockNumber block number since which non-admin interaction will be paused (for all\n     *        block.number >= blockNumber).\n     * @dev Delegate only\n     *      If `blocknumber < block.number`, then contract will be paused immediately = from `block.number`.\n     */\n    function pauseRelayerApiSince(uint256 blockNumber) external;\n}\n",
   "type": "interface"
 }

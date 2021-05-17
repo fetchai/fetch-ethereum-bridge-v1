@@ -17,25 +17,36 @@
 //
 //------------------------------------------------------------------------------
 
-pragma solidity ^0.6.0 || ^0.7.0;
+pragma solidity ^0.8.0;
 
-import "../openzeppelin/contracts/mocks/ERC20Mock.sol";
-import "../openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
+import "@openzeppelin/mocks/ERC20Mock.sol";
+import "@openzeppelin/token/ERC20/extensions/ERC20Burnable.sol";
+import "@openzeppelin/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/access/AccessControlEnumerable.sol";
 
 
-contract FetERC20Mock is ERC20Mock, ERC20Burnable
+contract FetERC20Mock is ERC20Mock, ERC20Burnable, ERC20Pausable, AccessControlEnumerable
 {
-    using SafeMath for uint256;
-
     constructor (
         string memory name,
         string memory symbol,
-        uint256 initialSupply,
-        uint8 decimals_
+        uint256 initialSupply
         )
         payable
         ERC20Mock(name, symbol, msg.sender, initialSupply)
     {
-        _setupDecimals(decimals_);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Pausable) {
+        ERC20Pausable._beforeTokenTransfer(from, to, amount);
+    }
+
+    function pause() public {
+        _pause();
+    }
+
+    function unpause() public {
+        _unpause();
     }
 }
