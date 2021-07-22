@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    coins, Api, BankMsg, CosmosMsg, Env, Extern, HandleResponse, HumanAddr, InitResponse, StdError,
+    coins, BankMsg, CosmosMsg, Env, Extern, HandleResponse, HumanAddr, InitResponse, StdError,
     StdResult,
 };
 
@@ -73,7 +73,7 @@ mod init {
         caller: &str,
         amount: u128,
     ) -> StdResult<InitResponse> {
-        let env = mock_env(&deps.api, caller, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(amount, DEFAULT_DENUM));
         return init(&mut deps, env, msg);
     }
 
@@ -103,7 +103,7 @@ mod init {
         assert_eq!(0, response.log.len());
 
         // check state
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         let expected_state = State {
             supply: cu128!(0u128),
             fees_accrued: Uint128::from(0u128),
@@ -119,11 +119,7 @@ mod init {
             paused_since_block_public_api: u64::MAX,
             paused_since_block_relayer_api: u64::MAX,
             denom: DEFAULT_DENUM.to_string(),
-            contract_addr_human: deps
-                .api
-                .human_address(&env.contract.address)
-                .unwrap()
-                .clone(),
+            contract_addr_human: env.contract.address,
         };
 
         let state = config_read(&deps.storage)
@@ -195,7 +191,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -239,7 +235,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -281,7 +277,7 @@ mod access_control {
         let msg = HandleMsg::RenounceRole {
             role: String::from(role),
         };
-        let env = mock_env(&deps.api, account, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(account, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -553,7 +549,7 @@ mod pause {
     }
 
     fn assert_pause_both(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>, caller: &str) {
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
 
         assert!(
             verify_not_paused_public_api(&env, &config_read(&deps.storage).load().unwrap()).is_ok()
@@ -603,7 +599,7 @@ mod pause {
         public_api_paused: bool,
         relayer_api_paused: bool,
     ) {
-        let env = mock_env(&deps.api, "user", &coins(0, DEFAULT_DENUM));
+        let env = mock_env("user", &coins(0, DEFAULT_DENUM));
 
         let query_msg = QueryMsg::PausedPublicApiSince {};
         let response = query(&deps, query_msg).unwrap();
@@ -662,7 +658,7 @@ mod pause {
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env.clone()).unwrap();
         pause_relayer_api(&mut deps, env.clone()).unwrap();
 
@@ -709,7 +705,7 @@ mod pause {
         init_default(&mut deps).unwrap();
 
         let caller = "user";
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
 
         let mut response = pause_public_api(&mut deps, env.clone());
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
@@ -726,7 +722,7 @@ mod pause {
         let monitor = "new_monitor";
         grant_role(&mut deps, MONITOR_ROLE, monitor, DEFAULT_OWNER).unwrap();
 
-        let env = mock_env(&deps.api, monitor, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(monitor, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env.clone()).unwrap();
         pause_relayer_api(&mut deps, env.clone()).unwrap();
 
@@ -756,7 +752,7 @@ mod deposit {
         caller: &str,
     ) -> StdResult<HandleResponse> {
         let msg = HandleMsg::Deposit {};
-        let env = mock_env(&deps.api, caller, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(amount, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -801,7 +797,7 @@ mod deposit {
         let amount = 1000u128;
         let msg = HandleMsg::Deposit {};
         let denom = "WRONG";
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(amount, denom));
+        let env = mock_env(DEFAULT_OWNER, &coins(amount, denom));
         let response = handle(&mut deps, env, msg);
         expect_error!(response, ERR_UNRECOGNIZED_DENOM);
     }
@@ -818,7 +814,7 @@ mod new_relay_eon {
         caller: &str,
     ) -> StdResult<HandleResponse> {
         let msg = HandleMsg::NewRelayEon {};
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -867,7 +863,7 @@ mod new_relay_eon {
 
         let relayer = "new_relayer";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let response = new_relay_eon(&mut deps, relayer);
@@ -893,7 +889,7 @@ mod swap {
             destination: destination.to_string(),
         };
 
-        let env = mock_env(&deps.api, from, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(from, &coins(amount, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -942,12 +938,12 @@ mod swap {
         };
 
         amount = DEFAULT_SWAP_LOWER_LIMIT - 10u128;
-        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
         amount = DEFAULT_SWAP_UPPER_LIMIT + 10u128;
-        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
@@ -970,11 +966,11 @@ mod swap {
         };
 
         for _ in 0..(DEFAULT_CAP / DEFAULT_SWAP_UPPER_LIMIT) {
-            let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
+            let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
             handle(&mut deps, env, msg.clone()).unwrap();
         }
 
-        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_CAP_EXCEEDED);
 
@@ -988,7 +984,7 @@ mod swap {
         let mut deps = mock_dependencies(20, &[]);
         init_default(&mut deps).unwrap();
 
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, env).unwrap();
 
         let fet_account = "user_account";
@@ -998,7 +994,7 @@ mod swap {
             destination: eth_account.to_string(),
         };
 
-        let env = mock_env(&deps.api, fet_account, &coins(amount, DEFAULT_DENUM));
+        let env = mock_env(fet_account, &coins(amount, DEFAULT_DENUM));
         let response = handle(&mut deps, env, msg.clone());
         expect_error!(response, ERR_CONTRACT_PAUSED);
 
@@ -1036,7 +1032,7 @@ mod reverse_swap {
             relay_eon: eon,
         };
 
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env.clone(), msg)
     }
 
@@ -1088,11 +1084,8 @@ mod reverse_swap {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(&deps.api, relayer, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(
-                        &env.contract.address,
-                        &deps.api.canonical_address(from_address).unwrap()
-                    );
+                    let env = mock_env(relayer, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(&env.contract.address, from_address);
                     assert_eq!(&addr!(fet_account), to_address);
                     assert_eq!(
                         cu128!(amount - DEFAULT_SWAP_FEE),
@@ -1185,7 +1178,7 @@ mod reverse_swap {
         let deposited = 1000u128;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let response = reverse_swap(
@@ -1288,7 +1281,7 @@ mod refund {
             relay_eon: eon,
         };
 
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1307,7 +1300,7 @@ mod refund {
             relay_eon: eon,
         };
 
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1348,11 +1341,8 @@ mod refund {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(&deps.api, relayer, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(
-                        &env.contract.address,
-                        &deps.api.canonical_address(from_address).unwrap()
-                    );
+                    let env = mock_env(relayer, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(&env.contract.address, from_address);
                     assert_eq!(&addr!(fet_account), to_address);
                     assert_eq!(
                         cu128!(amount - fee),
@@ -1462,7 +1452,7 @@ mod refund {
             DEFAULT_SWAP_LOWER_LIMIT,
         )
         .unwrap();
-        let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, env).unwrap();
 
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
@@ -1584,7 +1574,7 @@ mod withdraw {
             amount: cu128!(amount),
             destination: addr!(recipient),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1610,11 +1600,8 @@ mod withdraw {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(
-                        &env.contract.address,
-                        &deps.api.canonical_address(from_address).unwrap()
-                    );
+                    let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(&env.contract.address, from_address);
                     assert_eq!(&addr!(recipient), to_address);
                     assert_eq!(
                         cu128!(2 * amount),
@@ -1683,7 +1670,7 @@ mod withdraw_fees {
             amount: cu128!(amount),
             destination: addr!(recipient),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1725,11 +1712,8 @@ mod withdraw_fees {
                     to_address,
                     amount: funds,
                 } => {
-                    let env = mock_env(&deps.api, DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
-                    assert_eq!(
-                        &env.contract.address,
-                        &deps.api.canonical_address(from_address).unwrap()
-                    );
+                    let env = mock_env(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+                    assert_eq!(&env.contract.address, from_address);
                     assert_eq!(&addr!(recipient), to_address);
                     assert_eq!(
                         cu128!(DEFAULT_SWAP_FEE),
@@ -1798,7 +1782,7 @@ mod set_cap {
         let msg = HandleMsg::SetCap {
             amount: cu128!(amount),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1859,7 +1843,7 @@ mod set_limits {
             swap_max: cu128!(max),
             swap_fee: cu128!(fee),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1944,7 +1928,7 @@ mod set_reverse_aggregated_allowance {
         let msg = HandleMsg::SetReverseAggregatedAllowance {
             amount: cu128!(amount),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 
@@ -1956,7 +1940,7 @@ mod set_reverse_aggregated_allowance {
         let msg = HandleMsg::SetReverseAggregatedAllowanceApproverCap {
             amount: cu128!(amount),
         };
-        let env = mock_env(&deps.api, caller, &coins(0, DEFAULT_DENUM));
+        let env = mock_env(caller, &coins(0, DEFAULT_DENUM));
         handle(&mut deps, env, msg)
     }
 

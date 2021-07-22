@@ -28,7 +28,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let env_message_sender = deps.api.human_address(&env.message.sender)?;
+    let env_message_sender = env.message.sender;
     let current_block_number = env.block.height;
 
     let mut paused_since_block_public_api = msg.paused_since_block.unwrap_or(u64::MAX);
@@ -37,7 +37,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     }
     let paused_since_block_relayer_api = paused_since_block_public_api;
 
-    let contract_addr_human = deps.api.human_address(&env.contract.address)?;
+    let contract_addr_human = env.contract.address;
 
     if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
@@ -484,7 +484,7 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     only_admin(env, &deps.storage, &deps.api)?;
 
-    let env_message_sender = deps.api.human_address(&env.message.sender)?;
+    let env_message_sender = &env.message.sender;
 
     let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
     config(&mut deps.storage).update(|mut state| {
@@ -751,7 +751,7 @@ fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     role: String,
 ) -> StdResult<HandleResponse> {
-    let env_message_sender = deps.api.human_address(&env.message.sender)?;
+    let env_message_sender = &env.message.sender;
 
     let ac_role = &AccessRole::from_str(role.as_str())?;
     let have_role = ac_have_role(&deps.storage, &env_message_sender, ac_role).unwrap_or(false);
@@ -895,9 +895,9 @@ fn _only_role<S: Storage, A: Api>(
     role: &AccessRole,
     env: &Env,
     storage: &S,
-    api: &A,
+    _api: &A,
 ) -> HandleResult {
-    let env_message_sender = api.human_address(&env.message.sender)?;
+    let env_message_sender = &env.message.sender;
 
     match ac_have_role(storage, &env_message_sender, role) {
         Ok(has_role) => match has_role {
