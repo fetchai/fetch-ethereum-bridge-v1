@@ -1,6 +1,6 @@
 use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
-use std::str::{FromStr};
+use std::str::FromStr;
 
 use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE};
 
@@ -59,11 +59,11 @@ impl FromStr for AccessRole {
 }
 
 pub fn access_control<S: Storage>(storage: &mut S) -> PrefixedStorage<S> {
-    return PrefixedStorage::new(ACCESS_CONTROL_KEY, storage);
+    return PrefixedStorage::new(storage, ACCESS_CONTROL_KEY);
 }
 
 pub fn access_control_read<S: Storage>(storage: &S) -> ReadonlyPrefixedStorage<S> {
-    return ReadonlyPrefixedStorage::new(ACCESS_CONTROL_KEY, storage);
+    return ReadonlyPrefixedStorage::new(storage, ACCESS_CONTROL_KEY);
 }
 
 pub fn ac_have_role<S: Storage>(
@@ -72,7 +72,7 @@ pub fn ac_have_role<S: Storage>(
     role: &AccessRole,
 ) -> StdResult<bool> {
     let ac_store = access_control_read(storage);
-    let addr_roles = ReadonlyPrefixedStorage::new(addr.as_str().as_bytes(), &ac_store);
+    let addr_roles = ReadonlyPrefixedStorage::new(&ac_store, addr.as_str().as_bytes());
     match addr_roles.get(role.as_bytes()) {
         Some(_) => Ok(true),
         None => Ok(false),
@@ -89,7 +89,7 @@ pub fn ac_add_role<S: Storage>(
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE));
     }
     let mut ac_store = access_control(storage);
-    let mut addr_roles = PrefixedStorage::new(addr.as_str().as_bytes(), &mut ac_store);
+    let mut addr_roles = PrefixedStorage::new(&mut ac_store, addr.as_str().as_bytes());
     addr_roles.set(role.as_bytes(), b"");
 
     Ok(true)
@@ -105,7 +105,7 @@ pub fn ac_revoke_role<S: Storage>(
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
     let mut ac_store = access_control(storage);
-    let mut addr_roles = PrefixedStorage::new(addr.as_str().as_bytes(), &mut ac_store);
+    let mut addr_roles = PrefixedStorage::new(&mut ac_store, addr.as_str().as_bytes());
     addr_roles.remove(role.as_bytes());
 
     Ok(true)

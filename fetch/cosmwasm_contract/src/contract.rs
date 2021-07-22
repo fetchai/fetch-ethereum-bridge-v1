@@ -1,6 +1,7 @@
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage,
+    attr, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, MessageInfo, Querier, StdError,
+    StdResult, Storage,
 };
 
 use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRole};
@@ -26,9 +27,10 @@ pub const DEFAULT_DENOM: &str = "afet";
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    info: MessageInfo,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let env_message_sender = env.message.sender;
+    let env_message_sender = info.sender;
     let current_block_number = env.block.height;
 
     let mut paused_since_block_public_api = msg.paused_since_block.unwrap_or(u64::MAX);
@@ -77,13 +79,14 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    info: MessageInfo,
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     let state = config_read(&deps.storage).load()?;
 
     match msg {
         HandleMsg::Swap { destination } => {
-            let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
+            let amount = amount_from_funds(&info.sent_funds, state.denom.clone())?;
             try_swap(deps, &env, &state, amount, destination)
         }
         HandleMsg::ReverseSwap {
@@ -96,6 +99,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => try_reverse_swap(
             deps,
             &env,
+            &info,
             &state,
             rid,
             to,
@@ -109,42 +113,44 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             to,
             amount,
             relay_eon,
-        } => try_refund(deps, &env, &state, id, to, amount, relay_eon),
+        } => try_refund(deps, &env, &info, &state, id, to, amount, relay_eon),
         HandleMsg::RefundInFull {
             id,
             to,
             amount,
             relay_eon,
-        } => try_refund_in_full(deps, &env, &state, id, to, amount, relay_eon),
-        HandleMsg::PausePublicApi { since_block } => try_pause_public_api(deps, &env, since_block),
-        HandleMsg::PauseRelayerApi { since_block } => {
-            try_pause_relayer_api(deps, &env, since_block)
+        } => try_refund_in_full(deps, &env, &info, &state, id, to, amount, relay_eon),
+        HandleMsg::PausePublicApi { since_block } => {
+            try_pause_public_api(deps, &env, &info, since_block)
         }
-        HandleMsg::NewRelayEon {} => try_new_relay_eon(deps, &env, &state),
-        HandleMsg::Deposit {} => try_deposit(deps, &env, &state),
+        HandleMsg::PauseRelayerApi { since_block } => {
+            try_pause_relayer_api(deps, &env, &info, since_block)
+        }
+        HandleMsg::NewRelayEon {} => try_new_relay_eon(deps, &env, &info, &state),
+        HandleMsg::Deposit {} => try_deposit(deps, &info, &state),
         HandleMsg::Withdraw {
             amount,
             destination,
-        } => try_withdraw(deps, &env, &state, amount, destination),
+        } => try_withdraw(deps, &info, &state, amount, destination),
         HandleMsg::WithdrawFees {
             amount,
             destination,
-        } => try_withdraw_fees(deps, &env, &state, amount, destination),
-        HandleMsg::SetCap { amount } => try_set_cap(deps, &env, amount),
+        } => try_withdraw_fees(deps, &info, &state, amount, destination),
+        HandleMsg::SetCap { amount } => try_set_cap(deps, &info, amount),
         HandleMsg::SetReverseAggregatedAllowance { amount } => {
-            try_set_reverse_aggregated_allowance(deps, &env, &state, amount)
+            try_set_reverse_aggregated_allowance(deps, &info, &state, amount)
         }
         HandleMsg::SetReverseAggregatedAllowanceApproverCap { amount } => {
-            try_set_reverse_aggregated_allowance_approver_cap(deps, &env, amount)
+            try_set_reverse_aggregated_allowance_approver_cap(deps, &info, amount)
         }
         HandleMsg::SetLimits {
             swap_min,
             swap_max,
             swap_fee,
-        } => try_set_limits(deps, &env, swap_min, swap_max, swap_fee),
-        HandleMsg::GrantRole { role, address } => try_grant_role(deps, &env, role, address),
-        HandleMsg::RevokeRole { role, address } => try_revoke_role(deps, &env, role, address),
-        HandleMsg::RenounceRole { role } => try_renounce_role(deps, &env, role),
+        } => try_set_limits(deps, &info, swap_min, swap_max, swap_fee),
+        HandleMsg::GrantRole { role, address } => try_grant_role(deps, &info, role, address),
+        HandleMsg::RevokeRole { role, address } => try_revoke_role(deps, &info, role, address),
+        HandleMsg::RenounceRole { role } => try_renounce_role(deps, &info, role),
     }
 }
 
@@ -164,23 +170,23 @@ fn try_swap<S: Storage, A: Api, Q: Querier>(
     }
 
     let swap_id = state.next_swap_id;
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.supply = increased_supply;
         state.next_swap_id += 1;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "swap"),
-        log("destination", destination),
-        log("swap_id", swap_id),
-        log("amount", amount),
+    let attr = vec![
+        attr("action", "swap"),
+        attr("destination", destination),
+        attr("swap_id", swap_id),
+        attr("amount", amount),
         // NOTE(LR) fees will be deducted in destination chain
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -189,6 +195,7 @@ fn try_swap<S: Storage, A: Api, Q: Querier>(
 fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     state: &State,
     rid: u64,
     to: HumanAddr,
@@ -197,7 +204,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage, &deps.api)?;
+    only_relayer(info, &deps.storage, &deps.api)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_aggregated_reverse_allowance(amount, state)?;
@@ -219,7 +226,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             effective_amount,
             "reverse_swap",
         )?;
-        config(&mut deps.storage).update(|mut state| {
+        config(&mut deps.storage).update(|mut state| -> StdResult<_> {
             state.supply = (state.supply - amount)?;
             state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += swap_fee;
@@ -227,20 +234,20 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             Ok(state)
         })?;
 
-        let log = vec![
-            log("action", "reverse_swap"),
-            log("rid", rid),
-            log("to", to),
-            log("sender", sender),
-            log("origin_tx_hash", origin_tx_hash),
-            log("amount", effective_amount),
-            log("swap_fee", swap_fee),
+        let attr = vec![
+            attr("action", "reverse_swap"),
+            attr("rid", rid),
+            attr("to", to),
+            attr("sender", sender),
+            attr("origin_tx_hash", origin_tx_hash),
+            attr("amount", effective_amount),
+            attr("swap_fee", swap_fee),
         ];
         // FIXME(LR) store revese swap id similarly to refunds?
 
         let r = HandleResponse {
             messages: rtx.messages,
-            log,
+            attributes: attr,
             data: None,
         };
         Ok(r)
@@ -248,7 +255,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
         let effective_amount = Uint128::zero();
-        config(&mut deps.storage).update(|mut state| {
+        config(&mut deps.storage).update(|mut state| -> StdResult<_> {
             state.supply = (state.supply - amount)?;
             state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += swap_fee;
@@ -256,19 +263,19 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
             Ok(state)
         })?;
 
-        let log = vec![
-            log("action", "reverse_swap"),
-            log("rid", rid),
-            log("to", to),
-            log("from", sender),
-            log("origin_tx_hash", origin_tx_hash),
-            log("amount", effective_amount),
-            log("swap_fee", swap_fee),
+        let attr = vec![
+            attr("action", "reverse_swap"),
+            attr("rid", rid),
+            attr("to", to),
+            attr("from", sender),
+            attr("origin_tx_hash", origin_tx_hash),
+            attr("amount", effective_amount),
+            attr("swap_fee", swap_fee),
         ];
 
         let r = HandleResponse {
             messages: vec![],
-            log,
+            attributes: attr,
             data: None,
         };
         Ok(r)
@@ -286,6 +293,7 @@ fn try_reverse_swap<S: Storage, A: Api, Q: Querier>(
 fn _try_refund<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     state: &State,
     id: u64,
     to: HumanAddr,
@@ -293,7 +301,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
     relay_eon: u64,
     fee: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage, &deps.api)?;
+    only_relayer(info, &deps.storage, &deps.api)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_refund_swap_id(id, &deps.storage)?;
@@ -315,7 +323,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
             "refund",
         )?;
 
-        config(&mut deps.storage).update(|mut state| {
+        config(&mut deps.storage).update(|mut state| -> StdResult<_> {
             state.supply = new_supply;
             state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.fees_accrued += fee;
@@ -324,17 +332,17 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
 
         refunds_add(id, &mut deps.storage);
 
-        let log = vec![
-            log("action", "refund"),
-            log("destination", to),
-            log("swap_id", id),
-            log("amount", effective_amount),
-            log("refund_fee", fee),
+        let attr = vec![
+            attr("action", "refund"),
+            attr("destination", to),
+            attr("swap_id", id),
+            attr("amount", effective_amount),
+            attr("refund_fee", fee),
         ];
 
         let r = HandleResponse {
             messages: rtx.messages,
-            log,
+            attributes: attr,
             data: None,
         };
         Ok(r)
@@ -343,7 +351,7 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
         let new_supply = (state.supply - amount)?;
         let effective_amount = Uint128::zero();
 
-        config(&mut deps.storage).update(|mut state| {
+        config(&mut deps.storage).update(|mut state| -> StdResult<_> {
             state.reverse_aggregated_allowance = (state.reverse_aggregated_allowance - amount)?;
             state.supply = new_supply;
             state.fees_accrued += refund_fee;
@@ -352,17 +360,17 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
 
         refunds_add(id, &mut deps.storage);
 
-        let log = vec![
-            log("action", "refund"),
-            log("destination", to),
-            log("swap_id", id),
-            log("amount", effective_amount),
-            log("refund_fee", refund_fee),
+        let attr = vec![
+            attr("action", "refund"),
+            attr("destination", to),
+            attr("swap_id", id),
+            attr("amount", effective_amount),
+            attr("refund_fee", refund_fee),
         ];
 
         let r = HandleResponse {
             messages: vec![],
-            log,
+            attributes: attr,
             data: None,
         };
         Ok(r)
@@ -372,52 +380,75 @@ fn _try_refund<S: Storage, A: Api, Q: Querier>(
 fn try_refund<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     state: &State,
     id: u64,
     to: HumanAddr,
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    _try_refund(deps, env, state, id, to, amount, relay_eon, state.swap_fee)
+    _try_refund(
+        deps,
+        env,
+        info,
+        state,
+        id,
+        to,
+        amount,
+        relay_eon,
+        state.swap_fee,
+    )
 }
 
 fn try_refund_in_full<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     state: &State,
     id: u64,
     to: HumanAddr,
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<HandleResponse> {
-    _try_refund(deps, env, state, id, to, amount, relay_eon, Uint128::zero())
+    _try_refund(
+        deps,
+        env,
+        info,
+        state,
+        id,
+        to,
+        amount,
+        relay_eon,
+        Uint128::zero(),
+    )
 }
 
 fn try_pause_public_api<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     since_block: u64,
 ) -> StdResult<HandleResponse> {
-    can_pause(env, &deps.storage, &deps.api, since_block)?;
+    can_pause(env, info, &deps.storage, &deps.api, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
     } else {
         since_block
     };
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.paused_since_block_public_api = pause_since_block;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "pause_public_api"),
-        log("since_block", pause_since_block),
+    let attr = vec![
+        attr("action", "pause_public_api"),
+        attr("since_block", pause_since_block),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -426,28 +457,29 @@ fn try_pause_public_api<S: Storage, A: Api, Q: Querier>(
 fn try_pause_relayer_api<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     since_block: u64,
 ) -> StdResult<HandleResponse> {
-    can_pause(env, &deps.storage, &deps.api, since_block)?;
+    can_pause(env, info, &deps.storage, &deps.api, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
     } else {
         since_block
     };
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.paused_since_block_relayer_api = pause_since_block;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "pause_relayer_api"),
-        log("since_block", pause_since_block),
+    let attr = vec![
+        attr("action", "pause_relayer_api"),
+        attr("since_block", pause_since_block),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -456,22 +488,23 @@ fn try_pause_relayer_api<S: Storage, A: Api, Q: Querier>(
 fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: &MessageInfo,
     state: &State,
 ) -> StdResult<HandleResponse> {
-    only_relayer(env, &deps.storage, &deps.api)?;
+    only_relayer(info, &deps.storage, &deps.api)?;
     verify_not_paused_relayer_api(env, state)?;
 
     let new_eon = state.relay_eon + 1;
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.relay_eon = new_eon; // FIXME(LR) starts from 1
         Ok(state)
     })?;
 
-    let log = vec![log("action", "new_relay_eon"), log("eon", new_eon)];
+    let attr = vec![attr("action", "new_relay_eon"), attr("eon", new_eon)];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None, // TODO(LR) what can I send in data?
     };
     Ok(r)
@@ -479,28 +512,28 @@ fn try_new_relay_eon<S: Storage, A: Api, Q: Querier>(
 
 fn try_deposit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     state: &State,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
-    let env_message_sender = &env.message.sender;
+    let env_message_sender = &info.sender;
 
-    let amount = amount_from_funds(&env.message.sent_funds, state.denom.clone())?;
-    config(&mut deps.storage).update(|mut state| {
+    let amount = amount_from_funds(&info.sent_funds, state.denom.clone())?;
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.supply += amount;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "deposit"),
-        log("amount", amount),
-        log("sender", env_message_sender.as_str()),
+    let attr = vec![
+        attr("action", "deposit"),
+        attr("amount", amount),
+        attr("sender", env_message_sender.as_str()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -508,34 +541,34 @@ fn try_deposit<S: Storage, A: Api, Q: Querier>(
 
 fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     state: &State,
     amount: Uint128,
     destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
     if amount > state.supply {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
     }
 
     let new_supply = (state.supply - amount)?;
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.supply = new_supply;
         Ok(state)
     })?;
     let recipient = deps.api.canonical_address(&destination)?;
     let wtx = send_tokens_from_contract(&deps.api, &state, &recipient, amount, "withdraw")?;
 
-    let log = vec![
-        log("action", "withdraw"),
-        log("amount", amount),
-        log("destination", destination.as_str()),
+    let attr = vec![
+        attr("action", "withdraw"),
+        attr("amount", amount),
+        attr("destination", destination.as_str()),
     ];
 
     let r = HandleResponse {
         messages: wtx.messages,
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -543,19 +576,19 @@ fn try_withdraw<S: Storage, A: Api, Q: Querier>(
 
 fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     state: &State,
     amount: Uint128,
     destination: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
     if amount > state.fees_accrued {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
     }
 
     let new_fees_accrued = (state.fees_accrued - amount)?;
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.fees_accrued = new_fees_accrued;
         Ok(state)
     })?;
@@ -563,15 +596,15 @@ fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
     let recipient = deps.api.canonical_address(&destination)?;
     let wtx = send_tokens_from_contract(&deps.api, &state, &recipient, amount, "withdraw_fees")?;
 
-    let log = vec![
-        log("action", "withdraw_fees"),
-        log("amount", amount),
-        log("destination", destination.as_str()),
+    let attr = vec![
+        attr("action", "withdraw_fees"),
+        attr("amount", amount),
+        attr("destination", destination.as_str()),
     ];
 
     let r = HandleResponse {
         messages: wtx.messages,
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -579,21 +612,21 @@ fn try_withdraw_fees<S: Storage, A: Api, Q: Querier>(
 
 fn try_set_cap<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.cap = amount;
         Ok(state)
     })?;
 
-    let log = vec![log("action", "set_cap"), log("cap", amount)];
+    let attr = vec![attr("action", "set_cap"), attr("cap", amount)];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -601,31 +634,31 @@ fn try_set_cap<S: Storage, A: Api, Q: Querier>(
 
 fn try_set_reverse_aggregated_allowance<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     state: &State,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api).or(
+    only_admin(info, &deps.storage, &deps.api).or(
         if amount <= state.reverse_aggregated_allowance_approver_cap {
-            only_approver(env, &deps.storage, &deps.api)
+            only_approver(info, &deps.storage, &deps.api)
         } else {
             Err(StdError::generic_err(ERR_ACCESS_CONTROL_ONLY_ADMIN))
         },
     )?;
 
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance = amount;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "set_reverse_aggregated_allowance"),
-        log("amount", amount),
+    let attr = vec![
+        attr("action", "set_reverse_aggregated_allowance"),
+        attr("amount", amount),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -633,24 +666,24 @@ fn try_set_reverse_aggregated_allowance<S: Storage, A: Api, Q: Querier>(
 
 fn try_set_reverse_aggregated_allowance_approver_cap<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     amount: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance_approver_cap = amount;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "set_reverse_aggregated_allowance_approver_cap"),
-        log("amount", amount),
+    let attr = vec![
+        attr("action", "set_reverse_aggregated_allowance_approver_cap"),
+        attr("amount", amount),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -658,33 +691,33 @@ fn try_set_reverse_aggregated_allowance_approver_cap<S: Storage, A: Api, Q: Quer
 
 fn try_set_limits<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     swap_min: Uint128,
     swap_max: Uint128,
     swap_fee: Uint128,
 ) -> StdResult<HandleResponse> {
-    only_admin(env, &deps.storage, &deps.api)?;
+    only_admin(info, &deps.storage, &deps.api)?;
 
     if swap_min <= swap_fee || swap_min > swap_max {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
-    config(&mut deps.storage).update(|mut state| {
+    config(&mut deps.storage).update(|mut state| -> StdResult<_> {
         state.swap_fee = swap_fee;
         state.lower_swap_limit = swap_min;
         state.upper_swap_limit = swap_max;
         Ok(state)
     })?;
 
-    let log = vec![
-        log("action", "set_limits"),
-        log("swap_fee", swap_fee),
-        log("swap_min", swap_min),
-        log("swap_max", swap_max),
+    let attr = vec![
+        attr("action", "set_limits"),
+        attr("swap_fee", swap_fee),
+        attr("swap_min", swap_min),
+        attr("swap_max", swap_max),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -692,11 +725,11 @@ fn try_set_limits<S: Storage, A: Api, Q: Querier>(
 
 fn try_grant_role<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     role: String,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(&env, &deps.storage, &deps.api)?;
+    only_admin(&info, &deps.storage, &deps.api)?;
 
     ac_add_role(
         &mut deps.storage,
@@ -704,15 +737,15 @@ fn try_grant_role<S: Storage, A: Api, Q: Querier>(
         &AccessRole::from_str(role.as_str())?,
     )?;
 
-    let log = vec![
-        log("action", "grant_role"),
-        log("role", role.as_str()),
-        log("account", address.as_str()),
+    let attr = vec![
+        attr("action", "grant_role"),
+        attr("role", role.as_str()),
+        attr("account", address.as_str()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -720,11 +753,11 @@ fn try_grant_role<S: Storage, A: Api, Q: Querier>(
 
 fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     role: String,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    only_admin(&env, &deps.storage, &deps.api)?;
+    only_admin(&info, &deps.storage, &deps.api)?;
 
     ac_revoke_role(
         &mut deps.storage,
@@ -732,15 +765,15 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
         &AccessRole::from_str(role.as_str())?,
     )?;
 
-    let log = vec![
-        log("action", "revoke_role"),
-        log("role", role.as_str()),
-        log("account", address.as_str()),
+    let attr = vec![
+        attr("action", "revoke_role"),
+        attr("role", role.as_str()),
+        attr("account", address.as_str()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -748,10 +781,10 @@ fn try_revoke_role<S: Storage, A: Api, Q: Querier>(
 
 fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    info: &MessageInfo,
     role: String,
 ) -> StdResult<HandleResponse> {
-    let env_message_sender = &env.message.sender;
+    let env_message_sender = &info.sender;
 
     let ac_role = &AccessRole::from_str(role.as_str())?;
     let have_role = ac_have_role(&deps.storage, &env_message_sender, ac_role).unwrap_or(false);
@@ -760,15 +793,15 @@ fn try_renounce_role<S: Storage, A: Api, Q: Querier>(
     }
     ac_revoke_role(&mut deps.storage, &env_message_sender, ac_role)?;
 
-    let log = vec![
-        log("action", "renounce_role"),
-        log("role", role.as_str()),
-        log("account", &env_message_sender.as_str()),
+    let attr = vec![
+        attr("action", "renounce_role"),
+        attr("role", role.as_str()),
+        attr("account", &env_message_sender.as_str()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -795,7 +828,7 @@ fn send_tokens_from_contract<A: Api>(
     action: &str,
 ) -> HandleResult {
     let to_human = api.human_address(to_address)?;
-    let log = vec![log("action", action), log("to", to_human.as_str())];
+    let attr = vec![attr("action", action), attr("to", to_human.as_str())];
     let coin = Coin {
         amount,
         denom: state.denom.clone(),
@@ -807,7 +840,7 @@ fn send_tokens_from_contract<A: Api>(
             to_address: to_human,
             amount: vec![coin],
         })],
-        log,
+        attributes: attr,
         data: None,
     };
     Ok(r)
@@ -875,29 +908,29 @@ fn verify_refund_swap_id<S: Storage>(id: u64, storage: &S) -> HandleResult {
  * ************    Access Control      ***************
  * ***************************************************/
 
-fn only_admin<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
-    _only_role(&AccessRole::Admin, env, storage, api)
+fn only_admin<S: Storage, A: Api>(info: &MessageInfo, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Admin, info, storage, api)
 }
 
-fn only_relayer<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
-    _only_role(&AccessRole::Relayer, env, storage, api)
+fn only_relayer<S: Storage, A: Api>(info: &MessageInfo, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Relayer, info, storage, api)
 }
 
-fn only_approver<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
-    _only_role(&AccessRole::Approver, env, storage, api)
+fn only_approver<S: Storage, A: Api>(info: &MessageInfo, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Approver, info, storage, api)
 }
 
-fn only_monitor<S: Storage, A: Api>(env: &Env, storage: &S, api: &A) -> HandleResult {
-    _only_role(&AccessRole::Monitor, env, storage, api)
+fn only_monitor<S: Storage, A: Api>(info: &MessageInfo, storage: &S, api: &A) -> HandleResult {
+    _only_role(&AccessRole::Monitor, info, storage, api)
 }
 
 fn _only_role<S: Storage, A: Api>(
     role: &AccessRole,
-    env: &Env,
+    info: &MessageInfo,
     storage: &S,
     _api: &A,
 ) -> HandleResult {
-    let env_message_sender = &env.message.sender;
+    let env_message_sender = &info.sender;
 
     match ac_have_role(storage, &env_message_sender, role) {
         Ok(has_role) => match has_role {
@@ -914,16 +947,17 @@ fn _only_role<S: Storage, A: Api>(
 
 fn can_pause<S: Storage, A: Api>(
     env: &Env,
+    info: &MessageInfo,
     storage: &S,
     api: &A,
     since_block: u64,
 ) -> HandleResult {
     if since_block > env.block.height {
         // unpausing
-        only_admin(env, storage, api)
+        only_admin(info, storage, api)
     } else {
         // pausing
-        only_monitor(env, storage, api).or(only_admin(env, storage, api))
+        only_monitor(info, storage, api).or(only_admin(info, storage, api))
     }
 }
 

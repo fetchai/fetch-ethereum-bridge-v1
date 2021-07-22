@@ -42,12 +42,12 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
 }
 
 pub fn refunds_add<S: Storage>(swap_id: u64, storage: &mut S) {
-    let mut store = PrefixedStorage::new(REFUNDS_KEY, storage);
+    let mut store = PrefixedStorage::new(storage, REFUNDS_KEY);
     store.set(&swap_id.to_be_bytes(), b"");
 }
 
 pub fn refunds_have<S: Storage>(swap_id: u64, storage: &S) -> bool {
-    let store = ReadonlyPrefixedStorage::new(REFUNDS_KEY, storage);
+    let store = ReadonlyPrefixedStorage::new(storage, REFUNDS_KEY);
     match store.get(&swap_id.to_be_bytes()) {
         Some(_) => true,
         None => false,
