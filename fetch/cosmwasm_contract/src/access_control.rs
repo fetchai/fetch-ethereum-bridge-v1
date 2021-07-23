@@ -1,4 +1,4 @@
-use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
+use cosmwasm_std::{HumanAddr, StdError, StdResult, Storage};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::str::FromStr;
 
@@ -58,29 +58,18 @@ impl FromStr for AccessRole {
     }
 }
 
-pub fn access_control<S: Storage>(storage: &mut S) -> PrefixedStorage<S> {
-    return PrefixedStorage::new(storage, ACCESS_CONTROL_KEY);
-}
-
-pub fn access_control_read<S: Storage>(storage: &S) -> ReadonlyPrefixedStorage<S> {
-    return ReadonlyPrefixedStorage::new(storage, ACCESS_CONTROL_KEY);
-}
-
-pub fn ac_have_role<S: Storage>(
-    storage: &S,
-    addr: &HumanAddr,
-    role: &AccessRole,
-) -> StdResult<bool> {
-    let ac_store = access_control_read(storage);
-    let addr_roles = ReadonlyPrefixedStorage::new(&ac_store, addr.as_str().as_bytes());
-    match addr_roles.get(role.as_bytes()) {
-        Some(_) => Ok(true),
-        None => Ok(false),
+pub fn ac_have_role(storage: &dyn Storage, addr: &HumanAddr, role: &AccessRole) -> StdResult<bool> {
+    let addr_roles =
+        ReadonlyPrefixedStorage::multilevel(storage, &[ACCESS_CONTROL_KEY, addr.as_bytes()]);
+    let role = addr_roles.get(role.as_bytes());
+    match role {
+        Some(x) if x == &[1] => Ok(true),
+        _ => Ok(false),
     }
 }
 
-pub fn ac_add_role<S: Storage>(
-    storage: &mut S,
+pub fn ac_add_role(
+    storage: &mut dyn Storage,
     addr: &HumanAddr,
     role: &AccessRole,
 ) -> StdResult<bool> {
@@ -88,15 +77,15 @@ pub fn ac_add_role<S: Storage>(
     if already_have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE));
     }
-    let mut ac_store = access_control(storage);
-    let mut addr_roles = PrefixedStorage::new(&mut ac_store, addr.as_str().as_bytes());
-    addr_roles.set(role.as_bytes(), b"");
+    let mut addr_roles =
+        PrefixedStorage::multilevel(storage, &[ACCESS_CONTROL_KEY, addr.as_bytes()]);
+    addr_roles.set(role.as_bytes(), &[1]);
 
     Ok(true)
 }
 
-pub fn ac_revoke_role<S: Storage>(
-    storage: &mut S,
+pub fn ac_revoke_role(
+    storage: &mut dyn Storage,
     addr: &HumanAddr,
     role: &AccessRole,
 ) -> StdResult<bool> {
@@ -104,9 +93,8 @@ pub fn ac_revoke_role<S: Storage>(
     if !already_have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
-    let mut ac_store = access_control(storage);
-    let mut addr_roles = PrefixedStorage::new(&mut ac_store, addr.as_str().as_bytes());
+    let mut addr_roles =
+        PrefixedStorage::multilevel(storage, &[ACCESS_CONTROL_KEY, addr.as_bytes()]);
     addr_roles.remove(role.as_bytes());
-
     Ok(true)
 }
