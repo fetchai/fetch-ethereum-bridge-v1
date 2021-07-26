@@ -1,4 +1,4 @@
-use cosmwasm_std::{HumanAddr, StdError, StdResult, Storage};
+use cosmwasm_std::{Addr, StdError, StdResult, Storage};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::str::FromStr;
 
@@ -58,7 +58,7 @@ impl FromStr for AccessRole {
     }
 }
 
-pub fn ac_have_role(storage: &dyn Storage, addr: &HumanAddr, role: &AccessRole) -> StdResult<bool> {
+pub fn ac_have_role(storage: &dyn Storage, addr: &Addr, role: &AccessRole) -> StdResult<bool> {
     let addr_roles =
         ReadonlyPrefixedStorage::multilevel(storage, &[ACCESS_CONTROL_KEY, addr.as_bytes()]);
     let role = addr_roles.get(role.as_bytes());
@@ -68,11 +68,7 @@ pub fn ac_have_role(storage: &dyn Storage, addr: &HumanAddr, role: &AccessRole) 
     }
 }
 
-pub fn ac_add_role(
-    storage: &mut dyn Storage,
-    addr: &HumanAddr,
-    role: &AccessRole,
-) -> StdResult<bool> {
+pub fn ac_add_role(storage: &mut dyn Storage, addr: &Addr, role: &AccessRole) -> StdResult<bool> {
     let already_have_role = ac_have_role(storage, addr, role).unwrap_or(false);
     if already_have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE));
@@ -86,7 +82,7 @@ pub fn ac_add_role(
 
 pub fn ac_revoke_role(
     storage: &mut dyn Storage,
-    addr: &HumanAddr,
+    addr: &Addr,
     role: &AccessRole,
 ) -> StdResult<bool> {
     let already_have_role = ac_have_role(storage, addr, role).unwrap_or(false);

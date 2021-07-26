@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::msg::Uint128;
-use cosmwasm_std::{HumanAddr, Storage};
+use cosmwasm_std::{Addr, Storage};
 use cosmwasm_storage::{
     singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage, ReadonlySingleton,
     Singleton,
@@ -30,7 +30,7 @@ pub struct State {
     pub denom: String,
 
     // optimization FIXME(LR) Not needed any more with version 0.10.0
-    pub contract_addr_human: HumanAddr,
+    pub contract_addr_human: Addr,
 }
 
 pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
