@@ -200,7 +200,7 @@ fn try_reverse_swap(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
-    only_relayer(info, deps.storage, deps.api)?;
+    only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_aggregated_reverse_allowance(amount, state)?;
@@ -301,7 +301,7 @@ fn _try_refund(
     relay_eon: u64,
     fee: Uint128,
 ) -> StdResult<Response> {
-    only_relayer(info, deps.storage, deps.api)?;
+    only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
     verify_refund_swap_id(id, deps.storage)?;
@@ -428,7 +428,7 @@ fn try_pause_public_api(
     info: &MessageInfo,
     since_block: u64,
 ) -> StdResult<Response> {
-    can_pause(env, info, deps.storage, deps.api, since_block)?;
+    can_pause(env, info, deps.storage, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
@@ -460,7 +460,7 @@ fn try_pause_relayer_api(
     info: &MessageInfo,
     since_block: u64,
 ) -> StdResult<Response> {
-    can_pause(env, info, deps.storage, deps.api, since_block)?;
+    can_pause(env, info, deps.storage, since_block)?;
 
     let pause_since_block = if since_block < env.block.height {
         env.block.height
@@ -492,7 +492,7 @@ fn try_new_relay_eon(
     info: &MessageInfo,
     state: &State,
 ) -> StdResult<Response> {
-    only_relayer(info, deps.storage, deps.api)?;
+    only_relayer(info, deps.storage)?;
     verify_not_paused_relayer_api(env, state)?;
 
     let new_eon = state.relay_eon + 1;
@@ -513,7 +513,7 @@ fn try_new_relay_eon(
 }
 
 fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     let env_message_sender = &info.sender;
 
@@ -545,7 +545,7 @@ fn try_withdraw(
     amount: Uint128,
     destination: Addr,
 ) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     if amount > state.supply {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
@@ -581,7 +581,7 @@ fn try_withdraw_fees(
     amount: Uint128,
     destination: Addr,
 ) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     if amount > state.fees_accrued {
         return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
@@ -612,7 +612,7 @@ fn try_withdraw_fees(
 }
 
 fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     config(deps.storage).update(|mut state| -> StdResult<_> {
         state.cap = amount;
@@ -636,9 +636,9 @@ fn try_set_reverse_aggregated_allowance(
     state: &State,
     amount: Uint128,
 ) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api).or(
+    only_admin(info, deps.storage).or(
         if amount <= state.reverse_aggregated_allowance_approver_cap {
-            only_approver(info, deps.storage, deps.api)
+            only_approver(info, deps.storage)
         } else {
             Err(StdError::generic_err(ERR_ACCESS_CONTROL_ONLY_ADMIN))
         },
@@ -668,7 +668,7 @@ fn try_set_reverse_aggregated_allowance_approver_cap(
     info: &MessageInfo,
     amount: Uint128,
 ) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     config(deps.storage).update(|mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance_approver_cap = amount;
@@ -696,7 +696,7 @@ fn try_set_limits(
     swap_max: Uint128,
     swap_fee: Uint128,
 ) -> StdResult<Response> {
-    only_admin(info, deps.storage, deps.api)?;
+    only_admin(info, deps.storage)?;
 
     if swap_min <= swap_fee || swap_min > swap_max {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
@@ -730,7 +730,7 @@ fn try_grant_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage, deps.api)?;
+    only_admin(&info, deps.storage)?;
 
     ac_add_role(
         deps.storage,
@@ -759,7 +759,7 @@ fn try_revoke_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage, deps.api)?;
+    only_admin(&info, deps.storage)?;
 
     ac_revoke_role(
         deps.storage,
@@ -911,43 +911,26 @@ fn verify_refund_swap_id(id: u64, storage: &dyn Storage) -> Result<Response, Std
  * ************    Access Control      ***************
  * ***************************************************/
 
-fn only_admin(
-    info: &MessageInfo,
-    storage: &dyn Storage,
-    api: &dyn Api,
-) -> Result<Response, StdError> {
-    _only_role(&AccessRole::Admin, info, storage, api)
+fn only_admin(info: &MessageInfo, storage: &dyn Storage) -> Result<Response, StdError> {
+    _only_role(&AccessRole::Admin, info, storage)
 }
 
-fn only_relayer(
-    info: &MessageInfo,
-    storage: &dyn Storage,
-    api: &dyn Api,
-) -> Result<Response, StdError> {
-    _only_role(&AccessRole::Relayer, info, storage, api)
+fn only_relayer(info: &MessageInfo, storage: &dyn Storage) -> Result<Response, StdError> {
+    _only_role(&AccessRole::Relayer, info, storage)
 }
 
-fn only_approver(
-    info: &MessageInfo,
-    storage: &dyn Storage,
-    api: &dyn Api,
-) -> Result<Response, StdError> {
-    _only_role(&AccessRole::Approver, info, storage, api)
+fn only_approver(info: &MessageInfo, storage: &dyn Storage) -> Result<Response, StdError> {
+    _only_role(&AccessRole::Approver, info, storage)
 }
 
-fn only_monitor(
-    info: &MessageInfo,
-    storage: &dyn Storage,
-    api: &dyn Api,
-) -> Result<Response, StdError> {
-    _only_role(&AccessRole::Monitor, info, storage, api)
+fn only_monitor(info: &MessageInfo, storage: &dyn Storage) -> Result<Response, StdError> {
+    _only_role(&AccessRole::Monitor, info, storage)
 }
 
 fn _only_role(
     role: &AccessRole,
     info: &MessageInfo,
     storage: &dyn Storage,
-    _api: &dyn Api,
 ) -> Result<Response, StdError> {
     let env_message_sender = &info.sender;
 
@@ -968,15 +951,14 @@ fn can_pause(
     env: &Env,
     info: &MessageInfo,
     storage: &dyn Storage,
-    api: &dyn Api,
     since_block: u64,
 ) -> Result<Response, StdError> {
     if since_block > env.block.height {
         // unpausing
-        only_admin(info, storage, api)
+        only_admin(info, storage)
     } else {
         // pausing
-        only_monitor(info, storage, api).or(only_admin(info, storage, api))
+        only_monitor(info, storage).or(only_admin(info, storage))
     }
 }
 
