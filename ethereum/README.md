@@ -60,7 +60,7 @@ nvm use --lts
       ```
 
 ### Deploying contracts
-By default, the deployment is done on the `development` network = locally running Ganage node:
+By default, the deployment is done on the `development` network = locally running Ganache node:
 ```shell
 brownie run deploy_bridge.py
 ```
