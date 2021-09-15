@@ -9,6 +9,7 @@ pub type Uint128 = cosmwasm_std::Uint128;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
+    pub next_swap_id: u64,
     pub cap: Uint128,
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,

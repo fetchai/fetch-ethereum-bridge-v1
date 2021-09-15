@@ -52,7 +52,7 @@ pub fn instantiate(
     let state = State {
         supply: Uint128::zero(),
         fees_accrued: Uint128::zero(),
-        next_swap_id: 0,
+        next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
         relay_eon: 0,
         upper_swap_limit: msg.upper_swap_limit,
