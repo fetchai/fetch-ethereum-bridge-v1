@@ -49,8 +49,10 @@ pub fn instantiate(
 
     ac_add_role(deps.storage, &env_message_sender, &AccessRole::Admin)?;
 
+    let supply = amount_from_funds(&info.funds, denom.clone());
+
     let state = State {
-        supply: Uint128::zero(),
+        supply: supply.unwrap_or(Uint128::zero()),
         fees_accrued: Uint128::zero(),
         next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
