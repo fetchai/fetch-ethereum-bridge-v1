@@ -1,14 +1,15 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::HumanAddr;
+use cosmwasm_std::Addr;
 
 //use crate::cosmwasm_bignumber::{Uint256};
 
 pub type Uint128 = cosmwasm_std::Uint128;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
+pub struct InstantiateMsg {
+    pub next_swap_id: u64,
     pub cap: Uint128,
     pub upper_swap_limit: Uint128,
     pub lower_swap_limit: Uint128,
@@ -21,7 +22,7 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     // user level methods
     Swap {
         destination: String,
@@ -30,7 +31,7 @@ pub enum HandleMsg {
     // relayer
     ReverseSwap {
         rid: u64,
-        to: HumanAddr,
+        to: Addr,
         sender: String,
         origin_tx_hash: String, // TOD(LR) should be [32]u8 or String
         amount: Uint128,
@@ -39,14 +40,14 @@ pub enum HandleMsg {
 
     Refund {
         id: u64,
-        to: HumanAddr,
+        to: Addr,
         amount: Uint128,
         relay_eon: u64,
     },
 
     RefundInFull {
         id: u64,
-        to: HumanAddr,
+        to: Addr,
         amount: Uint128,
         relay_eon: u64,
     },
@@ -67,13 +68,13 @@ pub enum HandleMsg {
     Withdraw {
         // withdrawal from contract supply to destination
         amount: Uint128,
-        destination: HumanAddr,
+        destination: Addr,
     },
 
     WithdrawFees {
         // withdrawal from contract (account - supply) to destination
         amount: Uint128,
-        destination: HumanAddr,
+        destination: Addr,
     },
 
     SetCap {
@@ -97,12 +98,12 @@ pub enum HandleMsg {
     // Access Control
     GrantRole {
         role: String,
-        address: HumanAddr,
+        address: Addr,
     },
 
     RevokeRole {
         role: String,
-        address: HumanAddr,
+        address: Addr,
     },
 
     RenounceRole {
@@ -113,7 +114,7 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    HasRole { role: String, address: HumanAddr },
+    HasRole { role: String, address: Addr },
     RelayEon {},
     Supply {},
     ReverseAggregatedAllowance {},

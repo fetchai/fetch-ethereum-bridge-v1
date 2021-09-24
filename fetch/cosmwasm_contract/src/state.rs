@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::msg::Uint128;
-use cosmwasm_std::{HumanAddr, ReadonlyStorage, Storage};
+use cosmwasm_std::{Addr, Storage};
 use cosmwasm_storage::{
     singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage, ReadonlySingleton,
     Singleton,
@@ -30,24 +30,24 @@ pub struct State {
     pub denom: String,
 
     // optimization FIXME(LR) Not needed any more with version 0.10.0
-    pub contract_addr_human: HumanAddr,
+    pub contract_addr_human: Addr,
 }
 
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
+pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
     singleton(storage, CONFIG_KEY)
 }
 
-pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
+pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
     singleton_read(storage, CONFIG_KEY)
 }
 
-pub fn refunds_add<S: Storage>(swap_id: u64, storage: &mut S) {
-    let mut store = PrefixedStorage::new(REFUNDS_KEY, storage);
-    store.set(&swap_id.to_be_bytes(), b"");
+pub fn refunds_add(swap_id: u64, storage: &mut dyn Storage) {
+    let mut store = PrefixedStorage::new(storage, REFUNDS_KEY);
+    store.set(&swap_id.to_be_bytes(), &[1]);
 }
 
-pub fn refunds_have<S: Storage>(swap_id: u64, storage: &S) -> bool {
-    let store = ReadonlyPrefixedStorage::new(REFUNDS_KEY, storage);
+pub fn refunds_have(swap_id: u64, storage: &dyn Storage) -> bool {
+    let store = ReadonlyPrefixedStorage::new(storage, REFUNDS_KEY);
     match store.get(&swap_id.to_be_bytes()) {
         Some(_) => true,
         None => false,
