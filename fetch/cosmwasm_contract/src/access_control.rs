@@ -31,7 +31,7 @@ impl AccessRole {
     fn as_bytes(&self) -> &[u8] {
         return self.value().as_bytes();
     }
-    // FIXME(LR) what happen when FromStr treat is in scope?
+    // FIXME(LR) what happen when FromStr trait is in scope?
     pub fn from_str(s: &str) -> Result<Self, StdError> {
         match s {
             ADMIN_ROLE => Ok(AccessRole::Admin),
@@ -63,7 +63,7 @@ pub fn ac_have_role(storage: &dyn Storage, addr: &Addr, role: &AccessRole) -> St
         ReadonlyPrefixedStorage::multilevel(storage, &[ACCESS_CONTROL_KEY, addr.as_bytes()]);
     let role = addr_roles.get(role.as_bytes());
     match role {
-        Some(x) if x == &[1] => Ok(true),
+        Some(x) if x == [1] => Ok(true),
         _ => Ok(false),
     }
 }

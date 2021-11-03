@@ -45,14 +45,14 @@ pub fn instantiate(
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
-    let denom = msg.denom.unwrap_or(DEFAULT_DENOM.to_string());
+    let denom = msg.denom.unwrap_or_else(|| DEFAULT_DENOM.to_string());
 
     ac_add_role(deps.storage, &env_message_sender, &AccessRole::Admin)?;
 
     let supply = amount_from_funds(&info.funds, denom.clone());
 
     let state = State {
-        supply: supply.unwrap_or(Uint128::zero()),
+        supply: supply.unwrap_or_else(|_| Uint128::zero()),
         fees_accrued: Uint128::zero(),
         next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
@@ -715,7 +715,7 @@ fn try_renounce_role(deps: DepsMut, info: &MessageInfo, role: String) -> StdResu
  * *****************    Helpers      *****************
  * ***************************************************/
 
-pub fn amount_from_funds(funds: &Vec<Coin>, denom: String) -> StdResult<Uint128> {
+pub fn amount_from_funds(funds: &[Coin], denom: String) -> StdResult<Uint128> {
     for coin in funds {
         if coin.denom == denom {
             return Ok(coin.amount);
@@ -772,9 +772,7 @@ fn _verify_not_paused(env: &Env, paused_since_block: u64) -> Result<Response, St
 }
 
 fn verify_swap_amount_limits(amount: Uint128, state: &State) -> Result<Response, StdError> {
-    if amount < state.lower_swap_limit {
-        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
-    } else if amount > state.upper_swap_limit {
+    if amount < state.lower_swap_limit || amount > state.upper_swap_limit {
         Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
     } else {
         Ok(Response::default())
@@ -855,7 +853,7 @@ fn can_pause(
         only_admin(info, storage)
     } else {
         // pausing
-        only_monitor(info, storage).or(only_admin(info, storage))
+        only_monitor(info, storage).or_else(|_| only_admin(info, storage))
     }
 }
 
@@ -887,9 +885,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
             block: state.paused_since_block_relayer_api,
         }),
         QueryMsg::Denom {} => to_binary(&DenomResponse {
-            denom: state.denom.clone(),
+            denom: state.denom,
         }),
-        QueryMsg::FullState {} => to_binary(&state.clone()),
+        QueryMsg::FullState {} => to_binary(&state),
     }
 }
 
