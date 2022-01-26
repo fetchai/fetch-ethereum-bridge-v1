@@ -33,6 +33,7 @@ impl AccessRole {
     }
     // FIXME(LR) what happen when FromStr trait is in scope?
     pub fn from_str(s: &str) -> Result<Self, StdError> {
+        #![allow(clippy::should_implement_trait)]
         match s {
             ADMIN_ROLE => Ok(AccessRole::Admin),
             RELAYER_ROLE => Ok(AccessRole::Relayer),

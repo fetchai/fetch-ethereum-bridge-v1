@@ -26,19 +26,19 @@ jobs:
 
       - name: Run unit tests
         uses: actions-rs/cargo@v1
-        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: unit-test
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
         env:
           RUST_BACKTRACE: 1
 
+      # this requires the .cargo symlink at project root on fetch/cosmwasm_contract/.cargo
+      # to work.
       - name: Compile WASM contract
         uses: actions-rs/cargo@v1
-        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: wasm
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
         env:
           RUSTFLAGS: "-C link-arg=-s"
 
@@ -59,27 +59,24 @@ jobs:
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
-        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: fmt
-          args: --all -- --check
+          args: --all --manifest-path fetch/cosmwasm_contract/Cargo.toml -- --check
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
-        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: clippy
-          args: -- -D warnings
+          args: --manifest-path fetch/cosmwasm_contract/Cargo.toml -- -D warnings
 
       # TODO: we should check
       # CHANGES_IN_REPO=$(git status --porcelain)
       # after this, but I don't know how
       - name: Generate Schema
         uses: actions-rs/cargo@v1
-        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: schema
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
 
       - name: Check for schema differences
         run: git diff --exit-code

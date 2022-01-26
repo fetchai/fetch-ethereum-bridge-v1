@@ -196,6 +196,7 @@ fn try_reverse_swap(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
@@ -286,6 +287,7 @@ fn _try_refund(
     relay_eon: u64,
     fee: Uint128,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
@@ -361,6 +363,7 @@ fn try_refund(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     _try_refund(
         deps,
         env,
@@ -384,6 +387,7 @@ fn try_refund_in_full(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     _try_refund(
         deps,
         env,
@@ -884,9 +888,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::PausedRelayerApiSince {} => to_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_relayer_api,
         }),
-        QueryMsg::Denom {} => to_binary(&DenomResponse {
-            denom: state.denom,
-        }),
+        QueryMsg::Denom {} => to_binary(&DenomResponse { denom: state.denom }),
         QueryMsg::FullState {} => to_binary(&state),
     }
 }
