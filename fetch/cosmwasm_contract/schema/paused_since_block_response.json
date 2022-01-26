@@ -1,14 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "PausedSinceBlockResponse",
   "type": "object",
   "required": [
-    "count"
+    "block"
   ],
   "properties": {
-    "count": {
+    "block": {
       "type": "integer",
-      "format": "int32"
+      "format": "uint64",
+      "minimum": 0.0
     }
   }
 }
