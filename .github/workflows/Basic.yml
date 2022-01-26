@@ -1,6 +1,10 @@
 # Based on https://github.com/actions-rs/example/blob/master/.github/workflows/quickstart.yml
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 name: Basic
 
@@ -17,7 +21,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.43.1
+          toolchain: 1.56.0
           target: wasm32-unknown-unknown
           override: true
 
@@ -37,13 +41,6 @@ jobs:
         env:
           RUSTFLAGS: "-C link-arg=-s"
 
-      - name: Run integration tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: integration-test
-          args: --locked
-
-
   lints:
     name: Lints
     runs-on: ubuntu-latest
@@ -55,7 +52,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.43.1
+          toolchain: 1.56.0
           override: true
           components: rustfmt, clippy
 
@@ -79,3 +76,6 @@ jobs:
         with:
           command: schema
           args: --locked
+
+      - name: Check for schema differences
+        run: git diff --exit-code
