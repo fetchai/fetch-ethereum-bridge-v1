@@ -9,7 +9,6 @@ on:
 name: Basic
 
 jobs:
-
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -27,6 +26,7 @@ jobs:
 
       - name: Run unit tests
         uses: actions-rs/cargo@v1
+        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: unit-test
           args: --locked
@@ -35,6 +35,7 @@ jobs:
 
       - name: Compile WASM contract
         uses: actions-rs/cargo@v1
+        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: wasm
           args: --locked
@@ -58,12 +59,14 @@ jobs:
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
+        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: fmt
           args: --all -- --check
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
+        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: clippy
           args: -- -D warnings
@@ -73,6 +76,7 @@ jobs:
       # after this, but I don't know how
       - name: Generate Schema
         uses: actions-rs/cargo@v1
+        working-directory: ./fetch/cosmwasm_contract/
         with:
           command: schema
           args: --locked
