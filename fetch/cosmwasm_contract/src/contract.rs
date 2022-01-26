@@ -211,10 +211,10 @@ fn try_reverse_swap(
         // FIXME(LR) not fair for user IMO
         let swap_fee = state.swap_fee;
         let effective_amount = amount.checked_sub(swap_fee)?;
-        let to_canonical = deps.api.addr_canonicalize(&to.as_str())?;
+        let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
         let rtx = send_tokens_from_contract(
             deps.api,
-            &state,
+            state,
             &to_canonical,
             effective_amount,
             "reverse_swap",
@@ -301,9 +301,9 @@ fn _try_refund(
     if amount > fee {
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = amount.checked_sub(fee)?;
-        let to_canonical = deps.api.addr_canonicalize(&to.as_str())?;
+        let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
         let rtx =
-            send_tokens_from_contract(deps.api, &state, &to_canonical, effective_amount, "refund")?;
+            send_tokens_from_contract(deps.api, state, &to_canonical, effective_amount, "refund")?;
 
         config(deps.storage).update(|mut state| -> StdResult<_> {
             state.supply = new_supply;
@@ -514,8 +514,8 @@ fn try_withdraw(
         state.supply = new_supply;
         Ok(state)
     })?;
-    let recipient = deps.api.addr_canonicalize(&destination.as_str())?;
-    let wtx = send_tokens_from_contract(deps.api, &state, &recipient, amount, "withdraw")?;
+    let recipient = deps.api.addr_canonicalize(destination.as_str())?;
+    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw")?;
 
     let attrs = vec![
         attr("action", "withdraw"),
@@ -547,8 +547,8 @@ fn try_withdraw_fees(
         Ok(state)
     })?;
 
-    let recipient = deps.api.addr_canonicalize(&destination.as_str())?;
-    let wtx = send_tokens_from_contract(deps.api, &state, &recipient, amount, "withdraw_fees")?;
+    let recipient = deps.api.addr_canonicalize(destination.as_str())?;
+    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
 
     let attrs = vec![
         attr("action", "withdraw_fees"),
@@ -656,7 +656,7 @@ fn try_grant_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage)?;
+    only_admin(info, deps.storage)?;
 
     ac_add_role(
         deps.storage,
@@ -679,7 +679,7 @@ fn try_revoke_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage)?;
+    only_admin(info, deps.storage)?;
 
     ac_revoke_role(
         deps.storage,
@@ -700,11 +700,11 @@ fn try_renounce_role(deps: DepsMut, info: &MessageInfo, role: String) -> StdResu
     let env_message_sender = &info.sender;
 
     let ac_role = &AccessRole::from_str(role.as_str())?;
-    let have_role = ac_have_role(deps.storage, &env_message_sender, ac_role).unwrap_or(false);
+    let have_role = ac_have_role(deps.storage, env_message_sender, ac_role).unwrap_or(false);
     if !have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
-    ac_revoke_role(deps.storage, &env_message_sender, ac_role)?;
+    ac_revoke_role(deps.storage, env_message_sender, ac_role)?;
 
     let attrs = vec![
         attr("action", "renounce_role"),
@@ -833,7 +833,7 @@ fn _only_role(
 ) -> Result<Response, StdError> {
     let env_message_sender = &info.sender;
 
-    match ac_have_role(storage, &env_message_sender, role) {
+    match ac_have_role(storage, env_message_sender, role) {
         Ok(has_role) => match has_role {
             true => Ok(Response::default()),
             false => Err(StdError::generic_err(match role {
