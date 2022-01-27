@@ -10,7 +10,7 @@ use crate::access_control::{
     ac_have_role, AccessRole, ADMIN_ROLE, APPROVER_ROLE, MONITOR_ROLE, RELAYER_ROLE,
 };
 use crate::contract::{
-    amount_from_funds, execute, instanciate, query, verify_not_paused_public_api,
+    amount_from_funds, execute, instantiate, query, verify_not_paused_public_api,
     verify_not_paused_relayer_api,
 };
 use crate::error::{
@@ -76,7 +76,7 @@ mod init {
         amount: u128,
     ) -> StdResult<Response> {
         let info = mock_info(caller, &coins(amount, DEFAULT_DENUM));
-        return instanciate(deps.as_mut(), mock_env(), info, msg);
+        return instantiate(deps.as_mut(), mock_env(), info, msg);
     }
 
     pub fn init_default(
@@ -91,13 +91,14 @@ mod init {
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             denom: Some(DEFAULT_DENUM.to_string()),
+            next_swap_id: 0,
         };
         return mock_init(deps, msg, DEFAULT_OWNER, 0);
     }
 
     #[test]
     fn success_init() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let response = init_default(&mut deps).unwrap();
         // check return
@@ -135,7 +136,7 @@ mod init {
 
     #[test]
     fn failure_init_inconsistent_swap_limits_lower_larger_than_upper() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
             cap: cu128!(DEFAULT_CAP),
@@ -146,6 +147,7 @@ mod init {
             swap_fee: cu128!(DEFAULT_SWAP_FEE),
             paused_since_block: None,
             denom: None,
+            next_swap_id: 0,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
@@ -153,7 +155,7 @@ mod init {
 
     #[test]
     fn failure_init_inconsistent_swap_limits_fee_larger_than_lower() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
             cap: cu128!(DEFAULT_CAP),
@@ -164,6 +166,7 @@ mod init {
             swap_fee: cu128!(DEFAULT_SWAP_LOWER_LIMIT),
             paused_since_block: None,
             denom: None,
+            next_swap_id: 0,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         match response {
@@ -311,7 +314,7 @@ mod access_control {
     }
 
     fn test_grant_role(role: &str) {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         // call
@@ -324,7 +327,7 @@ mod access_control {
 
     #[test]
     fn success_owner_default_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         // state
@@ -361,7 +364,7 @@ mod access_control {
 
     #[test]
     fn success_revoke_roles() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let mut account: &str;
@@ -399,7 +402,7 @@ mod access_control {
 
     #[test]
     fn success_renounce_roles() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let mut account;
@@ -437,7 +440,7 @@ mod access_control {
 
     #[test]
     fn failure_grant_role_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = "not_admin";
@@ -448,7 +451,7 @@ mod access_control {
 
     #[test]
     fn failure_grant_role_already_have_role() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -461,7 +464,7 @@ mod access_control {
 
     #[test]
     fn failure_revoke_role_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let mut caller = DEFAULT_OWNER;
@@ -475,7 +478,7 @@ mod access_control {
 
     #[test]
     fn failure_revoke_role_doesnt_have_role() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -486,7 +489,7 @@ mod access_control {
 
     #[test]
     fn failure_renounce_role_doesnt_have_role() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let account = "not_admin";
@@ -640,7 +643,7 @@ mod pause {
 
     #[test]
     fn success_pause_apis_by_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -650,7 +653,7 @@ mod pause {
 
     #[test]
     fn success_pause_apis_by_monitor() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let monitor = "new_monitor";
@@ -662,7 +665,7 @@ mod pause {
 
     #[test]
     fn success_unpause_apis_by_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -722,7 +725,7 @@ mod pause {
 
     #[test]
     fn failure_pause_apis_neither_admin_nor_monitor() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = "user";
@@ -737,7 +740,7 @@ mod pause {
 
     #[test]
     fn failure_unpause_apis_by_monitor() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let monitor = "new_monitor";
@@ -781,7 +784,7 @@ mod deposit {
 
     #[test]
     fn success_deposit() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -810,7 +813,7 @@ mod deposit {
 
     #[test]
     fn failure_deposit_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -821,7 +824,7 @@ mod deposit {
 
     #[test]
     fn failure_deposit_wrong_token() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -850,7 +853,7 @@ mod new_relay_eon {
 
     #[test]
     fn success_new_relay_eon() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -878,7 +881,7 @@ mod new_relay_eon {
 
     #[test]
     fn failure_new_relay_eon_not_relayer() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let caller = "not_relayer";
@@ -891,7 +894,7 @@ mod new_relay_eon {
 
     #[test]
     fn failure_new_relay_eon_relayer_api_paused() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -923,7 +926,7 @@ mod swap {
 
     #[test]
     fn success_swap() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -961,7 +964,7 @@ mod swap {
 
     #[test]
     fn failure_swap_limits() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -989,7 +992,7 @@ mod swap {
 
     #[test]
     fn failure_swap_cap_exceeded() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -1015,7 +1018,7 @@ mod swap {
 
     #[test]
     fn failure_swap_paused_public_api() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
@@ -1082,7 +1085,7 @@ mod reverse_swap {
 
     #[test]
     fn success_reverse_swap() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1111,7 +1114,7 @@ mod reverse_swap {
         // check handle response
         assert_eq!(1, response.messages.len());
         assert_eq!(7, response.attributes.len());
-        match &response.messages[0] {
+        match &response.messages[0].msg {
             CosmosMsg::Bank(bank) => match bank {
                 BankMsg::Send {
                     to_address,
@@ -1163,7 +1166,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_not_relayer() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let account = "not_relayer";
@@ -1187,7 +1190,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_wrong_eon() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1213,7 +1216,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_paused_relayer_api() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1240,7 +1243,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_supply_exceeded() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1263,7 +1266,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_aggregated_reverse_allowance_exceeded() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1347,7 +1350,7 @@ mod refund {
     }
 
     fn _success_refund(fee: u128) {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1377,7 +1380,7 @@ mod refund {
         // check handle response
         assert_eq!(1, response.messages.len());
         assert_eq!(5, response.attributes.len());
-        match &response.messages[0] {
+        match &response.messages[0].msg {
             CosmosMsg::Bank(bank) => match bank {
                 BankMsg::Send {
                     to_address,
@@ -1436,7 +1439,7 @@ mod refund {
 
     #[test]
     fn failure_refund_not_relayer() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1462,7 +1465,7 @@ mod refund {
 
     #[test]
     fn failure_refund_wrong_eon() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1488,7 +1491,7 @@ mod refund {
 
     #[test]
     fn failure_refund_paused_relayer_api() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1515,7 +1518,7 @@ mod refund {
 
     #[test]
     fn failure_refund_wrong_swap_id() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1533,7 +1536,7 @@ mod refund {
 
     #[test]
     fn failure_refund_already_processed() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1559,7 +1562,7 @@ mod refund {
 
     #[test]
     fn failure_refund_aggregated_reverse_allowance_exceeded() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1626,7 +1629,7 @@ mod withdraw {
 
     #[test]
     fn success_withdraw() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -1639,7 +1642,7 @@ mod withdraw {
         // check handle response
         assert_eq!(1, response.messages.len());
         assert_eq!(3, response.attributes.len());
-        match &response.messages[0] {
+        match &response.messages[0].msg {
             CosmosMsg::Bank(bank) => match bank {
                 BankMsg::Send {
                     to_address,
@@ -1674,7 +1677,7 @@ mod withdraw {
 
     #[test]
     fn failure_withdraw_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -1690,7 +1693,7 @@ mod withdraw {
 
     #[test]
     fn failure_withdraw_not_enough_supply() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -1741,7 +1744,7 @@ mod withdraw_fees {
     }
     #[test]
     fn success_withdraw_fees() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
@@ -1753,7 +1756,7 @@ mod withdraw_fees {
         // check handle response
         assert_eq!(1, response.messages.len());
         assert_eq!(3, response.attributes.len());
-        match &response.messages[0] {
+        match &response.messages[0].msg {
             CosmosMsg::Bank(bank) => match bank {
                 BankMsg::Send {
                     to_address,
@@ -1789,7 +1792,7 @@ mod withdraw_fees {
 
     #[test]
     fn failure_withdraw_fees_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
@@ -1804,7 +1807,7 @@ mod withdraw_fees {
 
     #[test]
     fn failure_withdraw_fees_not_enough_supply() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
@@ -1838,7 +1841,7 @@ mod set_cap {
 
     #[test]
     fn success_set_cap() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_CAP + 1000u128;
@@ -1870,7 +1873,7 @@ mod set_cap {
 
     #[test]
     fn failure_set_cap_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_CAP + 1000u128;
@@ -1904,7 +1907,7 @@ mod set_limits {
 
     #[test]
     fn success_set_limits() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fee = 10u128;
@@ -1948,7 +1951,7 @@ mod set_limits {
 
     #[test]
     fn failure_set_limits_not_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fee = 10u128;
@@ -1965,7 +1968,7 @@ mod set_limits {
 
     #[test]
     fn failure_set_limits_unconsistent_limits() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let fee = 20u128;
@@ -2021,7 +2024,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_approver_cap() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1000u128;
@@ -2051,7 +2054,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_by_admin() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE + 1000u128;
@@ -2084,7 +2087,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_by_approver() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;
@@ -2117,7 +2120,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn failure_set_reverse_aggregated_allowance_by_approver_exceeds_cap() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1u128;
@@ -2133,7 +2136,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn failure_set_reverse_aggregated_allowance_not_admin_nor_approver() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;

@@ -45,14 +45,14 @@ pub fn instantiate(
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
-    let denom = msg.denom.unwrap_or(DEFAULT_DENOM.to_string());
+    let denom = msg.denom.unwrap_or_else(|| DEFAULT_DENOM.to_string());
 
     ac_add_role(deps.storage, &env_message_sender, &AccessRole::Admin)?;
 
     let supply = amount_from_funds(&info.funds, denom.clone());
 
     let state = State {
-        supply: supply.unwrap_or(Uint128::zero()),
+        supply: supply.unwrap_or_else(|_| Uint128::zero()),
         fees_accrued: Uint128::zero(),
         next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
@@ -173,21 +173,15 @@ fn try_swap(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "swap"),
         attr("destination", destination),
-        attr("swap_id", swap_id),
+        attr("swap_id", swap_id.to_string()),
         attr("amount", amount),
         // NOTE(LR) fees will be deducted in destination chain
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_reverse_swap(
@@ -202,6 +196,7 @@ fn try_reverse_swap(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
@@ -216,10 +211,10 @@ fn try_reverse_swap(
         // FIXME(LR) not fair for user IMO
         let swap_fee = state.swap_fee;
         let effective_amount = amount.checked_sub(swap_fee)?;
-        let to_canonical = deps.api.addr_canonicalize(&to.as_str())?;
+        let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
         let rtx = send_tokens_from_contract(
             deps.api,
-            &state,
+            state,
             &to_canonical,
             effective_amount,
             "reverse_swap",
@@ -233,9 +228,9 @@ fn try_reverse_swap(
             Ok(state)
         })?;
 
-        let attr = vec![
+        let attrs = vec![
             attr("action", "reverse_swap"),
-            attr("rid", rid),
+            attr("rid", rid.to_string()),
             attr("to", to),
             attr("sender", sender),
             attr("origin_tx_hash", origin_tx_hash),
@@ -243,14 +238,9 @@ fn try_reverse_swap(
             attr("swap_fee", swap_fee),
         ];
         // FIXME(LR) store revese swap id similarly to refunds?
-
-        let r = Response {
-            messages: rtx.messages,
-            submessages: vec![],
-            attributes: attr,
-            data: None,
-        };
-        Ok(r)
+        Ok(Response::new()
+            .add_attributes(attrs)
+            .add_submessages(rtx.messages))
     } else {
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
@@ -264,9 +254,9 @@ fn try_reverse_swap(
             Ok(state)
         })?;
 
-        let attr = vec![
+        let attrs = vec![
             attr("action", "reverse_swap"),
-            attr("rid", rid),
+            attr("rid", rid.to_string()),
             attr("to", to),
             attr("from", sender),
             attr("origin_tx_hash", origin_tx_hash),
@@ -274,13 +264,7 @@ fn try_reverse_swap(
             attr("swap_fee", swap_fee),
         ];
 
-        let r = Response {
-            messages: vec![],
-            submessages: vec![],
-            attributes: attr,
-            data: None,
-        };
-        Ok(r)
+        Ok(Response::new().add_attributes(attrs))
     }
 }
 
@@ -303,6 +287,7 @@ fn _try_refund(
     relay_eon: u64,
     fee: Uint128,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     only_relayer(info, deps.storage)?;
     verify_tx_relay_eon(relay_eon, state)?;
     verify_not_paused_relayer_api(env, state)?;
@@ -316,9 +301,9 @@ fn _try_refund(
     if amount > fee {
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = amount.checked_sub(fee)?;
-        let to_canonical = deps.api.addr_canonicalize(&to.as_str())?;
+        let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
         let rtx =
-            send_tokens_from_contract(deps.api, &state, &to_canonical, effective_amount, "refund")?;
+            send_tokens_from_contract(deps.api, state, &to_canonical, effective_amount, "refund")?;
 
         config(deps.storage).update(|mut state| -> StdResult<_> {
             state.supply = new_supply;
@@ -330,21 +315,17 @@ fn _try_refund(
 
         refunds_add(id, deps.storage);
 
-        let attr = vec![
+        let attrs = vec![
             attr("action", "refund"),
             attr("destination", to),
-            attr("swap_id", id),
+            attr("swap_id", id.to_string()),
             attr("amount", effective_amount),
             attr("refund_fee", fee),
         ];
 
-        let r = Response {
-            messages: rtx.messages,
-            submessages: vec![],
-            attributes: attr,
-            data: None,
-        };
-        Ok(r)
+        Ok(Response::new()
+            .add_attributes(attrs)
+            .add_submessages(rtx.messages))
     } else {
         let refund_fee = amount;
         let new_supply = state.supply.checked_sub(amount)?;
@@ -360,21 +341,15 @@ fn _try_refund(
 
         refunds_add(id, deps.storage);
 
-        let attr = vec![
+        let attrs = vec![
             attr("action", "refund"),
             attr("destination", to),
-            attr("swap_id", id),
+            attr("swap_id", id.to_string()),
             attr("amount", effective_amount),
             attr("refund_fee", refund_fee),
         ];
 
-        let r = Response {
-            messages: vec![],
-            submessages: vec![],
-            attributes: attr,
-            data: None,
-        };
-        Ok(r)
+        Ok(Response::new().add_attributes(attrs))
     }
 }
 
@@ -388,6 +363,7 @@ fn try_refund(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     _try_refund(
         deps,
         env,
@@ -411,6 +387,7 @@ fn try_refund_in_full(
     amount: Uint128,
     relay_eon: u64,
 ) -> StdResult<Response> {
+    #![allow(clippy::too_many_arguments)]
     _try_refund(
         deps,
         env,
@@ -442,18 +419,12 @@ fn try_pause_public_api(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "pause_public_api"),
-        attr("since_block", pause_since_block),
+        attr("since_block", pause_since_block.to_string()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_pause_relayer_api(
@@ -474,18 +445,12 @@ fn try_pause_relayer_api(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "pause_relayer_api"),
-        attr("since_block", pause_since_block),
+        attr("since_block", pause_since_block.to_string()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_new_relay_eon(
@@ -503,15 +468,12 @@ fn try_new_relay_eon(
         Ok(state)
     })?;
 
-    let attr = vec![attr("action", "new_relay_eon"), attr("eon", new_eon)];
+    let attrs = vec![
+        attr("action", "new_relay_eon"),
+        attr("eon", new_eon.to_string()),
+    ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None, // TODO(LR) what can I send in data?
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Response> {
@@ -525,19 +487,13 @@ fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Re
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "deposit"),
         attr("amount", amount),
         attr("sender", env_message_sender.as_str()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_withdraw(
@@ -558,22 +514,18 @@ fn try_withdraw(
         state.supply = new_supply;
         Ok(state)
     })?;
-    let recipient = deps.api.addr_canonicalize(&destination.as_str())?;
-    let wtx = send_tokens_from_contract(deps.api, &state, &recipient, amount, "withdraw")?;
+    let recipient = deps.api.addr_canonicalize(destination.as_str())?;
+    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw")?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "withdraw"),
         attr("amount", amount),
         attr("destination", destination.as_str()),
     ];
 
-    let r = Response {
-        messages: wtx.messages,
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new()
+        .add_attributes(attrs)
+        .add_submessages(wtx.messages))
 }
 
 fn try_withdraw_fees(
@@ -595,22 +547,18 @@ fn try_withdraw_fees(
         Ok(state)
     })?;
 
-    let recipient = deps.api.addr_canonicalize(&destination.as_str())?;
-    let wtx = send_tokens_from_contract(deps.api, &state, &recipient, amount, "withdraw_fees")?;
+    let recipient = deps.api.addr_canonicalize(destination.as_str())?;
+    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "withdraw_fees"),
         attr("amount", amount),
         attr("destination", destination.as_str()),
     ];
 
-    let r = Response {
-        messages: wtx.messages,
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new()
+        .add_attributes(attrs)
+        .add_submessages(wtx.messages))
 }
 
 fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<Response> {
@@ -621,15 +569,9 @@ fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<
         Ok(state)
     })?;
 
-    let attr = vec![attr("action", "set_cap"), attr("cap", amount)];
+    let attrs = vec![attr("action", "set_cap"), attr("cap", amount)];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_set_reverse_aggregated_allowance(
@@ -651,18 +593,12 @@ fn try_set_reverse_aggregated_allowance(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "set_reverse_aggregated_allowance"),
         attr("amount", amount),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_set_reverse_aggregated_allowance_approver_cap(
@@ -677,18 +613,12 @@ fn try_set_reverse_aggregated_allowance_approver_cap(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "set_reverse_aggregated_allowance_approver_cap"),
         attr("amount", amount),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_set_limits(
@@ -710,20 +640,14 @@ fn try_set_limits(
         Ok(state)
     })?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "set_limits"),
         attr("swap_fee", swap_fee),
         attr("swap_min", swap_min),
         attr("swap_max", swap_max),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_grant_role(
@@ -732,7 +656,7 @@ fn try_grant_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage)?;
+    only_admin(info, deps.storage)?;
 
     ac_add_role(
         deps.storage,
@@ -740,19 +664,13 @@ fn try_grant_role(
         &AccessRole::from_str(role.as_str())?,
     )?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "grant_role"),
         attr("role", role.as_str()),
         attr("account", address.as_str()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_revoke_role(
@@ -761,7 +679,7 @@ fn try_revoke_role(
     role: String,
     address: Addr,
 ) -> StdResult<Response> {
-    only_admin(&info, deps.storage)?;
+    only_admin(info, deps.storage)?;
 
     ac_revoke_role(
         deps.storage,
@@ -769,51 +687,39 @@ fn try_revoke_role(
         &AccessRole::from_str(role.as_str())?,
     )?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "revoke_role"),
         attr("role", role.as_str()),
         attr("account", address.as_str()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 fn try_renounce_role(deps: DepsMut, info: &MessageInfo, role: String) -> StdResult<Response> {
     let env_message_sender = &info.sender;
 
     let ac_role = &AccessRole::from_str(role.as_str())?;
-    let have_role = ac_have_role(deps.storage, &env_message_sender, ac_role).unwrap_or(false);
+    let have_role = ac_have_role(deps.storage, env_message_sender, ac_role).unwrap_or(false);
     if !have_role {
         return Err(StdError::generic_err(ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE));
     }
-    ac_revoke_role(deps.storage, &env_message_sender, ac_role)?;
+    ac_revoke_role(deps.storage, env_message_sender, ac_role)?;
 
-    let attr = vec![
+    let attrs = vec![
         attr("action", "renounce_role"),
         attr("role", role.as_str()),
-        attr("account", &env_message_sender.as_str()),
+        attr("account", env_message_sender.as_str()),
     ];
 
-    let r = Response {
-        messages: vec![],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    Ok(Response::new().add_attributes(attrs))
 }
 
 /* ***************************************************
  * *****************    Helpers      *****************
  * ***************************************************/
 
-pub fn amount_from_funds(funds: &Vec<Coin>, denom: String) -> StdResult<Uint128> {
+pub fn amount_from_funds(funds: &[Coin], denom: String) -> StdResult<Uint128> {
     for coin in funds {
         if coin.denom == denom {
             return Ok(coin.amount);
@@ -830,22 +736,15 @@ fn send_tokens_from_contract(
     action: &str,
 ) -> Result<Response, StdError> {
     let to_human = api.addr_humanize(to_address)?;
-    let attr = vec![attr("action", action), attr("to", to_human.as_str())];
-    let coin = Coin {
-        amount,
-        denom: state.denom.clone(),
-    };
-
-    let r = Response {
-        messages: vec![CosmosMsg::Bank(BankMsg::Send {
-            to_address: to_human.to_string(),
-            amount: vec![coin],
-        })],
-        submessages: vec![],
-        attributes: attr,
-        data: None,
-    };
-    Ok(r)
+    let attrs = vec![attr("action", action), attr("to", to_human.as_str())];
+    let msg = CosmosMsg::Bank(BankMsg::Send {
+        to_address: to_human.to_string(),
+        amount: vec![Coin {
+            amount,
+            denom: state.denom.clone(),
+        }],
+    });
+    Ok(Response::new().add_attributes(attrs).add_message(msg))
 }
 
 /* ***************************************************
@@ -877,9 +776,7 @@ fn _verify_not_paused(env: &Env, paused_since_block: u64) -> Result<Response, St
 }
 
 fn verify_swap_amount_limits(amount: Uint128, state: &State) -> Result<Response, StdError> {
-    if amount < state.lower_swap_limit {
-        Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
-    } else if amount > state.upper_swap_limit {
+    if amount < state.lower_swap_limit || amount > state.upper_swap_limit {
         Err(StdError::generic_err(ERR_SWAP_LIMITS_VIOLATED))
     } else {
         Ok(Response::default())
@@ -936,7 +833,7 @@ fn _only_role(
 ) -> Result<Response, StdError> {
     let env_message_sender = &info.sender;
 
-    match ac_have_role(storage, &env_message_sender, role) {
+    match ac_have_role(storage, env_message_sender, role) {
         Ok(has_role) => match has_role {
             true => Ok(Response::default()),
             false => Err(StdError::generic_err(match role {
@@ -960,7 +857,7 @@ fn can_pause(
         only_admin(info, storage)
     } else {
         // pausing
-        only_monitor(info, storage).or(only_admin(info, storage))
+        only_monitor(info, storage).or_else(|_| only_admin(info, storage))
     }
 }
 
@@ -991,10 +888,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::PausedRelayerApiSince {} => to_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_relayer_api,
         }),
-        QueryMsg::Denom {} => to_binary(&DenomResponse {
-            denom: state.denom.clone(),
-        }),
-        QueryMsg::FullState {} => to_binary(&state.clone()),
+        QueryMsg::Denom {} => to_binary(&DenomResponse { denom: state.denom }),
+        QueryMsg::FullState {} => to_binary(&state),
     }
 }
 

@@ -1,11 +1,14 @@
 # Based on https://github.com/actions-rs/example/blob/master/.github/workflows/quickstart.yml
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 name: Basic
 
 jobs:
-
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -17,7 +20,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.43.1
+          toolchain: 1.56.0
           target: wasm32-unknown-unknown
           override: true
 
@@ -25,24 +28,19 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: unit-test
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
         env:
           RUST_BACKTRACE: 1
 
+      # this requires the .cargo symlink at project root on fetch/cosmwasm_contract/.cargo
+      # to work.
       - name: Compile WASM contract
         uses: actions-rs/cargo@v1
         with:
           command: wasm
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
         env:
           RUSTFLAGS: "-C link-arg=-s"
-
-      - name: Run integration tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: integration-test
-          args: --locked
-
 
   lints:
     name: Lints
@@ -55,7 +53,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.43.1
+          toolchain: 1.56.0
           override: true
           components: rustfmt, clippy
 
@@ -63,13 +61,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: --all --manifest-path fetch/cosmwasm_contract/Cargo.toml -- --check
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --manifest-path fetch/cosmwasm_contract/Cargo.toml -- -D warnings
 
       # TODO: we should check
       # CHANGES_IN_REPO=$(git status --porcelain)
@@ -78,4 +76,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: schema
-          args: --locked
+          args: --locked --manifest-path fetch/cosmwasm_contract/Cargo.toml
+
+      - name: Check for schema differences
+        run: git diff --exit-code

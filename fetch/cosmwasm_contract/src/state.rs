@@ -48,8 +48,5 @@ pub fn refunds_add(swap_id: u64, storage: &mut dyn Storage) {
 
 pub fn refunds_have(swap_id: u64, storage: &dyn Storage) -> bool {
     let store = ReadonlyPrefixedStorage::new(storage, REFUNDS_KEY);
-    match store.get(&swap_id.to_be_bytes()) {
-        Some(_) => true,
-        None => false,
-    }
+    store.get(&swap_id.to_be_bytes()).is_some()
 }
