@@ -18,6 +18,7 @@ use crate::msg::{
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
 pub const DEFAULT_DENOM: &str = "aasi";
+pub const DEFAULT_RELAY_EON: u64 = 0;
 
 /* ***************************************************
  * **************    Initialization      *************
@@ -30,7 +31,15 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    initialise_contract_state(deps.storage, &env, &info, &msg)?;
+    let supply = amount_from_funds(&info.funds, msg.get_denom()).unwrap_or(Uint128::zero());
+    initialise_contract_state(
+        deps.storage,
+        &env,
+        &info.sender,
+        supply,
+        DEFAULT_RELAY_EON,
+        &msg,
+    )?;
 
     Ok(Response::default())
 }
@@ -38,10 +47,11 @@ pub fn instantiate(
 pub fn initialise_contract_state(
     storage: &mut dyn Storage,
     env: &Env,
-    info: &MessageInfo,
+    admin: &Addr,
+    supply: Uint128,
+    relay_eon: u64,
     msg: &InstantiateMsg,
 ) -> StdResult<()> {
-    let env_message_sender = &info.sender;
     let current_block_number = env.block.height;
 
     let mut paused_since_block_public_api = msg.paused_since_block.unwrap_or(u64::MAX);
@@ -56,16 +66,14 @@ pub fn initialise_contract_state(
 
     let denom = msg.denom.as_deref().unwrap_or(DEFAULT_DENOM);
 
-    ac_add_role(storage, env_message_sender, &AccessRole::Admin)?;
-
-    let supply = amount_from_funds(&info.funds, denom);
+    ac_add_role(storage, admin, &AccessRole::Admin)?;
 
     let state = State {
-        supply: supply.unwrap_or_else(|_| Uint128::zero()),
+        supply,
         fees_accrued: Uint128::zero(),
         next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
-        relay_eon: 0,
+        relay_eon,
         upper_swap_limit: msg.upper_swap_limit,
         lower_swap_limit: msg.lower_swap_limit,
         reverse_aggregated_allowance: msg.reverse_aggregated_allowance,

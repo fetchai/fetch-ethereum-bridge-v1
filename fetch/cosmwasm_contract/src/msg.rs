@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::contract::DEFAULT_DENOM;
 use cosmwasm_std::Addr;
 
 //use crate::cosmwasm_bignumber::{Uint256};
@@ -18,6 +19,12 @@ pub struct InstantiateMsg {
     pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub paused_since_block: Option<u64>,
     pub denom: Option<String>,
+}
+
+impl InstantiateMsg {
+    pub fn get_denom(&self) -> &str {
+        self.denom.as_deref().unwrap_or(DEFAULT_DENOM)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -156,7 +163,15 @@ pub struct DenomResponse {
     pub denom: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ReInitMsg {
+    pub init_msg: InstantiateMsg,
+    pub admin: Addr,
+    pub supply: Uint128,
+    pub relay_eon: u64,
+}
+
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct MigrateMsg {
-    pub instantiate_msg: Option<InstantiateMsg>,
+    pub re_init: Option<ReInitMsg>,
 }

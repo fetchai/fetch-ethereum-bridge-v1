@@ -96,7 +96,7 @@ pub fn ac_revoke_role(
     Ok(true)
 }
 
-pub fn unsafe_remove_all_roles(storage: &mut dyn Storage) {
+pub fn wipe_all_roles_from_storage(storage: &mut dyn Storage) {
     let mut roles_storage = PrefixedStorage::new(storage, ACCESS_CONTROL_KEY);
     let res: Vec<_> = roles_storage.range(None, None, Order::Ascending).collect();
 
@@ -112,7 +112,7 @@ mod tests {
     use cosmwasm_std::testing::mock_dependencies;
 
     #[test]
-    fn test_unsafe_remove_all_roles() {
+    fn test_wipe_all_roles_from_storage() {
         let mut deps = mock_dependencies();
 
         let addresses = vec!["a", "b", "c", "d"];
@@ -148,7 +148,7 @@ mod tests {
         }
 
         // Remove all roles
-        unsafe_remove_all_roles(deps.as_mut().storage);
+        wipe_all_roles_from_storage(deps.as_mut().storage);
 
         // Every role and address combination was removed
         for address in &addresses {
