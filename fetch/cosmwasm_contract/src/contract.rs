@@ -19,6 +19,7 @@ use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
 pub const DEFAULT_DENOM: &str = "aasi";
 pub const DEFAULT_RELAY_EON: u64 = 0;
+pub const DEFAULT_FEES_ACCRUED: Uint128 = Uint128::zero();
 
 /* ***************************************************
  * **************    Initialization      *************
@@ -38,6 +39,7 @@ pub fn instantiate(
         &info.sender,
         supply,
         DEFAULT_RELAY_EON,
+        DEFAULT_FEES_ACCRUED,
         &msg,
     )?;
 
@@ -50,6 +52,7 @@ pub fn initialise_contract_state(
     admin: &Addr,
     supply: Uint128,
     relay_eon: u64,
+    fees_accrued: Uint128,
     msg: &InstantiateMsg,
 ) -> StdResult<()> {
     let current_block_number = env.block.height;
@@ -70,7 +73,7 @@ pub fn initialise_contract_state(
 
     let state = State {
         supply,
-        fees_accrued: Uint128::zero(),
+        fees_accrued,
         next_swap_id: msg.next_swap_id,
         sealed_reverse_swap_id: 0,
         relay_eon,

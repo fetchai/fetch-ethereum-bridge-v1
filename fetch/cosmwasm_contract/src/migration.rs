@@ -18,6 +18,7 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
             &re_init.admin,
             re_init.supply,
             re_init.relay_eon,
+            re_init.fees_accrued,
             &re_init.init_msg,
         )?;
     } else if !is_state_valid(deps.storage) {
