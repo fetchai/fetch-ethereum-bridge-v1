@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::msg::Uint128;
-use cosmwasm_std::{Addr, Storage};
+use cosmwasm_std::Storage;
 use cosmwasm_storage::{
     singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage, ReadonlySingleton,
     Singleton,
@@ -28,9 +28,6 @@ pub struct State {
     pub paused_since_block_public_api: u64,
     pub paused_since_block_relayer_api: u64,
     pub denom: String,
-
-    // optimization FIXME(LR) Not needed any more with version 0.10.0
-    pub contract_addr_human: Addr,
 }
 
 pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
@@ -49,4 +46,8 @@ pub fn refunds_add(swap_id: u64, storage: &mut dyn Storage) {
 pub fn refunds_have(swap_id: u64, storage: &dyn Storage) -> bool {
     let store = ReadonlyPrefixedStorage::new(storage, REFUNDS_KEY);
     store.get(&swap_id.to_be_bytes()).is_some()
+}
+
+pub fn is_state_valid(storage: &dyn Storage) -> bool {
+    config_read(storage).load().is_ok()
 }

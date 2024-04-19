@@ -102,7 +102,7 @@ pub fn unsafe_remove_all_roles(storage: &mut dyn Storage) {
 
     // Because address is stored as first key it is impossible to clear only specific roles without manually filtering it
     for val in res {
-        roles_storage.remove(&val.0)
+        roles_storage.remove(&val.0);
     }
 }
 

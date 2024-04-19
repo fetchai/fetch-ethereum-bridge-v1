@@ -30,6 +30,8 @@ pub const ERR_EON: &str = "[FET_ERR_EON] Tx doesn't belong to current relayEon";
 // refund
 pub const ERR_INVALID_SWAP_ID: &str = "[FET_ERR_INVALID_SWAP_ID] Invalid swap id";
 pub const ERR_ALREADY_REFUNDED: &str = "[FET_ERR_ALREADY_REFUNDED] Refund was already processed";
+pub const ERR_STATE_ERROR: &str = "[FET_ERR_STATE_ERR] Contract state not properly initialised";
+
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("{0}")]

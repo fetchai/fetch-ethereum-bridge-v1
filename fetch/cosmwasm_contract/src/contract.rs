@@ -30,7 +30,18 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let env_message_sender = info.sender;
+    initialise_contract_state(deps.storage, &env, &info, &msg)?;
+
+    Ok(Response::default())
+}
+
+pub fn initialise_contract_state(
+    storage: &mut dyn Storage,
+    env: &Env,
+    info: &MessageInfo,
+    msg: &InstantiateMsg,
+) -> StdResult<()> {
+    let env_message_sender = &info.sender;
     let current_block_number = env.block.height;
 
     let mut paused_since_block_public_api = msg.paused_since_block.unwrap_or(u64::MAX);
@@ -39,17 +50,15 @@ pub fn instantiate(
     }
     let paused_since_block_relayer_api = paused_since_block_public_api;
 
-    let contract_addr_human = env.contract.address;
-
     if msg.lower_swap_limit > msg.upper_swap_limit || msg.lower_swap_limit <= msg.swap_fee {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
 
-    let denom = msg.denom.unwrap_or_else(|| DEFAULT_DENOM.to_string());
+    let denom = msg.denom.as_deref().unwrap_or(DEFAULT_DENOM);
 
-    ac_add_role(deps.storage, &env_message_sender, &AccessRole::Admin)?;
+    ac_add_role(storage, env_message_sender, &AccessRole::Admin)?;
 
-    let supply = amount_from_funds(&info.funds, denom.clone());
+    let supply = amount_from_funds(&info.funds, denom);
 
     let state = State {
         supply: supply.unwrap_or_else(|_| Uint128::zero()),
@@ -65,13 +74,12 @@ pub fn instantiate(
         swap_fee: msg.swap_fee,
         paused_since_block_public_api,
         paused_since_block_relayer_api,
-        denom,
-        contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
+        denom: denom.to_string(),
     };
 
-    config(deps.storage).save(&state)?;
+    config(storage).save(&state)?;
 
-    Ok(Response::default())
+    Ok(())
 }
 
 /* ***************************************************
@@ -83,7 +91,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
 
     match msg {
         ExecuteMsg::Swap { destination } => {
-            let amount = amount_from_funds(&info.funds, state.denom.clone())?;
+            let amount = amount_from_funds(&info.funds, &state.denom)?;
             try_swap(deps, &env, &state, amount, destination)
         }
         ExecuteMsg::ReverseSwap {
@@ -481,7 +489,7 @@ fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Re
 
     let env_message_sender = &info.sender;
 
-    let amount = amount_from_funds(&info.funds, state.denom.clone())?;
+    let amount = amount_from_funds(&info.funds, &state.denom)?;
     config(deps.storage).update(|mut state| -> StdResult<_> {
         state.supply += amount;
         Ok(state)
@@ -719,7 +727,7 @@ fn try_renounce_role(deps: DepsMut, info: &MessageInfo, role: String) -> StdResu
  * *****************    Helpers      *****************
  * ***************************************************/
 
-pub fn amount_from_funds(funds: &[Coin], denom: String) -> StdResult<Uint128> {
+pub fn amount_from_funds(funds: &[Coin], denom: &str) -> StdResult<Uint128> {
     for coin in funds {
         if coin.denom == denom {
             return Ok(coin.amount);

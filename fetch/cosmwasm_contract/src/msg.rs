@@ -155,3 +155,8 @@ pub struct PausedSinceBlockResponse {
 pub struct DenomResponse {
     pub denom: String,
 }
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct MigrateMsg {
+    pub instantiate_msg: Option<InstantiateMsg>,
+}
