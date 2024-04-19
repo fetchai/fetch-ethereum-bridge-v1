@@ -17,7 +17,7 @@ use crate::msg::{
 };
 use crate::state::{config, config_read, refunds_add, refunds_have, State};
 
-pub const DEFAULT_DENOM: &str = "afet";
+pub const DEFAULT_DENOM: &str = "aasi";
 
 /* ***************************************************
  * **************    Initialization      *************

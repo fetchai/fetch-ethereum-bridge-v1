@@ -24,7 +24,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, Uint128};
 use crate::state::{config_read, State};
 
 pub const DEFAULT_OWNER: &str = "Owner";
-pub const DEFAULT_DENOM: &str = "atestfet";
+pub const DEFAULT_DENOM: &str = "atestasi";
 pub const DEFAULT_CAP: u128 = 100000u128;
 pub const DEFAULT_RA_ALLOWANCE: u128 = 10000u128;
 pub const DEFAULT_RA_ALLOWANCE_APPROVER_CAP: u128 = 5000u128;
@@ -928,10 +928,10 @@ mod swap {
         let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
-        let fet_account = "user_account";
+        let native_account = "user_account";
         let eth_account = "some_eth_account";
         let amount = 110u128;
-        let response = swap(deps.as_mut(), fet_account, eth_account, amount).unwrap();
+        let response = swap(deps.as_mut(), native_account, eth_account, amount).unwrap();
 
         // check handle response
         assert_eq!(0, response.messages.len());
@@ -966,7 +966,7 @@ mod swap {
         let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
-        let fet_account = "user_account";
+        let native_account = "user_account";
         let eth_account = "some_eth_account";
         let mut amount: u128;
         let msg = ExecuteMsg::Swap {
@@ -974,12 +974,12 @@ mod swap {
         };
 
         amount = DEFAULT_SWAP_LOWER_LIMIT - 10u128;
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENOM));
+        let info = mock_info(native_account, &coins(amount, DEFAULT_DENOM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
         amount = DEFAULT_SWAP_UPPER_LIMIT + 10u128;
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENOM));
+        let info = mock_info(native_account, &coins(amount, DEFAULT_DENOM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
@@ -994,7 +994,7 @@ mod swap {
         let mut deps = mock_dependencies();
         init_default(&mut deps).unwrap();
 
-        let fet_account = "user_account";
+        let native_account = "user_account";
         let eth_account = "some_eth_account";
         let amount = DEFAULT_SWAP_UPPER_LIMIT;
         let msg = ExecuteMsg::Swap {
@@ -1002,11 +1002,11 @@ mod swap {
         };
 
         for _ in 0..(DEFAULT_CAP / DEFAULT_SWAP_UPPER_LIMIT) {
-            let info = mock_info(fet_account, &coins(amount, DEFAULT_DENOM));
+            let info = mock_info(native_account, &coins(amount, DEFAULT_DENOM));
             execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         }
 
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENOM));
+        let info = mock_info(native_account, &coins(amount, DEFAULT_DENOM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_CAP_EXCEEDED);
 
@@ -1023,14 +1023,14 @@ mod swap {
         let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENOM));
         pause_public_api(&mut deps, info).unwrap();
 
-        let fet_account = "user_account";
+        let native_account = "user_account";
         let eth_account = "some_eth_account";
         let amount = DEFAULT_SWAP_UPPER_LIMIT;
         let msg = ExecuteMsg::Swap {
             destination: eth_account.to_string(),
         };
 
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENOM));
+        let info = mock_info(native_account, &coins(amount, DEFAULT_DENOM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_CONTRACT_PAUSED);
 
@@ -1092,7 +1092,7 @@ mod reverse_swap {
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
-        let fet_account = "user_account";
+        let native_account = "user_account";
         let eth_account = "some_eth_account";
         let amount = 110u128;
         let rid = 0u64;
@@ -1102,7 +1102,7 @@ mod reverse_swap {
             deps.as_mut(),
             relayer,
             rid,
-            fet_account,
+            native_account,
             eth_account,
             origin_tx_hash,
             amount,
@@ -1119,7 +1119,7 @@ mod reverse_swap {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(fet_account), to_address);
+                    assert_eq!(&addr!(native_account), to_address);
                     assert_eq!(
                         cu128!(amount - DEFAULT_SWAP_FEE),
                         amount_from_funds(funds, DEFAULT_DENOM).unwrap()
@@ -1136,7 +1136,9 @@ mod reverse_swap {
         assert!(
             response.attributes[1].key == "rid" && response.attributes[1].value == rid.to_string()
         );
-        assert!(response.attributes[2].key == "to" && response.attributes[2].value == fet_account);
+        assert!(
+            response.attributes[2].key == "to" && response.attributes[2].value == native_account
+        );
         assert!(
             response.attributes[3].key == "sender" && response.attributes[3].value == eth_account
         );
@@ -1354,12 +1356,12 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1370,10 +1372,10 @@ mod refund {
         let eon = 0u64;
         let response: Response;
         if fee > 0 {
-            response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon).unwrap();
+            response = refund(deps.as_mut(), relayer, id, native_account, amount, eon).unwrap();
         } else {
             response =
-                refund_in_full(deps.as_mut(), relayer, id, fet_account, amount, eon).unwrap();
+                refund_in_full(deps.as_mut(), relayer, id, native_account, amount, eon).unwrap();
         }
 
         // check handle response
@@ -1385,7 +1387,7 @@ mod refund {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(fet_account), to_address);
+                    assert_eq!(&addr!(native_account), to_address);
                     assert_eq!(
                         cu128!(amount - fee),
                         amount_from_funds(funds, DEFAULT_DENOM).unwrap()
@@ -1398,7 +1400,7 @@ mod refund {
         assert!(response.attributes[0].key == "action" && response.attributes[0].value == "refund");
         assert!(
             response.attributes[1].key == "destination"
-                && response.attributes[1].value == fet_account
+                && response.attributes[1].value == native_account
         );
         assert!(
             response.attributes[2].key == "swap_id"
@@ -1443,12 +1445,12 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1458,7 +1460,7 @@ mod refund {
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        let response = refund(deps.as_mut(), not_relayer, id, fet_account, amount, eon);
+        let response = refund(deps.as_mut(), not_relayer, id, native_account, amount, eon);
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_RELAYER);
     }
 
@@ -1469,12 +1471,12 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1484,7 +1486,7 @@ mod refund {
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon);
+        let response = refund(deps.as_mut(), relayer, id, native_account, amount, eon);
         expect_error!(response, ERR_EON);
     }
 
@@ -1495,12 +1497,12 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1511,7 +1513,7 @@ mod refund {
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon);
+        let response = refund(deps.as_mut(), relayer, id, native_account, amount, eon);
         expect_error!(response, ERR_CONTRACT_PAUSED);
     }
 
@@ -1522,14 +1524,14 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon);
+        let response = refund(deps.as_mut(), relayer, id, native_account, amount, eon);
         expect_error!(response, ERR_INVALID_SWAP_ID);
     }
 
@@ -1540,12 +1542,12 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1554,8 +1556,8 @@ mod refund {
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
         let id = 0u64;
         let eon = 0u64;
-        refund(deps.as_mut(), relayer, id, fet_account, amount, eon).unwrap();
-        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon);
+        refund(deps.as_mut(), relayer, id, native_account, amount, eon).unwrap();
+        let response = refund(deps.as_mut(), relayer, id, native_account, amount, eon);
         expect_error!(response, ERR_ALREADY_REFUNDED);
     }
 
@@ -1566,7 +1568,7 @@ mod refund {
 
         let relayer = "new_relayer";
         let deposited = 10000u128;
-        let fet_account = "user_account";
+        let native_account = "user_account";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
@@ -1575,7 +1577,7 @@ mod refund {
         for _ in 0..(DEFAULT_RA_ALLOWANCE / DEFAULT_SWAP_UPPER_LIMIT) {
             swap(
                 deps.as_mut(),
-                fet_account,
+                native_account,
                 "some_eth_account",
                 DEFAULT_SWAP_LOWER_LIMIT,
             )
@@ -1584,7 +1586,7 @@ mod refund {
                 deps.as_mut(),
                 relayer,
                 id,
-                fet_account,
+                native_account,
                 DEFAULT_SWAP_UPPER_LIMIT,
                 eon,
             )
@@ -1594,7 +1596,7 @@ mod refund {
 
         swap(
             deps.as_mut(),
-            fet_account,
+            native_account,
             "some_eth_account",
             DEFAULT_SWAP_LOWER_LIMIT,
         )
@@ -1603,7 +1605,7 @@ mod refund {
             deps.as_mut(),
             relayer,
             id,
-            fet_account,
+            native_account,
             DEFAULT_SWAP_UPPER_LIMIT,
             eon,
         );
