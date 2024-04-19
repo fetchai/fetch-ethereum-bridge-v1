@@ -32,7 +32,8 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let supply = amount_from_funds(&info.funds, msg.get_denom()).unwrap_or(Uint128::zero());
+    let supply =
+        amount_from_funds(&info.funds, msg.get_denom()).unwrap_or_else(|_| Uint128::zero());
     initialise_contract_state(
         deps.storage,
         &env,
