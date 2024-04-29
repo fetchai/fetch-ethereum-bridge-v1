@@ -167,9 +167,6 @@ pub struct DenomResponse {
 pub struct ReInitMsg {
     pub init_msg: InstantiateMsg,
     pub admin: Addr,
-    pub supply: Uint128,
-    pub relay_eon: u64,
-    pub fees_accrued: Uint128,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
