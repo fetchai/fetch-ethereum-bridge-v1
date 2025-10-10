@@ -132,7 +132,7 @@ def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner
         necessary_amount = 0
 
         if wallet and wallet.funding:
-            wallet_orig_eth_balance = web3.eth.getBalance(wallet.address)
+            wallet_orig_eth_balance = web3.eth.get_balance(wallet.address)
             if wallet_orig_eth_balance < wallet.funding:
                 necessary_amount = wallet.funding - wallet_orig_eth_balance
                 owner.transfer(wallet.address, necessary_amount)
