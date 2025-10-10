@@ -6,8 +6,8 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-eth-brownie = "==1.13.1"
-dataclasses_json = "==v0.5.2"
+eth-brownie = "==1.21.0"
+dataclasses_json = "==v0.6.7"
 
 [requires]
-python_version = "3.8"
+python_version = "3.12"
