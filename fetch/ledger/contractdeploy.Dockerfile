@@ -16,8 +16,9 @@ RUN apt update && \
 RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf >rustup.rs && bash rustup.rs -y
 
 ENV PATH="$PATH:/root/.cargo/bin"
-RUN echo $PATH && ls $HOME && rustup default stable && cargo version && \
-    rustup update stable
+RUN rustup toolchain install 1.69.0 --component rustfmt clippy
+
+RUN echo $PATH && ls $HOME && rustup default 1.69.0 && cargo version
 
 
 ##########################
