@@ -100,9 +100,9 @@ class UsersSetup:
     notApprovers: List[Account] = None
 
     def __post_init__(self):
-        self.relayerRole = brownie.web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-        self.approverRole = brownie.web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
-        self.monitorRole  = brownie.web3.solidityKeccak(['string'], ["MONITOR_ROLE"])
+        self.relayerRole = brownie.web3.solidity_keccak(['string'], ["RELAYER_ROLE"])
+        self.approverRole = brownie.web3.solidity_keccak(['string'], ["APPROVER_ROLE"])
+        self.monitorRole  = brownie.web3.solidity_keccak(['string'], ["MONITOR_ROLE"])
 
     @classmethod
     def default(cls, accounts: Accounts):
@@ -173,8 +173,8 @@ class ValuesSetup:
         return ValuesSetup(
             amount=bridge.swapMin,
             dest_swap_address=dest_swap_address,
-            dest_swap_address_hash=brownie.web3.solidityKeccak(["string"], [dest_swap_address]),
-            src_tx_hash=brownie.web3.solidityKeccak(["string"], ["some tx has"])
+            dest_swap_address_hash=brownie.web3.solidity_keccak(["string"], [dest_swap_address]),
+            src_tx_hash=brownie.web3.solidity_keccak(["string"], ["some tx has"])
             )
 
 
@@ -279,7 +279,7 @@ class BridgeTest:
         event = tx.events[str(EventType.Swap)]
         assert event['id'] == origSwapId
         assert event['from'] == user
-        assert brownie.convert.to_bytes(event['indexedTo'], 'bytes32') == brownie.web3.solidityKeccak(['string'], [dest_addr])
+        assert brownie.convert.to_bytes(event['indexedTo'], 'bytes32') == brownie.web3.solidity_keccak(['string'], [dest_addr])
         assert event['to'] == dest_addr
         assert event['amount'] == amount
 
@@ -363,7 +363,7 @@ class BridgeTest:
         event = tx.events[str(EventType.ReverseSwap)]
         assert event['rid'] == rid
         assert event['to'] == to_user
-        assert brownie.convert.to_bytes(event['from'], 'bytes32') == brownie.web3.solidityKeccak(['string'], [origin_from])
+        assert brownie.convert.to_bytes(event['from'], 'bytes32') == brownie.web3.solidity_keccak(['string'], [origin_from])
         assert brownie.convert.to_bytes(event['originTxHash'], 'bytes32') == origin_tx_hash
         assert event['effectiveAmount'] == effective_amount
         assert event['fee'] == effective_fee

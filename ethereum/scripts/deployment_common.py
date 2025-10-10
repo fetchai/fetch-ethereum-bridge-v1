@@ -28,9 +28,9 @@ from .deployment_manifest_schema import (
 Address = str
 
 AdminRole: bytes = (0).to_bytes(32, byteorder='big')
-RelayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-MonitorRole: bytes = web3.solidityKeccak(['string'], ["MONITOR_ROLE"])
-ApproverRole: bytes = web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
+RelayerRole: bytes = web3.solidity_keccak(['string'], ["RELAYER_ROLE"])
+MonitorRole: bytes = web3.solidity_keccak(['string'], ["MONITOR_ROLE"])
+ApproverRole: bytes = web3.solidity_keccak(['string'], ["APPROVER_ROLE"])
 
 
 def get_owner_account(
