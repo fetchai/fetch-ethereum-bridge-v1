@@ -109,7 +109,7 @@ def save_network_manifest(
 def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: BridgeParams):
     def grantRole(role: bytes, wallet: ManifestAccount) -> Address:
         address = wallet.address if wallet else None
-        address = address if web3.isAddress(address) else None
+        address = address if web3.is_address(address) else None
 
         if address:
             contract.grantRole(role, address, {'from': owner})
