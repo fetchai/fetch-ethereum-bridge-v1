@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 eth-brownie = "==1.21.0"
 dataclasses_json = "==v0.6.7"
+setuptools = "<81"
 
 [requires]
 python_version = "3.12"
