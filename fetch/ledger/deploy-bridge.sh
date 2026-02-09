@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-fetchd config keyring-backend test
+fetchd config set client keyring-backend test
 if [ -z "$(fetchd keys show validator 2>/dev/null)" ]; then
     echo $FETCHMNEMONIC | fetchd keys add validator --recover
 fi
-fetchd config chain-id test
-fetchd config node tcp://fetchledger:26657
-fetchd config output json
-fetchd config broadcast-mode block
+fetchd config set client chain-id test
+fetchd config set client node tcp://fetchledger:26657
+fetchd config set client output json
+fetchd config set client broadcast-mode block
 
 ./scripts/compile.sh cosmwasm_contract/
 
