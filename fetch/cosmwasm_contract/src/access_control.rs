@@ -1,7 +1,7 @@
+use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE};
+use cosmwasm_std::storage_keys::to_length_prefixed_nested;
 use cosmwasm_std::{Addr, StdError, StdResult, Storage};
 use std::str::FromStr;
-use cosmwasm_std::storage_keys::to_length_prefixed_nested;
-use crate::error::{ERR_ACCESS_CONTROL_ALREADY_HAS_ROLE, ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE};
 
 pub static ACCESS_CONTROL_KEY: &[u8] = b"access_control";
 
@@ -28,7 +28,7 @@ impl AccessRole {
         }
     }
     fn as_bytes(&self) -> &[u8] {
-        return self.value().as_bytes();
+        self.value().as_bytes()
     }
     // FIXME(LR) what happen when FromStr trait is in scope?
     pub fn from_str(s: &str) -> Result<Self, StdError> {
@@ -66,7 +66,6 @@ fn ac_storage_key(addr: &Addr, role: &AccessRole) -> Vec<u8> {
     key
 }
 
-
 pub fn ac_have_role(storage: &dyn Storage, addr: &Addr, role: &AccessRole) -> StdResult<bool> {
     let key = ac_storage_key(addr, role);
     Ok(matches!(storage.get(&key).as_deref(), Some([1])))
@@ -81,7 +80,6 @@ pub fn ac_add_role(storage: &mut dyn Storage, addr: &Addr, role: &AccessRole) ->
     storage.set(&key, &[1]);
     Ok(true)
 }
-
 
 pub fn ac_revoke_role(
     storage: &mut dyn Storage,

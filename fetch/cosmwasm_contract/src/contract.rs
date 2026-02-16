@@ -15,7 +15,7 @@ use crate::msg::{
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
     SwapMaxResponse, Uint128,
 };
-use crate::state::{ refunds_add, refunds_have, State, CONFIG};
+use crate::state::{refunds_add, refunds_have, State, CONFIG};
 
 pub const DEFAULT_DENOM: &str = "afet";
 
@@ -305,7 +305,7 @@ fn _try_refund(
         let rtx =
             send_tokens_from_contract(deps.api, state, &to_canonical, effective_amount, "refund")?;
 
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = new_supply;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -331,7 +331,7 @@ fn _try_refund(
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = Uint128::zero();
 
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
             state.supply = new_supply;
@@ -414,7 +414,7 @@ fn try_pause_public_api(
     } else {
         since_block
     };
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.paused_since_block_public_api = pause_since_block;
         Ok(state)
     })?;
@@ -440,7 +440,7 @@ fn try_pause_relayer_api(
     } else {
         since_block
     };
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.paused_since_block_relayer_api = pause_since_block;
         Ok(state)
     })?;
@@ -463,7 +463,7 @@ fn try_new_relay_eon(
     verify_not_paused_relayer_api(env, state)?;
 
     let new_eon = state.relay_eon + 1;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.relay_eon = new_eon; // FIXME(LR) starts from 1
         Ok(state)
     })?;
@@ -482,7 +482,7 @@ fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Re
     let env_message_sender = &info.sender;
 
     let amount = amount_from_funds(&info.funds, state.denom.clone())?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply += amount;
         Ok(state)
     })?;
@@ -510,7 +510,7 @@ fn try_withdraw(
     }
 
     let new_supply = state.supply.checked_sub(amount)?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply = new_supply;
         Ok(state)
     })?;
@@ -542,7 +542,7 @@ fn try_withdraw_fees(
     }
 
     let new_fees_accrued = state.fees_accrued.checked_sub(amount)?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.fees_accrued = new_fees_accrued;
         Ok(state)
     })?;
@@ -564,7 +564,7 @@ fn try_withdraw_fees(
 fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<Response> {
     only_admin(info, deps.storage)?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.cap = amount;
         Ok(state)
     })?;
@@ -588,7 +588,7 @@ fn try_set_reverse_aggregated_allowance(
         },
     )?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance = amount;
         Ok(state)
     })?;
@@ -608,7 +608,7 @@ fn try_set_reverse_aggregated_allowance_approver_cap(
 ) -> StdResult<Response> {
     only_admin(info, deps.storage)?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance_approver_cap = amount;
         Ok(state)
     })?;
@@ -633,7 +633,7 @@ fn try_set_limits(
     if swap_min <= swap_fee || swap_min > swap_max {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.swap_fee = swap_fee;
         state.lower_swap_limit = swap_min;
         state.upper_swap_limit = swap_max;
@@ -795,7 +795,7 @@ fn verify_aggregated_reverse_allowance(
 }
 
 fn verify_refund_swap_id(id: u64, storage: &dyn Storage) -> Result<Response, StdError> {
-    let state = config_read(storage).load()?;
+    let state = CONFIG.load(storage)?;
     if id >= state.next_swap_id {
         // FIXME(LR) >= ?
         return Err(StdError::generic_err(ERR_INVALID_SWAP_ID));
@@ -866,7 +866,7 @@ fn can_pause(
  * ***************************************************/
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
-    let state = config_read(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
     match msg {
         QueryMsg::HasRole { role, address } => to_json_binary(&query_role(deps, role, address)?),
         QueryMsg::RelayEon {} => to_json_binary(&RelayEonResponse {
@@ -879,9 +879,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::SwapMax {} => to_json_binary(&SwapMaxResponse {
             amount: state.upper_swap_limit,
         }),
-        QueryMsg::ReverseAggregatedAllowance {} => to_json_binary(&ReverseAggregatedAllowanceResponse {
-            amount: state.reverse_aggregated_allowance,
-        }),
+        QueryMsg::ReverseAggregatedAllowance {} => {
+            to_json_binary(&ReverseAggregatedAllowanceResponse {
+                amount: state.reverse_aggregated_allowance,
+            })
+        }
         QueryMsg::PausedPublicApiSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_public_api,
         }),

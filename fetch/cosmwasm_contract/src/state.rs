@@ -2,8 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::msg::Uint128;
-use cosmwasm_std::{Addr, Storage};
 use cosmwasm_std::storage_keys::to_length_prefixed;
+use cosmwasm_std::{Addr, Storage};
 use cw_storage_plus::Item;
 
 pub static CONFIG_KEY: &str = "config";
@@ -32,7 +32,6 @@ pub struct State {
 }
 
 pub const CONFIG: Item<State> = Item::new(CONFIG_KEY);
-
 
 fn refunds_key(swap_id: u64) -> Vec<u8> {
     let mut k = to_length_prefixed(REFUNDS_KEY.as_bytes());
