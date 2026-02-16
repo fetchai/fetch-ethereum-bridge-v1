@@ -3,13 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::msg::Uint128;
 use cosmwasm_std::{Addr, Storage};
-use cosmwasm_storage::{
-    singleton, singleton_read, PrefixedStorage, ReadonlyPrefixedStorage, ReadonlySingleton,
-    Singleton,
-};
+use cosmwasm_std::storage_keys::to_length_prefixed;
+use cw_storage_plus::Item;
 
-pub static CONFIG_KEY: &[u8] = b"config";
-pub static REFUNDS_KEY: &[u8] = b"refunds";
+pub static CONFIG_KEY: &str = "config";
+pub static REFUNDS_KEY: &str = "refunds";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -33,20 +31,21 @@ pub struct State {
     pub contract_addr_human: Addr,
 }
 
-pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
-    singleton(storage, CONFIG_KEY)
-}
+pub const CONFIG: Item<State> = Item::new(CONFIG_KEY);
 
-pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
-    singleton_read(storage, CONFIG_KEY)
+
+fn refunds_key(swap_id: u64) -> Vec<u8> {
+    let mut k = to_length_prefixed(REFUNDS_KEY.as_bytes());
+    k.extend_from_slice(&swap_id.to_be_bytes());
+    k
 }
 
 pub fn refunds_add(swap_id: u64, storage: &mut dyn Storage) {
-    let mut store = PrefixedStorage::new(storage, REFUNDS_KEY);
-    store.set(&swap_id.to_be_bytes(), &[1]);
+    let key = refunds_key(swap_id);
+    storage.set(&key, &[1]);
 }
 
 pub fn refunds_have(swap_id: u64, storage: &dyn Storage) -> bool {
-    let store = ReadonlyPrefixedStorage::new(storage, REFUNDS_KEY);
-    store.get(&swap_id.to_be_bytes()).is_some()
+    let key = refunds_key(swap_id);
+    storage.get(&key).is_some()
 }

@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, entry_point, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
+    attr, entry_point, to_json_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
     DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage,
 };
 
@@ -15,7 +15,7 @@ use crate::msg::{
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
     SwapMaxResponse, Uint128,
 };
-use crate::state::{config, config_read, refunds_add, refunds_have, State};
+use crate::state::{ refunds_add, refunds_have, State, CONFIG};
 
 pub const DEFAULT_DENOM: &str = "afet";
 
@@ -69,7 +69,7 @@ pub fn instantiate(
         contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
-    config(deps.storage).save(&state)?;
+    CONFIG.save(deps.storage, &state)?;
 
     Ok(Response::default())
 }
@@ -79,7 +79,7 @@ pub fn instantiate(
  * ***************************************************/
 #[entry_point]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
-    let state = config_read(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
 
     match msg {
         ExecuteMsg::Swap { destination } => {
@@ -167,7 +167,7 @@ fn try_swap(
     }
 
     let swap_id = state.next_swap_id;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply = increased_supply;
         state.next_swap_id += 1;
         Ok(state)
@@ -219,7 +219,7 @@ fn try_reverse_swap(
             effective_amount,
             "reverse_swap",
         )?;
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = state.supply.checked_sub(amount)?;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -245,7 +245,7 @@ fn try_reverse_swap(
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
         let effective_amount = Uint128::zero();
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = state.supply.checked_sub(amount)?;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -868,28 +868,28 @@ fn can_pause(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let state = config_read(deps.storage).load()?;
     match msg {
-        QueryMsg::HasRole { role, address } => to_binary(&query_role(deps, role, address)?),
-        QueryMsg::RelayEon {} => to_binary(&RelayEonResponse {
+        QueryMsg::HasRole { role, address } => to_json_binary(&query_role(deps, role, address)?),
+        QueryMsg::RelayEon {} => to_json_binary(&RelayEonResponse {
             eon: state.relay_eon,
         }),
-        QueryMsg::Supply {} => to_binary(&SupplyResponse {
+        QueryMsg::Supply {} => to_json_binary(&SupplyResponse {
             amount: state.supply,
         }),
-        QueryMsg::Cap {} => to_binary(&CapResponse { amount: state.cap }),
-        QueryMsg::SwapMax {} => to_binary(&SwapMaxResponse {
+        QueryMsg::Cap {} => to_json_binary(&CapResponse { amount: state.cap }),
+        QueryMsg::SwapMax {} => to_json_binary(&SwapMaxResponse {
             amount: state.upper_swap_limit,
         }),
-        QueryMsg::ReverseAggregatedAllowance {} => to_binary(&ReverseAggregatedAllowanceResponse {
+        QueryMsg::ReverseAggregatedAllowance {} => to_json_binary(&ReverseAggregatedAllowanceResponse {
             amount: state.reverse_aggregated_allowance,
         }),
-        QueryMsg::PausedPublicApiSince {} => to_binary(&PausedSinceBlockResponse {
+        QueryMsg::PausedPublicApiSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_public_api,
         }),
-        QueryMsg::PausedRelayerApiSince {} => to_binary(&PausedSinceBlockResponse {
+        QueryMsg::PausedRelayerApiSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_relayer_api,
         }),
-        QueryMsg::Denom {} => to_binary(&DenomResponse { denom: state.denom }),
-        QueryMsg::FullState {} => to_binary(&state),
+        QueryMsg::Denom {} => to_json_binary(&DenomResponse { denom: state.denom }),
+        QueryMsg::FullState {} => to_json_binary(&state),
     }
 }
 
