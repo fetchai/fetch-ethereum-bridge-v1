@@ -6,7 +6,9 @@ use cosmwasm_std::storage_keys::to_length_prefixed;
 use cosmwasm_std::{Addr, Storage};
 use cw_storage_plus::Item;
 
-pub static CONFIG_KEY: &str = "config";
+// To keep backwards compatibility with cosmwasm_storage::singleton
+// we must use the same length-prefixed key format.
+pub static CONFIG_KEY: &str = "\u{0}\u{6}config";
 pub static REFUNDS_KEY: &str = "refunds";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
