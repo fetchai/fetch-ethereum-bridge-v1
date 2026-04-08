@@ -28,6 +28,7 @@ pub struct State {
     pub paused_since_block_public_api: u64,
     pub paused_since_block_relayer_api: u64,
     pub denom: String,
+    pub use_mint_burn: bool,
 
     // optimization FIXME(LR) Not needed any more with version 0.10.0
     pub contract_addr_human: Addr,

@@ -106,6 +106,7 @@ mod init {
             paused_since_block: None,
             denom: Some(DEFAULT_DENUM.to_string()),
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         return mock_init(deps, msg, DEFAULT_OWNER, 0);
     }
@@ -136,6 +137,7 @@ mod init {
             paused_since_block_relayer_api: u64::MAX,
             denom: DEFAULT_DENUM.to_string(),
             contract_addr_human: mock_env().contract.address,
+            use_mint_burn: false,
         };
 
         let state = CONFIG
@@ -162,6 +164,7 @@ mod init {
             paused_since_block: None,
             denom: None,
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
@@ -181,6 +184,7 @@ mod init {
             paused_since_block: None,
             denom: None,
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         match response {

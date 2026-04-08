@@ -1,4 +1,7 @@
-use cosmwasm_std::{attr, entry_point, to_json_binary, Addr, AnyMsg, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage};
+use cosmwasm_std::{
+    attr, entry_point, to_json_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage, SubMsg,
+};
 
 use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRole};
 use crate::error::{
@@ -7,10 +10,11 @@ use crate::error::{
     ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
     ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
+use crate::helpers::{burn_tokens_from_contract, mint_tokens_to_contract};
 use crate::msg::{
     CapResponse, DenomResponse, ExecuteMsg, InstantiateMsg, PausedSinceBlockResponse, QueryMsg,
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
-    SwapMaxResponse, Uint128,
+    SwapMaxResponse, Uint128, UseMintBurnResponse,
 };
 use crate::state::{refunds_add, refunds_have, State, CONFIG};
 
@@ -63,6 +67,7 @@ pub fn instantiate(
         paused_since_block_public_api,
         paused_since_block_relayer_api,
         denom,
+        use_mint_burn: msg.use_mint_burn.unwrap_or(false),
         contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
@@ -129,7 +134,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::WithdrawFees {
             amount,
             destination,
-        } => try_withdraw_fees(deps, &info, &state, amount, destination),
+        } => try_withdraw_fees(deps, env, &info, &state, amount, destination),
         ExecuteMsg::SetCap { amount } => try_set_cap(deps, &info, amount),
         ExecuteMsg::SetReverseAggregatedAllowance { amount } => {
             try_set_reverse_aggregated_allowance(deps, &info, &state, amount)
@@ -142,6 +147,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             swap_max,
             swap_fee,
         } => try_set_limits(deps, &info, swap_min, swap_max, swap_fee),
+        ExecuteMsg::SetUseMintBurn { enabled } => try_set_use_mint_burn(deps, &info, enabled),
         ExecuteMsg::GrantRole { role, address } => try_grant_role(deps, &info, role, address),
         ExecuteMsg::RevokeRole { role, address } => try_revoke_role(deps, &info, role, address),
         ExecuteMsg::RenounceRole { role } => try_renounce_role(deps, &info, role),
@@ -157,6 +163,12 @@ fn try_swap(
 ) -> StdResult<Response> {
     verify_not_paused_public_api(env, state)?;
     verify_swap_amount_limits(amount, state)?;
+    let mut res = Response::new();
+
+    if state.use_mint_burn {
+        let burn_msg = burn_tokens_from_contract(env, state.denom.clone(), amount)?;
+        res = res.add_message(burn_msg);
+    };
 
     let increased_supply = state.supply + amount;
     if increased_supply > state.cap {
@@ -178,9 +190,8 @@ fn try_swap(
         // NOTE(LR) fees will be deducted in destination chain
     ];
 
-    Ok(Response::new().add_attributes(attrs))
+    Ok(res.add_attributes(attrs))
 }
-
 
 fn try_reverse_swap(
     deps: DepsMut,
@@ -210,13 +221,19 @@ fn try_reverse_swap(
         let swap_fee = state.swap_fee;
         let effective_amount = amount.checked_sub(swap_fee)?;
         let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
-        let rtx = send_tokens_from_contract(
+        let mut rtx = send_tokens_from_contract(
             deps.api,
             state,
             &to_canonical,
             effective_amount,
             "reverse_swap",
         )?;
+
+        if state.use_mint_burn {
+            let mint_msg = mint_tokens_to_contract(env, state.denom.clone(), amount)?;
+            rtx.messages.insert(0, SubMsg::new(mint_msg));
+        };
+
         CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = state.supply.checked_sub(amount)?;
             state.reverse_aggregated_allowance =
@@ -300,8 +317,13 @@ fn _try_refund(
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = amount.checked_sub(fee)?;
         let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
-        let rtx =
+        let mut rtx =
             send_tokens_from_contract(deps.api, state, &to_canonical, effective_amount, "refund")?;
+
+        if state.use_mint_burn {
+            let mint_msg = mint_tokens_to_contract(env, state.denom.clone(), amount)?;
+            rtx.messages.insert(0, SubMsg::new(mint_msg));
+        };
 
         CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = new_supply;
@@ -528,6 +550,7 @@ fn try_withdraw(
 
 fn try_withdraw_fees(
     deps: DepsMut,
+    env: Env,
     info: &MessageInfo,
     state: &State,
     amount: Uint128,
@@ -546,7 +569,12 @@ fn try_withdraw_fees(
     })?;
 
     let recipient = deps.api.addr_canonicalize(destination.as_str())?;
-    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
+    let mut wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
+
+    if state.use_mint_burn {
+        let mint_msg = mint_tokens_to_contract(&env, state.denom.clone(), amount)?;
+        wtx.messages.insert(0, SubMsg::new(mint_msg));
+    };
 
     let attrs = vec![
         attr("action", "withdraw_fees"),
@@ -648,6 +676,22 @@ fn try_set_limits(
     Ok(Response::new().add_attributes(attrs))
 }
 
+fn try_set_use_mint_burn(deps: DepsMut, info: &MessageInfo, enabled: bool) -> StdResult<Response> {
+    only_admin(info, deps.storage)?;
+
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
+        state.use_mint_burn = enabled;
+        Ok(state)
+    })?;
+
+    let attrs = vec![
+        attr("action", "set_use_mint_burn"),
+        attr("enabled", enabled.to_string()),
+    ];
+
+    Ok(Response::new().add_attributes(attrs))
+}
+
 fn try_grant_role(
     deps: DepsMut,
     info: &MessageInfo,
@@ -725,8 +769,6 @@ pub fn amount_from_funds(funds: &[Coin], denom: String) -> StdResult<Uint128> {
     }
     Err(StdError::generic_err(ERR_UNRECOGNIZED_DENOM))
 }
-
-
 
 fn send_tokens_from_contract(
     api: &dyn Api,
@@ -891,6 +933,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
             block: state.paused_since_block_relayer_api,
         }),
         QueryMsg::Denom {} => to_json_binary(&DenomResponse { denom: state.denom }),
+        QueryMsg::UseMintBurn {} => to_json_binary(&UseMintBurnResponse {
+            enabled: state.use_mint_burn,
+        }),
         QueryMsg::FullState {} => to_json_binary(&state),
     }
 }

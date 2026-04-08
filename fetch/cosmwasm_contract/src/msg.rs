@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
     pub reverse_aggregated_allowance_approver_cap: Uint128,
     pub paused_since_block: Option<u64>,
     pub denom: Option<String>,
+    pub use_mint_burn: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -95,6 +96,10 @@ pub enum ExecuteMsg {
         swap_fee: Uint128,
     },
 
+    SetUseMintBurn {
+        enabled: bool,
+    },
+
     // Access Control
     GrantRole {
         role: String,
@@ -124,6 +129,7 @@ pub enum QueryMsg {
     PausedRelayerApiSince {},
     Denom {},
     FullState {},
+    UseMintBurn {},
 }
 
 // We define a custom struct for each query response
@@ -154,4 +160,9 @@ pub struct PausedSinceBlockResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DenomResponse {
     pub denom: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UseMintBurnResponse {
+    pub enabled: bool,
 }
