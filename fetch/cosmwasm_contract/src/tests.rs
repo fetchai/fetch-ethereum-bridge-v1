@@ -2017,17 +2017,9 @@ mod withdraw_fees {
         let response =
             withdraw_fees(deps.as_mut(), DEFAULT_OWNER, DEFAULT_SWAP_FEE, recipient).unwrap();
 
-        assert_eq!(2, response.messages.len());
+        assert_eq!(1, response.messages.len());
 
-        let mint_msg = decode_msg_mint(&response.messages[0].msg);
-        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
-        assert_eq!(
-            mint_msg.mint_to_address,
-            mock_env().contract.address.to_string()
-        );
-        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, DEFAULT_SWAP_FEE);
-
-        match &response.messages[1].msg {
+        match &response.messages[0].msg {
             CosmosMsg::Bank(BankMsg::Send {
                 to_address,
                 amount: funds,

@@ -134,7 +134,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::WithdrawFees {
             amount,
             destination,
-        } => try_withdraw_fees(deps, env, &info, &state, amount, destination),
+        } => try_withdraw_fees(deps, &info, &state, amount, destination),
         ExecuteMsg::SetCap { amount } => try_set_cap(deps, &info, amount),
         ExecuteMsg::SetReverseAggregatedAllowance { amount } => {
             try_set_reverse_aggregated_allowance(deps, &info, &state, amount)
@@ -550,7 +550,6 @@ fn try_withdraw(
 
 fn try_withdraw_fees(
     deps: DepsMut,
-    env: Env,
     info: &MessageInfo,
     state: &State,
     amount: Uint128,
@@ -569,12 +568,7 @@ fn try_withdraw_fees(
     })?;
 
     let recipient = deps.api.addr_canonicalize(destination.as_str())?;
-    let mut wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
-
-    if state.use_mint_burn {
-        let mint_msg = mint_tokens_to_contract(&env, state.denom.clone(), amount)?;
-        wtx.messages.insert(0, SubMsg::new(mint_msg));
-    };
+    let wtx = send_tokens_from_contract(deps.api, state, &recipient, amount, "withdraw_fees")?;
 
     let attrs = vec![
         attr("action", "withdraw_fees"),
