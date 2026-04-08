@@ -3,6 +3,7 @@ use cosmwasm_std::{
     coins, Addr, BankMsg, CosmosMsg, Deps, DepsMut, Empty, MessageInfo, OwnedDeps, Response,
     StdError, StdResult,
 };
+use prost::Message;
 use std::marker::PhantomData;
 
 use crate::access_control::{
@@ -19,6 +20,7 @@ use crate::error::{
     ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED,
     ERR_UNRECOGNIZED_DENOM,
 };
+use crate::helpers::{Coin as TokenFactoryCoin, MsgBurn, MsgMint};
 use crate::state::CONFIG;
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, Uint128};
@@ -68,6 +70,36 @@ macro_rules! str_from_binary {
     ($val:expr) => {
         std::str::from_utf8($val.as_slice()).unwrap()
     };
+}
+
+fn decode_msg_mint(msg: &CosmosMsg) -> MsgMint {
+    match msg {
+        CosmosMsg::Any(any_msg) => {
+            assert_eq!(any_msg.type_url, "/osmosis.tokenfactory.v1beta1.MsgMint");
+            MsgMint::decode(any_msg.value.as_slice()).unwrap()
+        }
+        other => panic!("expected MsgMint Any message, got: {:?}", other),
+    }
+}
+
+fn decode_msg_burn(msg: &CosmosMsg) -> MsgBurn {
+    match msg {
+        CosmosMsg::Any(any_msg) => {
+            assert_eq!(any_msg.type_url, "/osmosis.tokenfactory.v1beta1.MsgBurn");
+            MsgBurn::decode(any_msg.value.as_slice()).unwrap()
+        }
+        other => panic!("expected MsgBurn Any message, got: {:?}", other),
+    }
+}
+
+fn assert_token_factory_coin(
+    coin: &Option<TokenFactoryCoin>,
+    expected_denom: &str,
+    expected_amount: u128,
+) {
+    let coin = coin.as_ref().expect("expected tokenfactory coin");
+    assert_eq!(coin.denom, expected_denom);
+    assert_eq!(coin.amount, expected_amount.to_string());
 }
 
 macro_rules! expect_error {
@@ -967,6 +999,39 @@ mod swap {
     }
 
     #[test]
+    fn success_swap_with_mint_burn_burns_from_contract() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let fet_account = "user_account";
+        let eth_account = "some_eth_account";
+        let amount = 110u128;
+        let response = swap(deps.as_mut(), fet_account, eth_account, amount).unwrap();
+
+        assert_eq!(1, response.messages.len());
+        let burn_msg = decode_msg_burn(&response.messages[0].msg);
+        assert_eq!(burn_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            burn_msg.burn_from_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&burn_msg.amount, DEFAULT_DENUM, amount);
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+        assert_eq!(1u64, state.next_swap_id);
+        assert_eq!(cu128!(amount), state.supply);
+    }
+
+    #[test]
     fn failure_swap_limits() {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
@@ -1079,7 +1144,10 @@ mod reverse_swap {
 
     fn assert_state_unchanged(deps: Deps, deposited: u128) {
         let state = CONFIG.load(deps.storage).unwrap();
-        assert_eq!(cu128!(deposited), state.supply);
+        assert_eq!(
+            cu128!(deposited + DEFAULT_SWAP_LOWER_LIMIT - amount),
+            state.supply
+        );
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE),
             state.reverse_aggregated_allowance
@@ -1160,6 +1228,76 @@ mod reverse_swap {
 
         // check contract state
         let state = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(cu128!(deposited - amount), state.supply);
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE - amount),
+            state.reverse_aggregated_allowance
+        );
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
+    }
+
+    #[test]
+    fn success_reverse_swap_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let relayer = "new_relayer";
+        let deposited = 1000u128;
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+
+        let fet_account = ACC1;
+        let eth_account = "some_eth_account";
+        let amount = 110u128;
+        let rid = 0u64;
+        let eon = 0u64;
+        let origin_tx_hash: &str = "HHHHHHAAAAAASSSHHH";
+        let response = reverse_swap(
+            deps.as_mut(),
+            relayer,
+            rid,
+            fet_account,
+            eth_account,
+            origin_tx_hash,
+            amount,
+            eon,
+        )
+        .unwrap();
+
+        assert_eq!(2, response.messages.len());
+
+        let mint_msg = decode_msg_mint(&response.messages[0].msg);
+        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            mint_msg.mint_to_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, amount);
+
+        match &response.messages[1].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(fet_account).to_string(), to_address);
+                assert_eq!(
+                    cu128!(amount - DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
         assert_eq!(cu128!(deposited - amount), state.supply);
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE - amount),
@@ -1442,6 +1580,74 @@ mod refund {
     }
 
     #[test]
+    fn success_refund_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let relayer = ACC1;
+        let deposited = 1000u128;
+        let fet_account = ACC2;
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+        swap(
+            deps.as_mut(),
+            fet_account,
+            "some_eth_account",
+            DEFAULT_SWAP_LOWER_LIMIT,
+        )
+        .unwrap();
+
+        let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
+        let id = 0u64;
+        let eon = 0u64;
+        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon).unwrap();
+
+        assert_eq!(2, response.messages.len());
+
+        let mint_msg = decode_msg_mint(&response.messages[0].msg);
+        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            mint_msg.mint_to_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, amount);
+
+        match &response.messages[1].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(fet_account).to_string(), to_address);
+                assert_eq!(
+                    cu128!(amount - DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+        assert_eq!(
+            cu128!(deposited + DEFAULT_SWAP_LOWER_LIMIT - amount),
+            state.supply
+        );
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE - amount),
+            state.reverse_aggregated_allowance
+        );
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
+    }
+
+    #[test]
     fn failure_refund_not_relayer() {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
@@ -1714,7 +1920,6 @@ mod withdraw_fees {
     use deposit::deposit;
     use init::init_default;
     use reverse_swap::reverse_swap;
-    use std::marker::PhantomData;
 
     fn withdraw_fees(
         deps: DepsMut,
@@ -1797,6 +2002,54 @@ mod withdraw_fees {
     }
 
     #[test]
+    fn success_withdraw_fees_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        _do_one_reverse_swap(&mut deps).unwrap();
+
+        let recipient = ACC1;
+        let response =
+            withdraw_fees(deps.as_mut(), DEFAULT_OWNER, DEFAULT_SWAP_FEE, recipient).unwrap();
+
+        assert_eq!(2, response.messages.len());
+
+        let mint_msg = decode_msg_mint(&response.messages[0].msg);
+        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            mint_msg.mint_to_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, DEFAULT_SWAP_FEE);
+
+        match &response.messages[1].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(recipient).to_string(), to_address);
+                assert_eq!(
+                    cu128!(DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(deps.as_mut().storage).unwrap();
+        assert!(state.use_mint_burn);
+        assert_eq!(cu128!(0u128), state.fees_accrued);
+    }
+
+    #[test]
     fn failure_withdraw_fees_not_admin() {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
@@ -1826,6 +2079,55 @@ mod withdraw_fees {
             recipient,
         );
         expect_error!(response, ERR_SUPPLY_EXCEEDED);
+    }
+}
+
+mod set_use_mint_burn {
+    use super::*;
+    use init::init_default;
+
+    fn set_use_mint_burn(
+        deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        enabled: bool,
+    ) -> StdResult<Response> {
+        let msg = ExecuteMsg::SetUseMintBurn { enabled };
+        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        execute(deps.as_mut(), mock_env(), info, msg)
+    }
+
+    #[test]
+    fn success_set_use_mint_burn() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = set_use_mint_burn(&mut deps, DEFAULT_OWNER, true).unwrap();
+
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.attributes.len());
+        assert!(
+            response.attributes[0].key == "action"
+                && response.attributes[0].value == "set_use_mint_burn"
+        );
+        assert!(response.attributes[1].key == "enabled" && response.attributes[1].value == "true");
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+
+        let response = query(deps.as_ref(), mock_env(), QueryMsg::UseMintBurn {}).unwrap();
+        assert_eq!("{\"enabled\":true}", str_from_binary!(response));
+    }
+
+    #[test]
+    fn failure_set_use_mint_burn_not_admin() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = set_use_mint_burn(&mut deps, ACC1, true);
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(!state.use_mint_burn);
     }
 }
 
