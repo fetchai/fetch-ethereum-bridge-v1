@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "QueryMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -21,7 +21,8 @@
             "role": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -33,7 +34,8 @@
       ],
       "properties": {
         "relay_eon": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -45,7 +47,8 @@
       ],
       "properties": {
         "supply": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -57,7 +60,8 @@
       ],
       "properties": {
         "reverse_aggregated_allowance": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -69,7 +73,8 @@
       ],
       "properties": {
         "swap_max": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -81,7 +86,8 @@
       ],
       "properties": {
         "cap": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -93,7 +99,8 @@
       ],
       "properties": {
         "paused_public_api_since": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -105,7 +112,8 @@
       ],
       "properties": {
         "paused_relayer_api_since": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -117,7 +125,8 @@
       ],
       "properties": {
         "denom": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -129,7 +138,8 @@
       ],
       "properties": {
         "full_state": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

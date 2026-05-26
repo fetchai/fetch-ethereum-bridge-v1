@@ -1704,6 +1704,120 @@ mod withdraw {
     }
 }
 
+mod mint_burn {
+    use super::*;
+    use init::init_default;
+
+    fn mint(deps: DepsMut, caller: &str, amount: u128) -> StdResult<Response> {
+        let msg = ExecuteMsg::Mint {
+            amount: cu128!(amount),
+        };
+        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        execute(deps, mock_env(), info, msg)
+    }
+
+    fn burn(deps: DepsMut, caller: &str, amount: u128) -> StdResult<Response> {
+        let msg = ExecuteMsg::Burn {
+            amount: cu128!(amount),
+        };
+        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        execute(deps, mock_env(), info, msg)
+    }
+
+    #[test]
+    fn success_mint() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let amount = 972u128;
+        let response = mint(deps.as_mut(), DEFAULT_OWNER, amount).unwrap();
+
+        assert_eq!(1, response.messages.len());
+        assert_eq!(2, response.attributes.len());
+        match &response.messages[0].msg {
+            CosmosMsg::Any(msg) => {
+                assert_eq!("/osmosis.tokenfactory.v1beta1.MsgMint", msg.type_url);
+            }
+            _ => panic!("unexpected message in handle response"),
+        }
+        assert!(response.attributes[0].key == "action" && response.attributes[0].value == "mint");
+        assert!(
+            response.attributes[1].key == "amount"
+                && response.attributes[1].value == amount.to_string()
+        );
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(cu128!(amount), state.supply);
+        assert_eq!(cu128!(0u128), state.fees_accrued);
+    }
+
+    #[test]
+    fn success_burn() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let mint_amount = 1000u128;
+        let burn_amount = 400u128;
+        mint(deps.as_mut(), DEFAULT_OWNER, mint_amount).unwrap();
+        let response = burn(deps.as_mut(), DEFAULT_OWNER, burn_amount).unwrap();
+
+        assert_eq!(1, response.messages.len());
+        assert_eq!(2, response.attributes.len());
+        match &response.messages[0].msg {
+            CosmosMsg::Any(msg) => {
+                assert_eq!("/osmosis.tokenfactory.v1beta1.MsgBurn", msg.type_url);
+            }
+            _ => panic!("unexpected message in handle response"),
+        }
+        assert!(response.attributes[0].key == "action" && response.attributes[0].value == "burn");
+        assert!(
+            response.attributes[1].key == "amount"
+                && response.attributes[1].value == burn_amount.to_string()
+        );
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(cu128!(mint_amount - burn_amount), state.supply);
+        assert_eq!(cu128!(0u128), state.fees_accrued);
+    }
+
+    #[test]
+    fn failure_mint_not_admin() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = mint(deps.as_mut(), "not_admin", 1u128);
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+    }
+
+    #[test]
+    fn failure_mint_cap_exceeded() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = mint(deps.as_mut(), DEFAULT_OWNER, DEFAULT_CAP + 1);
+        expect_error!(response, ERR_CAP_EXCEEDED);
+    }
+
+    #[test]
+    fn failure_burn_not_admin() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+        mint(deps.as_mut(), DEFAULT_OWNER, 1u128).unwrap();
+
+        let response = burn(deps.as_mut(), "not_admin", 1u128);
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+    }
+
+    #[test]
+    fn failure_burn_not_enough_supply() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = burn(deps.as_mut(), DEFAULT_OWNER, 1u128);
+        expect_error!(response, ERR_SUPPLY_EXCEEDED);
+    }
+}
+
 mod withdraw_fees {
     use super::*;
     use access_control::grant_role;

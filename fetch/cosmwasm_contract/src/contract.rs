@@ -10,6 +10,7 @@ use crate::error::{
     ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
     ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
+use crate::helpers::{burn_tokens_from_contract, mint_tokens_to_contract};
 use crate::msg::{
     CapResponse, DenomResponse, ExecuteMsg, InstantiateMsg, PausedSinceBlockResponse, QueryMsg,
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
@@ -148,6 +149,8 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::GrantRole { role, address } => try_grant_role(deps, &info, role, address),
         ExecuteMsg::RevokeRole { role, address } => try_revoke_role(deps, &info, role, address),
         ExecuteMsg::RenounceRole { role } => try_renounce_role(deps, &info, role),
+        ExecuteMsg::Mint { amount } => try_mint(deps, &env, &info, &state, amount),
+        ExecuteMsg::Burn { amount } => try_burn(deps, &env, &info, &state, amount),
     }
 }
 
@@ -559,6 +562,56 @@ fn try_withdraw_fees(
     Ok(Response::new()
         .add_attributes(attrs)
         .add_submessages(wtx.messages))
+}
+
+fn try_mint(
+    deps: DepsMut,
+    env: &Env,
+    info: &MessageInfo,
+    state: &State,
+    amount: Uint128,
+) -> StdResult<Response> {
+    only_admin(info, deps.storage)?;
+
+    let increased_supply = state.supply + amount;
+    if increased_supply > state.cap {
+        return Err(StdError::generic_err(ERR_CAP_EXCEEDED));
+    }
+
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
+        state.supply = increased_supply;
+        Ok(state)
+    })?;
+
+    let msg = mint_tokens_to_contract(env, state.denom.clone(), amount)?;
+    let attrs = vec![attr("action", "mint"), attr("amount", amount)];
+
+    Ok(Response::new().add_attributes(attrs).add_message(msg))
+}
+
+fn try_burn(
+    deps: DepsMut,
+    env: &Env,
+    info: &MessageInfo,
+    state: &State,
+    amount: Uint128,
+) -> StdResult<Response> {
+    only_admin(info, deps.storage)?;
+
+    if amount > state.supply {
+        return Err(StdError::generic_err(ERR_SUPPLY_EXCEEDED));
+    }
+
+    let new_supply = state.supply.checked_sub(amount)?;
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
+        state.supply = new_supply;
+        Ok(state)
+    })?;
+
+    let msg = burn_tokens_from_contract(env, state.denom.clone(), amount)?;
+    let attrs = vec![attr("action", "burn"), attr("amount", amount)];
+
+    Ok(Response::new().add_attributes(attrs).add_message(msg))
 }
 
 fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<Response> {

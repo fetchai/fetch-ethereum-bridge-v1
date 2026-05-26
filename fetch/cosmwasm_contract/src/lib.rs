@@ -4,5 +4,7 @@ pub mod error;
 pub mod msg;
 pub mod state;
 
+pub mod helpers;
+pub mod migrate;
 #[cfg(test)]
 pub mod tests;

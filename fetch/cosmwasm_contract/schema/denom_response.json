@@ -9,5 +9,6 @@
     "denom": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }
