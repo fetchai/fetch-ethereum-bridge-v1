@@ -1,5 +1,5 @@
 use crate::msg::MigrateMsg;
-use crate::state::{State, CONFIG};
+use crate::state::{CONFIG};
 use cosmwasm_std::{entry_point, DepsMut, Env, Response, StdResult};
 
 // version info for migration info
@@ -7,7 +7,7 @@ pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[entry_point]
-pub fn migrate(mut deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
     // Skip checks if forced migration
     if msg.forced != Some(true) {
         let ver = cw2::get_contract_version(deps.storage)?;
@@ -26,7 +26,7 @@ pub fn migrate(mut deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Respo
     }
 
     // Ensure correct contract state
-    if !CONFIG.load(deps.storage).is_err() {
+    if CONFIG.load(deps.storage).is_err() {
         return Err(error::state_storage_error());
     }
 

@@ -1824,7 +1824,6 @@ mod withdraw_fees {
     use deposit::deposit;
     use init::init_default;
     use reverse_swap::reverse_swap;
-    use std::marker::PhantomData;
 
     fn withdraw_fees(
         deps: DepsMut,
