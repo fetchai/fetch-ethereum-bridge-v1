@@ -1790,12 +1790,15 @@ mod mint_burn {
     }
 
     #[test]
-    fn failure_mint_cap_exceeded() {
+    fn success_mint_can_exceed_cap() {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let response = mint(deps.as_mut(), DEFAULT_OWNER, DEFAULT_CAP + 1);
-        expect_error!(response, ERR_CAP_EXCEEDED);
+        let amount = DEFAULT_CAP + 1;
+        mint(deps.as_mut(), DEFAULT_OWNER, amount).unwrap();
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(cu128!(amount), state.supply);
     }
 
     #[test]

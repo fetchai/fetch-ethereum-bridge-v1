@@ -1,5 +1,5 @@
 use crate::msg::MigrateMsg;
-use crate::state::{CONFIG};
+use crate::state::CONFIG;
 use cosmwasm_std::{entry_point, DepsMut, Env, Response, StdResult};
 
 // version info for migration info
