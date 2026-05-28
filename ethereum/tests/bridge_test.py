@@ -719,8 +719,8 @@ def test_initial_state(bridgeFactory):
 def test_initial_state_non_trivial_pause_since_0(bridgeFactory, accounts):
     # ===   GIVEN / PRECONDITIONS:  =======================
     brownie.chain.mine(100)
-    expectedPauseSincePublicApi = brownie.web3.eth.blockNumber + 10000
-    expectedPauseSinceRelayerApi = brownie.web3.eth.blockNumber + 10001
+    expectedPauseSincePublicApi = brownie.web3.eth.block_number + 10000
+    expectedPauseSinceRelayerApi = brownie.web3.eth.block_number + 10001
     test = BridgeTest(accounts=accounts)
     test.bridge.pausedSinceBlockPublicApi = expectedPauseSincePublicApi
     test.bridge.pausedSinceBlockRelayerApi = expectedPauseSinceRelayerApi
@@ -1028,12 +1028,12 @@ def test_unpausing_public_api_only_by_permitted_users(bridgeFactory):
     # First proving negative
     for u in test.users.canNOTUnpauseUsers:
         with brownie.reverts(revert_msg="Only admin role"):
-            test.pausePublicApiSince(brownie.web3.eth.blockNumber + 100, caller=test.users.users[0])
+            test.pausePublicApiSince(brownie.web3.eth.block_number + 100, caller=test.users.users[0])
 
     # ===   WHEN / TEST SUBJECT  ==========================
     # Test positive
     for user in test.users.canUnpauseUsers:
-        test.pausePublicApiSince(brownie.web3.eth.blockNumber + 100, caller=user)
+        test.pausePublicApiSince(brownie.web3.eth.block_number + 100, caller=user)
 
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
@@ -1046,12 +1046,12 @@ def test_unpausing_relayer_api_only_by_permitted_users(bridgeFactory):
     # First proving negative
     for u in test.users.canNOTUnpauseUsers:
         with brownie.reverts(revert_msg="Only admin role"):
-            test.pauseRelayerApiSince(brownie.web3.eth.blockNumber + 100, caller=test.users.users[0])
+            test.pauseRelayerApiSince(brownie.web3.eth.block_number + 100, caller=test.users.users[0])
 
     # ===   WHEN / TEST SUBJECT  ==========================
     # Test positive
     for user in test.users.canUnpauseUsers:
-        test.pauseRelayerApiSince(brownie.web3.eth.blockNumber + 100, caller=user)
+        test.pauseRelayerApiSince(brownie.web3.eth.block_number + 100, caller=user)
 
     # ===   THEN / VERIFICATION:  =========================
     # All necessary verification is already implemented inside of the test subject method called above.
@@ -1556,7 +1556,7 @@ def test_delete_contract_reverts_when_protection_period_not_reached(bridgeFactor
     amount = test.bridge.swapMax
 
     #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
-    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
+    assert test.b.getEarliestDelete() > brownie.web3.eth.block_number
 
     # Negative test
     # ===   THEN / VERIFICATION:  =========================
@@ -1578,7 +1578,7 @@ def test_delete_contract_reverts_due_to_access_rights(bridgeFactory, accounts):
 
     #test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
     brownie.chain.mine(delete_protection_period)
-    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.block_number
 
     for u in test.users.notOwners:
         # ===   THEN / VERIFICATION:  =========================
@@ -1602,14 +1602,14 @@ def test_delete_contract_passes_when_protection_period_reached(bridgeFactory, ac
     contract_address = test.b.address
 
     test.standard_setup(user=user, amount=amount, excess_amount=excess_amount)
-    assert test.b.getEarliestDelete() > brownie.web3.eth.blockNumber
+    assert test.b.getEarliestDelete() > brownie.web3.eth.block_number
 
     orig_contract_balance = test.t.balanceOf(contract_address)
     orig_target_to_user_balance = test.t.balanceOf(target_to_user)
     assert orig_contract_balance > 0
 
     brownie.chain.mine(delete_protection_period)
-    assert test.b.getEarliestDelete() <= brownie.web3.eth.blockNumber
+    assert test.b.getEarliestDelete() <= brownie.web3.eth.block_number
 
     # ===   WHEN / TEST SUBJECT  ==========================
     test.deleteContract(target_to_user)
