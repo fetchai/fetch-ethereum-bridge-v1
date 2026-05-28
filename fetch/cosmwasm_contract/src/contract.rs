@@ -573,8 +573,13 @@ fn try_mint(
 ) -> StdResult<Response> {
     only_admin(info, deps.storage)?;
 
+    let increased_supply = state.supply + amount;
+    if increased_supply > state.cap {
+        return Err(StdError::generic_err(ERR_CAP_EXCEEDED));
+    }
+
     CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
-        state.supply += amount;
+        state.supply = increased_supply;
         Ok(state)
     })?;
 
