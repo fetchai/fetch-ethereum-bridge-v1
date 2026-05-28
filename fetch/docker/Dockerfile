@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as base
+FROM ubuntu:24.04 as base
 
 USER root
 
@@ -14,7 +14,7 @@ RUN apt install -y gcc curl jq
 RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf >rustup.rs && bash rustup.rs -y
 
 ENV PATH="$PATH:/root/.cargo/bin"
-RUN echo $PATH && ls $HOME && rustup default stable && cargo version && \
+RUN echo $PATH && ls $HOME && rustup default 1.69.0 && cargo version && \
     rustup update stable
 
 RUN rustup target add wasm32-unknown-unknown

@@ -1,15 +1,17 @@
-#!/bin/bash
+#!/bin/sh
 
-set -e
+set -xe
 
 wd=$(pwd)
-cd $1
-RUSTFLAGS='-C link-arg=-s' cargo wasm
-cp target/wasm32-unknown-unknown/release/*.wasm $wd
 
-if [[ $* == *--test* ]];
-then
-    cargo test --lib
-fi
+optimize.sh .
 
-rm target/ -rf
+cp artifacts/* $wd
+
+case "$*" in
+  *--test*)
+     cargo test --lib
+    ;;
+esac
+
+rm -rf registry_cache contract_cache artifacts target
