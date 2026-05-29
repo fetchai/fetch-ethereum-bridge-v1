@@ -46,7 +46,7 @@ pub fn mint_tokens_to_contract(
             denom,
             amount: amount.to_string(),
         }),
-        mint_to_address: env.contract.address.to_string(),
+        mint_to_address: "".to_string(),
     };
 
     let mut buf = Vec::new();
@@ -72,7 +72,7 @@ pub fn burn_tokens_from_contract(
             denom,
             amount: amount.to_string(),
         }),
-        burn_from_address: env.contract.address.to_string(),
+        burn_from_address: "".to_string(),
     };
 
     let mut buf = Vec::new();
