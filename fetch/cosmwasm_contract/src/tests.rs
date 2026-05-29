@@ -1,10 +1,10 @@
-use cosmwasm_std::testing::{
-    mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
-};
+use cosmwasm_std::testing::{message_info, mock_env, MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    coins, Addr, BankMsg, CosmosMsg, Deps, DepsMut, MessageInfo, OwnedDeps, Response, StdError,
-    StdResult,
+    coins, Addr, BankMsg, CosmosMsg, Deps, DepsMut, Empty, MessageInfo, OwnedDeps, Response,
+    StdError, StdResult,
 };
+use prost::Message;
+use std::marker::PhantomData;
 
 use crate::access_control::{
     ac_have_role, AccessRole, ADMIN_ROLE, APPROVER_ROLE, MONITOR_ROLE, RELAYER_ROLE,
@@ -20,10 +20,17 @@ use crate::error::{
     ERR_SUPPLY_EXCEEDED, ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED,
     ERR_UNRECOGNIZED_DENOM,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, Uint128};
-use crate::state::{config_read, State};
+use crate::helpers::{Coin as TokenFactoryCoin, MsgBurn, MsgMint};
+use crate::state::CONFIG;
 
-pub const DEFAULT_OWNER: &str = "Owner";
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, Uint128};
+use crate::state::State;
+
+pub const DEFAULT_OWNER: &str = "fetch1pfw2l8sl32es5p94d07yuaw7uffgqtd68wvgsx";
+pub const ACC1: &str = "fetch1dwanqc93pvyku8j7qv22try0m6k4wuhkplc9p3";
+
+pub const ACC2: &str = "fetch1e4vadfa4ktp302jg22gyc3maryjgqj7rrq0h25";
+
 pub const DEFAULT_DENUM: &str = "atestfet";
 pub const DEFAULT_CAP: u128 = 100000u128;
 pub const DEFAULT_RA_ALLOWANCE: u128 = 10000u128;
@@ -35,6 +42,15 @@ pub const DEFAULT_SWAP_FEE: u128 = 100u128;
 
 pub const HAS_ROLE_TRUE: &[u8] = b"{\"has_role\":true}";
 pub const HAS_ROLE_FALSE: &[u8] = b"{\"has_role\":false}";
+
+fn mock_deps() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+    OwnedDeps {
+        storage: MockStorage::default(),
+        api: MockApi::default().with_prefix("fetch"),
+        querier: MockQuerier::default(),
+        custom_query_type: PhantomData,
+    }
+}
 
 macro_rules! cu128 {
     ($val:expr) => {
@@ -56,6 +72,36 @@ macro_rules! str_from_binary {
     };
 }
 
+fn decode_msg_mint(msg: &CosmosMsg) -> MsgMint {
+    match msg {
+        CosmosMsg::Any(any_msg) => {
+            assert_eq!(any_msg.type_url, "/osmosis.tokenfactory.v1beta1.MsgMint");
+            MsgMint::decode(any_msg.value.as_slice()).unwrap()
+        }
+        other => panic!("expected MsgMint Any message, got: {:?}", other),
+    }
+}
+
+fn decode_msg_burn(msg: &CosmosMsg) -> MsgBurn {
+    match msg {
+        CosmosMsg::Any(any_msg) => {
+            assert_eq!(any_msg.type_url, "/osmosis.tokenfactory.v1beta1.MsgBurn");
+            MsgBurn::decode(any_msg.value.as_slice()).unwrap()
+        }
+        other => panic!("expected MsgBurn Any message, got: {:?}", other),
+    }
+}
+
+fn assert_token_factory_coin(
+    coin: &Option<TokenFactoryCoin>,
+    expected_denom: &str,
+    expected_amount: u128,
+) {
+    let coin = coin.as_ref().expect("expected tokenfactory coin");
+    assert_eq!(coin.denom, expected_denom);
+    assert_eq!(coin.amount, expected_amount.to_string());
+}
+
 macro_rules! expect_error {
     ($val1:expr, $val2:expr) => {
         match $val1 {
@@ -75,7 +121,7 @@ mod init {
         caller: &str,
         amount: u128,
     ) -> StdResult<Response> {
-        let info = mock_info(caller, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(amount, DEFAULT_DENUM));
         return instantiate(deps.as_mut(), mock_env(), info, msg);
     }
 
@@ -92,13 +138,14 @@ mod init {
             paused_since_block: None,
             denom: Some(DEFAULT_DENUM.to_string()),
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         return mock_init(deps, msg, DEFAULT_OWNER, 0);
     }
 
     #[test]
     fn success_init() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
 
         let response = init_default(&mut deps).unwrap();
         // check return
@@ -122,10 +169,11 @@ mod init {
             paused_since_block_relayer_api: u64::MAX,
             denom: DEFAULT_DENUM.to_string(),
             contract_addr_human: mock_env().contract.address,
+            use_mint_burn: false,
         };
 
-        let state = config_read(&deps.storage)
-            .load()
+        let state = CONFIG
+            .load(&deps.storage)
             .expect("unexpected reading state error");
         assert_eq!(state, expected_state);
 
@@ -136,7 +184,7 @@ mod init {
 
     #[test]
     fn failure_init_inconsistent_swap_limits_lower_larger_than_upper() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
 
         let msg = InstantiateMsg {
             cap: cu128!(DEFAULT_CAP),
@@ -148,6 +196,7 @@ mod init {
             paused_since_block: None,
             denom: None,
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
@@ -155,7 +204,7 @@ mod init {
 
     #[test]
     fn failure_init_inconsistent_swap_limits_fee_larger_than_lower() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
 
         let msg = InstantiateMsg {
             cap: cu128!(DEFAULT_CAP),
@@ -167,6 +216,7 @@ mod init {
             paused_since_block: None,
             denom: None,
             next_swap_id: 0,
+            use_mint_burn: None,
         };
         let response = mock_init(&mut deps, msg, DEFAULT_OWNER, 1);
         match response {
@@ -191,7 +241,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
@@ -237,7 +287,7 @@ mod access_control {
             role: String::from(role),
             address: addr!(account),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
@@ -281,7 +331,7 @@ mod access_control {
         let msg = ExecuteMsg::RenounceRole {
             role: String::from(role),
         };
-        let info = mock_info(account, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(account), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
@@ -314,7 +364,7 @@ mod access_control {
     }
 
     fn test_grant_role(role: &str) {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         // call
@@ -327,7 +377,7 @@ mod access_control {
 
     #[test]
     fn success_owner_default_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         // state
@@ -364,7 +414,7 @@ mod access_control {
 
     #[test]
     fn success_revoke_roles() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let mut account: &str;
@@ -402,7 +452,7 @@ mod access_control {
 
     #[test]
     fn success_renounce_roles() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let mut account;
@@ -440,7 +490,7 @@ mod access_control {
 
     #[test]
     fn failure_grant_role_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = "not_admin";
@@ -451,7 +501,7 @@ mod access_control {
 
     #[test]
     fn failure_grant_role_already_have_role() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -464,7 +514,7 @@ mod access_control {
 
     #[test]
     fn failure_revoke_role_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let mut caller = DEFAULT_OWNER;
@@ -478,7 +528,7 @@ mod access_control {
 
     #[test]
     fn failure_revoke_role_doesnt_have_role() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -489,7 +539,7 @@ mod access_control {
 
     #[test]
     fn failure_renounce_role_doesnt_have_role() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let account = "not_admin";
@@ -551,17 +601,14 @@ mod pause {
     }
 
     fn assert_pause_both(deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier>, caller: &str) {
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
-        assert!(verify_not_paused_public_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_ok());
-        assert!(verify_not_paused_relayer_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_ok());
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
+        assert!(
+            verify_not_paused_public_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap()).is_ok()
+        );
+        assert!(
+            verify_not_paused_relayer_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap())
+                .is_ok()
+        );
 
         let mut response = pause_public_api(deps, info.clone()).unwrap();
         // handle response
@@ -578,12 +625,12 @@ mod pause {
         // state
         assert!(verify_not_paused_public_api(
             &mock_env(),
-            &config_read(deps.as_mut().storage).load().unwrap()
+            &CONFIG.load(deps.as_mut().storage).unwrap()
         )
         .is_err());
         assert!(verify_not_paused_relayer_api(
             &mock_env(),
-            &config_read(deps.as_mut().storage).load().unwrap()
+            &CONFIG.load(deps.as_mut().storage).unwrap()
         )
         .is_ok());
 
@@ -602,7 +649,7 @@ mod pause {
         // state
         assert!(verify_not_paused_relayer_api(
             &mock_env(),
-            &config_read(deps.as_mut().storage).load().unwrap()
+            &CONFIG.load(deps.as_mut().storage).unwrap()
         )
         .is_err());
     }
@@ -643,7 +690,7 @@ mod pause {
 
     #[test]
     fn success_pause_apis_by_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
@@ -653,7 +700,7 @@ mod pause {
 
     #[test]
     fn success_pause_apis_by_monitor() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let monitor = "new_monitor";
@@ -665,11 +712,11 @@ mod pause {
 
     #[test]
     fn success_unpause_apis_by_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = DEFAULT_OWNER;
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, info.clone()).unwrap();
         pause_relayer_api(&mut deps, info.clone()).unwrap();
 
@@ -686,16 +733,13 @@ mod pause {
                 && response.attributes[1].value == u64::MAX.to_string()
         );
         // state
-        assert!(verify_not_paused_public_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_ok());
-        assert!(verify_not_paused_relayer_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_err());
+        assert!(
+            verify_not_paused_public_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap()).is_ok()
+        );
+        assert!(
+            verify_not_paused_relayer_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap())
+                .is_err()
+        );
         assert_query_paused(&mut deps, false, true);
 
         response = unpause_relayer_api(&mut deps, info.clone()).unwrap();
@@ -712,24 +756,18 @@ mod pause {
         );
         // state
         let storage = deps.as_mut().storage;
-        assert!(
-            verify_not_paused_public_api(&mock_env(), &config_read(storage).load().unwrap())
-                .is_ok()
-        );
-        assert!(
-            verify_not_paused_relayer_api(&mock_env(), &config_read(storage).load().unwrap())
-                .is_ok()
-        );
+        assert!(verify_not_paused_public_api(&mock_env(), &CONFIG.load(storage).unwrap()).is_ok());
+        assert!(verify_not_paused_relayer_api(&mock_env(), &CONFIG.load(storage).unwrap()).is_ok());
         assert_query_paused(&mut deps, false, false);
     }
 
     #[test]
     fn failure_pause_apis_neither_admin_nor_monitor() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = "user";
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
 
         let mut response = pause_public_api(&mut deps, info.clone());
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
@@ -740,13 +778,13 @@ mod pause {
 
     #[test]
     fn failure_unpause_apis_by_monitor() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let monitor = "new_monitor";
         grant_role(&mut deps, MONITOR_ROLE, monitor, DEFAULT_OWNER).unwrap();
 
-        let info = mock_info(monitor, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(monitor), &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, info.clone()).unwrap();
         pause_relayer_api(&mut deps, info.clone()).unwrap();
 
@@ -755,16 +793,14 @@ mod pause {
         response = unpause_relayer_api(&mut deps, info.clone());
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
 
-        assert!(verify_not_paused_public_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_err());
-        assert!(verify_not_paused_relayer_api(
-            &mock_env(),
-            &config_read(&deps.storage).load().unwrap()
-        )
-        .is_err());
+        assert!(
+            verify_not_paused_public_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap())
+                .is_err()
+        );
+        assert!(
+            verify_not_paused_relayer_api(&mock_env(), &CONFIG.load(&deps.storage).unwrap())
+                .is_err()
+        );
     }
 }
 
@@ -778,13 +814,13 @@ mod deposit {
         caller: &str,
     ) -> StdResult<Response> {
         let msg = ExecuteMsg::Deposit {};
-        let info = mock_info(caller, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(amount, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
     #[test]
     fn success_deposit() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -805,15 +841,15 @@ mod deposit {
         );
 
         // check contract state
-        let state = config_read(&deps.storage)
-            .load()
+        let state = CONFIG
+            .load(&deps.storage)
             .expect("unexpected reading state error");
         assert_eq!(cu128!(amount), state.supply);
     }
 
     #[test]
     fn failure_deposit_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
@@ -824,13 +860,13 @@ mod deposit {
 
     #[test]
     fn failure_deposit_wrong_token() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
         let msg = ExecuteMsg::Deposit {};
         let denom = "WRONG";
-        let info = mock_info(DEFAULT_OWNER, &coins(amount, denom));
+        let info = message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(amount, denom));
         let response = execute(deps.as_mut(), mock_env(), info, msg);
         expect_error!(response, ERR_UNRECOGNIZED_DENOM);
     }
@@ -847,13 +883,13 @@ mod new_relay_eon {
         caller: &str,
     ) -> StdResult<Response> {
         let msg = ExecuteMsg::NewRelayEon {};
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
     #[test]
     fn success_new_relay_eon() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -870,7 +906,7 @@ mod new_relay_eon {
         assert!(response.attributes[1].key == "eon" && response.attributes[1].value == "1");
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(1u64, state.relay_eon);
 
         // query
@@ -881,31 +917,31 @@ mod new_relay_eon {
 
     #[test]
     fn failure_new_relay_eon_not_relayer() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let caller = "not_relayer";
         let response = new_relay_eon(&mut deps, caller);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_RELAYER);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(0u64, state.relay_eon);
     }
 
     #[test]
     fn failure_new_relay_eon_relayer_api_paused() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
-        let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, info).unwrap();
 
         let response = new_relay_eon(&mut deps, relayer);
 
         expect_error!(response, ERR_CONTRACT_PAUSED);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(0u64, state.relay_eon);
     }
 }
@@ -920,13 +956,13 @@ mod swap {
             destination: destination.to_string(),
         };
 
-        let info = mock_info(from, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(from), &coins(amount, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
     #[test]
     fn success_swap() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -949,7 +985,7 @@ mod swap {
         );
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(1u64, state.next_swap_id);
         assert_eq!(cu128!(amount), state.supply);
 
@@ -963,8 +999,41 @@ mod swap {
     }
 
     #[test]
+    fn success_swap_with_mint_burn_burns_from_contract() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let fet_account = "user_account";
+        let eth_account = "some_eth_account";
+        let amount = 110u128;
+        let response = swap(deps.as_mut(), fet_account, eth_account, amount).unwrap();
+
+        assert_eq!(1, response.messages.len());
+        let burn_msg = decode_msg_burn(&response.messages[0].msg);
+        assert_eq!(burn_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            burn_msg.burn_from_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&burn_msg.amount, DEFAULT_DENUM, amount);
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+        assert_eq!(1u64, state.next_swap_id);
+        assert_eq!(cu128!(amount), state.supply);
+    }
+
+    #[test]
     fn failure_swap_limits() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -975,24 +1044,24 @@ mod swap {
         };
 
         amount = DEFAULT_SWAP_LOWER_LIMIT - 10u128;
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(fet_account), &coins(amount, DEFAULT_DENUM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
         amount = DEFAULT_SWAP_UPPER_LIMIT + 10u128;
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(fet_account), &coins(amount, DEFAULT_DENUM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_SWAP_LIMITS_VIOLATED);
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(0u64, state.next_swap_id);
         assert_eq!(cu128!(0u128), state.supply);
     }
 
     #[test]
     fn failure_swap_cap_exceeded() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fet_account = "user_account";
@@ -1003,40 +1072,40 @@ mod swap {
         };
 
         for _ in 0..(DEFAULT_CAP / DEFAULT_SWAP_UPPER_LIMIT) {
-            let info = mock_info(fet_account, &coins(amount, DEFAULT_DENUM));
+            let info = message_info(&Addr::unchecked(fet_account), &coins(amount, DEFAULT_DENUM));
             execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         }
 
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(fet_account), &coins(amount, DEFAULT_DENUM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_CAP_EXCEEDED);
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert!(state.supply <= cu128!(DEFAULT_CAP));
     }
 
     #[test]
     fn failure_swap_paused_public_api() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM));
         pause_public_api(&mut deps, info).unwrap();
 
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         let eth_account = "some_eth_account";
         let amount = DEFAULT_SWAP_UPPER_LIMIT;
         let msg = ExecuteMsg::Swap {
             destination: eth_account.to_string(),
         };
 
-        let info = mock_info(fet_account, &coins(amount, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(fet_account), &coins(amount, DEFAULT_DENUM));
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone());
         expect_error!(response, ERR_CONTRACT_PAUSED);
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(0u64, state.next_swap_id);
         assert_eq!(cu128!(0u128), state.supply);
     }
@@ -1069,12 +1138,12 @@ mod reverse_swap {
             relay_eon: eon,
         };
 
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info.clone(), msg)
     }
 
     fn assert_state_unchanged(deps: Deps, deposited: u128) {
-        let state = config_read(deps.storage).load().unwrap();
+        let state = CONFIG.load(deps.storage).unwrap();
         assert_eq!(cu128!(deposited), state.supply);
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE),
@@ -1085,7 +1154,7 @@ mod reverse_swap {
 
     #[test]
     fn success_reverse_swap() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
@@ -1093,7 +1162,7 @@ mod reverse_swap {
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         let eth_account = "some_eth_account";
         let amount = 110u128;
         let rid = 0u64;
@@ -1120,7 +1189,7 @@ mod reverse_swap {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(fet_account), to_address);
+                    assert_eq!(&addr!(fet_account).to_string(), to_address);
                     assert_eq!(
                         cu128!(amount - DEFAULT_SWAP_FEE),
                         amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
@@ -1155,7 +1224,77 @@ mod reverse_swap {
         );
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(cu128!(deposited - amount), state.supply);
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE - amount),
+            state.reverse_aggregated_allowance
+        );
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
+    }
+
+    #[test]
+    fn success_reverse_swap_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let relayer = "new_relayer";
+        let deposited = 1000u128;
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+
+        let fet_account = ACC1;
+        let eth_account = "some_eth_account";
+        let amount = 110u128;
+        let rid = 0u64;
+        let eon = 0u64;
+        let origin_tx_hash: &str = "HHHHHHAAAAAASSSHHH";
+        let response = reverse_swap(
+            deps.as_mut(),
+            relayer,
+            rid,
+            fet_account,
+            eth_account,
+            origin_tx_hash,
+            amount,
+            eon,
+        )
+        .unwrap();
+
+        assert_eq!(2, response.messages.len());
+
+        let mint_msg = decode_msg_mint(&response.messages[0].msg);
+        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            mint_msg.mint_to_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, amount);
+
+        match &response.messages[1].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(fet_account).to_string(), to_address);
+                assert_eq!(
+                    cu128!(amount - DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
         assert_eq!(cu128!(deposited - amount), state.supply);
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE - amount),
@@ -1166,7 +1305,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_not_relayer() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let account = "not_relayer";
@@ -1177,7 +1316,7 @@ mod reverse_swap {
             deps.as_mut(),
             account,
             0u64,
-            "user_account",
+            ACC1,
             "eth_account",
             "HHHHHHHHHAAAAASSSSSSSH",
             110u128,
@@ -1190,7 +1329,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_wrong_eon() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1203,7 +1342,7 @@ mod reverse_swap {
             deps.as_mut(),
             relayer,
             0u64,
-            "user_account",
+            ACC1,
             "eth_account",
             "HHHHHHHHHAAAAASSSSSSSH",
             110u128,
@@ -1216,21 +1355,21 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_paused_relayer_api() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
         let deposited = 1000u128;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
-        let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, info).unwrap();
 
         let response = reverse_swap(
             deps.as_mut(),
             relayer,
             0u64,
-            "user_account",
+            ACC1,
             "eth_account",
             "HHHHHHHHHAAAAASSSSSSSH",
             110u128,
@@ -1243,7 +1382,7 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_supply_exceeded() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "relayer";
@@ -1253,7 +1392,7 @@ mod reverse_swap {
             deps.as_mut(),
             relayer,
             0u64,
-            "user_account",
+            ACC1,
             "eth_account",
             "HHHHHHHHHAAAAASSSSSSSH",
             110u128,
@@ -1266,10 +1405,10 @@ mod reverse_swap {
 
     #[test]
     fn failure_reverse_swap_aggregated_reverse_allowance_exceeded() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let relayer = "relayer";
+        let relayer = ACC1;
         let deposited = 100000u128;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
@@ -1279,7 +1418,7 @@ mod reverse_swap {
                 deps.as_mut(),
                 relayer,
                 0u64,
-                "user_account",
+                ACC1,
                 "eth_account",
                 "HHHHHHHHHAAAAASSSSSSSH",
                 DEFAULT_SWAP_UPPER_LIMIT,
@@ -1292,7 +1431,7 @@ mod reverse_swap {
             deps.as_mut(),
             relayer,
             0u64,
-            "user_account",
+            ACC1,
             "eth_account",
             "HHHHHHHHHAAAAASSSSSSSH",
             DEFAULT_SWAP_UPPER_LIMIT,
@@ -1326,7 +1465,7 @@ mod refund {
             relay_eon: eon,
         };
 
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
@@ -1345,17 +1484,17 @@ mod refund {
             relay_eon: eon,
         };
 
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
     fn _success_refund(fee: u128) {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let relayer = "new_relayer";
+        let relayer = ACC1;
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC2;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
@@ -1386,7 +1525,7 @@ mod refund {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(fet_account), to_address);
+                    assert_eq!(&addr!(fet_account).to_string(), to_address);
                     assert_eq!(
                         cu128!(amount - fee),
                         amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
@@ -1415,7 +1554,7 @@ mod refund {
         );
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(
             cu128!(deposited - amount + DEFAULT_SWAP_LOWER_LIMIT),
             state.supply
@@ -1438,13 +1577,81 @@ mod refund {
     }
 
     #[test]
+    fn success_refund_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        let relayer = ACC1;
+        let deposited = 1000u128;
+        let fet_account = ACC2;
+        grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
+        deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
+        swap(
+            deps.as_mut(),
+            fet_account,
+            "some_eth_account",
+            DEFAULT_SWAP_LOWER_LIMIT,
+        )
+        .unwrap();
+
+        let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
+        let id = 0u64;
+        let eon = 0u64;
+        let response = refund(deps.as_mut(), relayer, id, fet_account, amount, eon).unwrap();
+
+        assert_eq!(2, response.messages.len());
+
+        let mint_msg = decode_msg_mint(&response.messages[0].msg);
+        assert_eq!(mint_msg.sender, mock_env().contract.address.to_string());
+        assert_eq!(
+            mint_msg.mint_to_address,
+            mock_env().contract.address.to_string()
+        );
+        assert_token_factory_coin(&mint_msg.amount, DEFAULT_DENUM, amount);
+
+        match &response.messages[1].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(fet_account).to_string(), to_address);
+                assert_eq!(
+                    cu128!(amount - DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+        assert_eq!(
+            cu128!(deposited + DEFAULT_SWAP_LOWER_LIMIT - amount),
+            state.supply
+        );
+        assert_eq!(
+            cu128!(DEFAULT_RA_ALLOWANCE - amount),
+            state.reverse_aggregated_allowance
+        );
+        assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
+    }
+
+    #[test]
     fn failure_refund_not_relayer() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
@@ -1465,12 +1672,12 @@ mod refund {
 
     #[test]
     fn failure_refund_wrong_eon() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
@@ -1491,12 +1698,12 @@ mod refund {
 
     #[test]
     fn failure_refund_paused_relayer_api() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
@@ -1506,7 +1713,7 @@ mod refund {
             DEFAULT_SWAP_LOWER_LIMIT,
         )
         .unwrap();
-        let info = mock_info(DEFAULT_OWNER, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM));
         pause_relayer_api(&mut deps, info).unwrap();
 
         let amount = DEFAULT_SWAP_LOWER_LIMIT + 10u128;
@@ -1518,12 +1725,12 @@ mod refund {
 
     #[test]
     fn failure_refund_wrong_swap_id() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let relayer = "new_relayer";
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC1;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
@@ -1536,12 +1743,12 @@ mod refund {
 
     #[test]
     fn failure_refund_already_processed() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let relayer = "new_relayer";
+        let relayer = ACC1;
         let deposited = 1000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC2;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
         swap(
@@ -1562,12 +1769,12 @@ mod refund {
 
     #[test]
     fn failure_refund_aggregated_reverse_allowance_exceeded() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let relayer = "new_relayer";
+        let relayer = ACC1;
         let deposited = 10000u128;
-        let fet_account = "user_account";
+        let fet_account = ACC2;
         grant_role(&mut deps, RELAYER_ROLE, relayer, DEFAULT_OWNER).unwrap();
         deposit(&mut deps, deposited, DEFAULT_OWNER).unwrap();
 
@@ -1623,20 +1830,20 @@ mod withdraw {
             amount: cu128!(amount),
             destination: addr!(recipient),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
     #[test]
     fn success_withdraw() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
         deposit(&mut deps, amount, DEFAULT_OWNER).unwrap();
         swap(deps.as_mut(), "user", "some_eth_addr", amount).unwrap();
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response = withdraw(deps.as_mut(), DEFAULT_OWNER, 2 * amount, recipient).unwrap();
 
         // check handle response
@@ -1648,7 +1855,7 @@ mod withdraw {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(recipient), to_address);
+                    assert_eq!(&addr!(recipient).to_string(), to_address);
                     assert_eq!(
                         cu128!(2 * amount),
                         amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
@@ -1671,34 +1878,34 @@ mod withdraw {
         );
 
         // check contract state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(0u128), state.supply);
     }
 
     #[test]
     fn failure_withdraw_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
         deposit(&mut deps, amount, DEFAULT_OWNER).unwrap();
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response = withdraw(deps.as_mut(), recipient, amount, recipient);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(amount), state.supply);
     }
 
     #[test]
     fn failure_withdraw_not_enough_supply() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = 1000u128;
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response = withdraw(deps.as_mut(), DEFAULT_OWNER, amount, recipient);
         expect_error!(response, ERR_SUPPLY_EXCEEDED);
     }
@@ -1721,7 +1928,7 @@ mod withdraw_fees {
             amount: cu128!(amount),
             destination: addr!(recipient),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
@@ -1744,12 +1951,13 @@ mod withdraw_fees {
     }
     #[test]
     fn success_withdraw_fees() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
+
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response =
             withdraw_fees(deps.as_mut(), DEFAULT_OWNER, DEFAULT_SWAP_FEE, recipient).unwrap();
 
@@ -1762,7 +1970,7 @@ mod withdraw_fees {
                     to_address,
                     amount: funds,
                 } => {
-                    assert_eq!(&addr!(recipient), to_address);
+                    assert_eq!(&addr!(recipient).to_string(), to_address);
                     assert_eq!(
                         cu128!(DEFAULT_SWAP_FEE),
                         amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
@@ -1786,33 +1994,73 @@ mod withdraw_fees {
         );
 
         // check contract state
-        let state = config_read(deps.as_mut().storage).load().unwrap();
+        let state = CONFIG.load(deps.as_mut().storage).unwrap();
+        assert_eq!(cu128!(0u128), state.fees_accrued);
+    }
+
+    #[test]
+    fn success_withdraw_fees_with_mint_burn_mints_to_contract_before_send() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&Addr::unchecked(DEFAULT_OWNER), &coins(0, DEFAULT_DENUM)),
+            ExecuteMsg::SetUseMintBurn { enabled: true },
+        )
+        .unwrap();
+
+        _do_one_reverse_swap(&mut deps).unwrap();
+
+        let recipient = ACC1;
+        let response =
+            withdraw_fees(deps.as_mut(), DEFAULT_OWNER, DEFAULT_SWAP_FEE, recipient).unwrap();
+
+        assert_eq!(1, response.messages.len());
+
+        match &response.messages[0].msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address,
+                amount: funds,
+            }) => {
+                assert_eq!(&addr!(recipient).to_string(), to_address);
+                assert_eq!(
+                    cu128!(DEFAULT_SWAP_FEE),
+                    amount_from_funds(funds, DEFAULT_DENUM.to_string()).unwrap()
+                );
+            }
+            other => panic!("unexpected second message: {:?}", other),
+        }
+
+        let state = CONFIG.load(deps.as_mut().storage).unwrap();
+        assert!(state.use_mint_burn);
         assert_eq!(cu128!(0u128), state.fees_accrued);
     }
 
     #[test]
     fn failure_withdraw_fees_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response = withdraw_fees(deps.as_mut(), recipient, DEFAULT_SWAP_FEE, recipient);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.fees_accrued);
     }
 
     #[test]
     fn failure_withdraw_fees_not_enough_supply() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         _do_one_reverse_swap(&mut deps).unwrap();
 
-        let recipient = "lucky_user";
+        let recipient = ACC1;
         let response = withdraw_fees(
             deps.as_mut(),
             DEFAULT_OWNER,
@@ -1820,6 +2068,55 @@ mod withdraw_fees {
             recipient,
         );
         expect_error!(response, ERR_SUPPLY_EXCEEDED);
+    }
+}
+
+mod set_use_mint_burn {
+    use super::*;
+    use init::init_default;
+
+    fn set_use_mint_burn(
+        deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier>,
+        caller: &str,
+        enabled: bool,
+    ) -> StdResult<Response> {
+        let msg = ExecuteMsg::SetUseMintBurn { enabled };
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
+        execute(deps.as_mut(), mock_env(), info, msg)
+    }
+
+    #[test]
+    fn success_set_use_mint_burn() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = set_use_mint_burn(&mut deps, DEFAULT_OWNER, true).unwrap();
+
+        assert_eq!(0, response.messages.len());
+        assert_eq!(2, response.attributes.len());
+        assert!(
+            response.attributes[0].key == "action"
+                && response.attributes[0].value == "set_use_mint_burn"
+        );
+        assert!(response.attributes[1].key == "enabled" && response.attributes[1].value == "true");
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(state.use_mint_burn);
+
+        let response = query(deps.as_ref(), mock_env(), QueryMsg::UseMintBurn {}).unwrap();
+        assert_eq!("{\"enabled\":true}", str_from_binary!(response));
+    }
+
+    #[test]
+    fn failure_set_use_mint_burn_not_admin() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let response = set_use_mint_burn(&mut deps, ACC1, true);
+        expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
+
+        let state = CONFIG.load(&deps.storage).unwrap();
+        assert!(!state.use_mint_burn);
     }
 }
 
@@ -1835,13 +2132,13 @@ mod set_cap {
         let msg = ExecuteMsg::SetCap {
             amount: cu128!(amount),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
     #[test]
     fn success_set_cap() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_CAP + 1000u128;
@@ -1859,7 +2156,7 @@ mod set_cap {
         );
 
         // check state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(amount), state.cap);
 
         // query
@@ -1873,14 +2170,14 @@ mod set_cap {
 
     #[test]
     fn failure_set_cap_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_CAP + 1000u128;
         let response = set_cap(&mut deps, "not_admin", amount);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(DEFAULT_CAP), state.cap);
     }
 }
@@ -1901,13 +2198,13 @@ mod set_limits {
             swap_max: cu128!(max),
             swap_fee: cu128!(fee),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps, mock_env(), info, msg)
     }
 
     #[test]
     fn success_set_limits() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fee = 10u128;
@@ -1935,7 +2232,7 @@ mod set_limits {
         );
 
         // check state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(fee), state.swap_fee);
         assert_eq!(cu128!(min), state.lower_swap_limit);
         assert_eq!(cu128!(max), state.upper_swap_limit);
@@ -1951,7 +2248,7 @@ mod set_limits {
 
     #[test]
     fn failure_set_limits_not_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fee = 10u128;
@@ -1960,7 +2257,7 @@ mod set_limits {
         let response = set_limits(deps.as_mut(), "not_admin", fee, min, max);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
         assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
         assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
@@ -1968,7 +2265,7 @@ mod set_limits {
 
     #[test]
     fn failure_set_limits_unconsistent_limits() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let fee = 20u128;
@@ -1977,7 +2274,7 @@ mod set_limits {
         let response = set_limits(deps.as_mut(), DEFAULT_OWNER, fee, min, max);
 
         expect_error!(response, ERR_SWAP_LIMITS_INCONSISTENT);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(DEFAULT_SWAP_FEE), state.swap_fee);
         assert_eq!(cu128!(DEFAULT_SWAP_LOWER_LIMIT), state.lower_swap_limit);
         assert_eq!(cu128!(DEFAULT_SWAP_UPPER_LIMIT), state.upper_swap_limit);
@@ -1997,7 +2294,7 @@ mod set_reverse_aggregated_allowance {
         let msg = ExecuteMsg::SetReverseAggregatedAllowance {
             amount: cu128!(amount),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
@@ -2009,7 +2306,7 @@ mod set_reverse_aggregated_allowance {
         let msg = ExecuteMsg::SetReverseAggregatedAllowanceApproverCap {
             amount: cu128!(amount),
         };
-        let info = mock_info(caller, &coins(0, DEFAULT_DENUM));
+        let info = message_info(&Addr::unchecked(caller), &coins(0, DEFAULT_DENUM));
         execute(deps.as_mut(), mock_env(), info, msg)
     }
 
@@ -2024,7 +2321,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_approver_cap() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1000u128;
@@ -2045,7 +2342,7 @@ mod set_reverse_aggregated_allowance {
         );
 
         // check state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(
             cu128!(amount),
             state.reverse_aggregated_allowance_approver_cap
@@ -2054,7 +2351,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_by_admin() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE + 1000u128;
@@ -2073,7 +2370,7 @@ mod set_reverse_aggregated_allowance {
         );
 
         // check state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(amount), state.reverse_aggregated_allowance);
 
         // query
@@ -2087,7 +2384,7 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn success_set_reverse_aggregated_allowance_by_approver() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;
@@ -2106,7 +2403,7 @@ mod set_reverse_aggregated_allowance {
         );
 
         // check state
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(cu128!(amount), state.reverse_aggregated_allowance);
 
         // query
@@ -2120,14 +2417,14 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn failure_set_reverse_aggregated_allowance_by_approver_exceeds_cap() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP + 1u128;
         let response = set_reverse_aggregated_allowance_by_approver(&mut deps, amount);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE),
             state.reverse_aggregated_allowance
@@ -2136,14 +2433,14 @@ mod set_reverse_aggregated_allowance {
 
     #[test]
     fn failure_set_reverse_aggregated_allowance_not_admin_nor_approver() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
         let amount = DEFAULT_RA_ALLOWANCE_APPROVER_CAP;
         let response = set_reverse_aggregated_allowance(&mut deps, "user", amount);
 
         expect_error!(response, ERR_ACCESS_CONTROL_ONLY_ADMIN);
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = CONFIG.load(&deps.storage).unwrap();
         assert_eq!(
             cu128!(DEFAULT_RA_ALLOWANCE),
             state.reverse_aggregated_allowance

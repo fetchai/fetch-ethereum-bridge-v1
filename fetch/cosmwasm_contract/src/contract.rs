@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, entry_point, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage,
+    attr, entry_point, to_json_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage, SubMsg,
 };
 
 use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRole};
@@ -10,12 +10,13 @@ use crate::error::{
     ERR_EON, ERR_INVALID_SWAP_ID, ERR_RA_ALLOWANCE_EXCEEDED, ERR_SUPPLY_EXCEEDED,
     ERR_SWAP_LIMITS_INCONSISTENT, ERR_SWAP_LIMITS_VIOLATED, ERR_UNRECOGNIZED_DENOM,
 };
+use crate::helpers::{burn_tokens_from_contract, mint_tokens_to_contract};
 use crate::msg::{
     CapResponse, DenomResponse, ExecuteMsg, InstantiateMsg, PausedSinceBlockResponse, QueryMsg,
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
-    SwapMaxResponse, Uint128,
+    SwapMaxResponse, Uint128, UseMintBurnResponse,
 };
-use crate::state::{config, config_read, refunds_add, refunds_have, State};
+use crate::state::{refunds_add, refunds_have, State, CONFIG};
 
 pub const DEFAULT_DENOM: &str = "afet";
 
@@ -66,10 +67,11 @@ pub fn instantiate(
         paused_since_block_public_api,
         paused_since_block_relayer_api,
         denom,
+        use_mint_burn: msg.use_mint_burn.unwrap_or(false),
         contract_addr_human, // optimization FIXME(LR) not needed any more (version 0.10.0)
     };
 
-    config(deps.storage).save(&state)?;
+    CONFIG.save(deps.storage, &state)?;
 
     Ok(Response::default())
 }
@@ -79,7 +81,7 @@ pub fn instantiate(
  * ***************************************************/
 #[entry_point]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
-    let state = config_read(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
 
     match msg {
         ExecuteMsg::Swap { destination } => {
@@ -145,6 +147,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             swap_max,
             swap_fee,
         } => try_set_limits(deps, &info, swap_min, swap_max, swap_fee),
+        ExecuteMsg::SetUseMintBurn { enabled } => try_set_use_mint_burn(deps, &info, enabled),
         ExecuteMsg::GrantRole { role, address } => try_grant_role(deps, &info, role, address),
         ExecuteMsg::RevokeRole { role, address } => try_revoke_role(deps, &info, role, address),
         ExecuteMsg::RenounceRole { role } => try_renounce_role(deps, &info, role),
@@ -160,6 +163,12 @@ fn try_swap(
 ) -> StdResult<Response> {
     verify_not_paused_public_api(env, state)?;
     verify_swap_amount_limits(amount, state)?;
+    let mut res = Response::new();
+
+    if state.use_mint_burn {
+        let burn_msg = burn_tokens_from_contract(env, state.denom.clone(), amount)?;
+        res = res.add_message(burn_msg);
+    };
 
     let increased_supply = state.supply + amount;
     if increased_supply > state.cap {
@@ -167,7 +176,7 @@ fn try_swap(
     }
 
     let swap_id = state.next_swap_id;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply = increased_supply;
         state.next_swap_id += 1;
         Ok(state)
@@ -181,7 +190,7 @@ fn try_swap(
         // NOTE(LR) fees will be deducted in destination chain
     ];
 
-    Ok(Response::new().add_attributes(attrs))
+    Ok(res.add_attributes(attrs))
 }
 
 fn try_reverse_swap(
@@ -212,14 +221,20 @@ fn try_reverse_swap(
         let swap_fee = state.swap_fee;
         let effective_amount = amount.checked_sub(swap_fee)?;
         let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
-        let rtx = send_tokens_from_contract(
+        let mut rtx = send_tokens_from_contract(
             deps.api,
             state,
             &to_canonical,
             effective_amount,
             "reverse_swap",
         )?;
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+
+        if state.use_mint_burn {
+            let mint_msg = mint_tokens_to_contract(env, state.denom.clone(), amount)?;
+            rtx.messages.insert(0, SubMsg::new(mint_msg));
+        };
+
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = state.supply.checked_sub(amount)?;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -245,7 +260,7 @@ fn try_reverse_swap(
         // FIXME(LR) this unfair for the user IMO
         let swap_fee = amount;
         let effective_amount = Uint128::zero();
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = state.supply.checked_sub(amount)?;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -302,10 +317,15 @@ fn _try_refund(
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = amount.checked_sub(fee)?;
         let to_canonical = deps.api.addr_canonicalize(to.as_str())?;
-        let rtx =
+        let mut rtx =
             send_tokens_from_contract(deps.api, state, &to_canonical, effective_amount, "refund")?;
 
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        if state.use_mint_burn {
+            let mint_msg = mint_tokens_to_contract(env, state.denom.clone(), amount)?;
+            rtx.messages.insert(0, SubMsg::new(mint_msg));
+        };
+
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.supply = new_supply;
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
@@ -331,7 +351,7 @@ fn _try_refund(
         let new_supply = state.supply.checked_sub(amount)?;
         let effective_amount = Uint128::zero();
 
-        config(deps.storage).update(|mut state| -> StdResult<_> {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
             state.reverse_aggregated_allowance =
                 state.reverse_aggregated_allowance.checked_sub(amount)?;
             state.supply = new_supply;
@@ -414,7 +434,7 @@ fn try_pause_public_api(
     } else {
         since_block
     };
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.paused_since_block_public_api = pause_since_block;
         Ok(state)
     })?;
@@ -440,7 +460,7 @@ fn try_pause_relayer_api(
     } else {
         since_block
     };
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.paused_since_block_relayer_api = pause_since_block;
         Ok(state)
     })?;
@@ -463,7 +483,7 @@ fn try_new_relay_eon(
     verify_not_paused_relayer_api(env, state)?;
 
     let new_eon = state.relay_eon + 1;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.relay_eon = new_eon; // FIXME(LR) starts from 1
         Ok(state)
     })?;
@@ -482,7 +502,7 @@ fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Re
     let env_message_sender = &info.sender;
 
     let amount = amount_from_funds(&info.funds, state.denom.clone())?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply += amount;
         Ok(state)
     })?;
@@ -510,7 +530,7 @@ fn try_withdraw(
     }
 
     let new_supply = state.supply.checked_sub(amount)?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.supply = new_supply;
         Ok(state)
     })?;
@@ -542,7 +562,7 @@ fn try_withdraw_fees(
     }
 
     let new_fees_accrued = state.fees_accrued.checked_sub(amount)?;
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.fees_accrued = new_fees_accrued;
         Ok(state)
     })?;
@@ -564,7 +584,7 @@ fn try_withdraw_fees(
 fn try_set_cap(deps: DepsMut, info: &MessageInfo, amount: Uint128) -> StdResult<Response> {
     only_admin(info, deps.storage)?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.cap = amount;
         Ok(state)
     })?;
@@ -588,7 +608,7 @@ fn try_set_reverse_aggregated_allowance(
         },
     )?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance = amount;
         Ok(state)
     })?;
@@ -608,7 +628,7 @@ fn try_set_reverse_aggregated_allowance_approver_cap(
 ) -> StdResult<Response> {
     only_admin(info, deps.storage)?;
 
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.reverse_aggregated_allowance_approver_cap = amount;
         Ok(state)
     })?;
@@ -633,7 +653,7 @@ fn try_set_limits(
     if swap_min <= swap_fee || swap_min > swap_max {
         return Err(StdError::generic_err(ERR_SWAP_LIMITS_INCONSISTENT));
     }
-    config(deps.storage).update(|mut state| -> StdResult<_> {
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
         state.swap_fee = swap_fee;
         state.lower_swap_limit = swap_min;
         state.upper_swap_limit = swap_max;
@@ -645,6 +665,22 @@ fn try_set_limits(
         attr("swap_fee", swap_fee),
         attr("swap_min", swap_min),
         attr("swap_max", swap_max),
+    ];
+
+    Ok(Response::new().add_attributes(attrs))
+}
+
+fn try_set_use_mint_burn(deps: DepsMut, info: &MessageInfo, enabled: bool) -> StdResult<Response> {
+    only_admin(info, deps.storage)?;
+
+    CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
+        state.use_mint_burn = enabled;
+        Ok(state)
+    })?;
+
+    let attrs = vec![
+        attr("action", "set_use_mint_burn"),
+        attr("enabled", enabled.to_string()),
     ];
 
     Ok(Response::new().add_attributes(attrs))
@@ -795,7 +831,7 @@ fn verify_aggregated_reverse_allowance(
 }
 
 fn verify_refund_swap_id(id: u64, storage: &dyn Storage) -> Result<Response, StdError> {
-    let state = config_read(storage).load()?;
+    let state = CONFIG.load(storage)?;
     if id >= state.next_swap_id {
         // FIXME(LR) >= ?
         return Err(StdError::generic_err(ERR_INVALID_SWAP_ID));
@@ -866,30 +902,35 @@ fn can_pause(
  * ***************************************************/
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
-    let state = config_read(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
     match msg {
-        QueryMsg::HasRole { role, address } => to_binary(&query_role(deps, role, address)?),
-        QueryMsg::RelayEon {} => to_binary(&RelayEonResponse {
+        QueryMsg::HasRole { role, address } => to_json_binary(&query_role(deps, role, address)?),
+        QueryMsg::RelayEon {} => to_json_binary(&RelayEonResponse {
             eon: state.relay_eon,
         }),
-        QueryMsg::Supply {} => to_binary(&SupplyResponse {
+        QueryMsg::Supply {} => to_json_binary(&SupplyResponse {
             amount: state.supply,
         }),
-        QueryMsg::Cap {} => to_binary(&CapResponse { amount: state.cap }),
-        QueryMsg::SwapMax {} => to_binary(&SwapMaxResponse {
+        QueryMsg::Cap {} => to_json_binary(&CapResponse { amount: state.cap }),
+        QueryMsg::SwapMax {} => to_json_binary(&SwapMaxResponse {
             amount: state.upper_swap_limit,
         }),
-        QueryMsg::ReverseAggregatedAllowance {} => to_binary(&ReverseAggregatedAllowanceResponse {
-            amount: state.reverse_aggregated_allowance,
-        }),
-        QueryMsg::PausedPublicApiSince {} => to_binary(&PausedSinceBlockResponse {
+        QueryMsg::ReverseAggregatedAllowance {} => {
+            to_json_binary(&ReverseAggregatedAllowanceResponse {
+                amount: state.reverse_aggregated_allowance,
+            })
+        }
+        QueryMsg::PausedPublicApiSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_public_api,
         }),
-        QueryMsg::PausedRelayerApiSince {} => to_binary(&PausedSinceBlockResponse {
+        QueryMsg::PausedRelayerApiSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: state.paused_since_block_relayer_api,
         }),
-        QueryMsg::Denom {} => to_binary(&DenomResponse { denom: state.denom }),
-        QueryMsg::FullState {} => to_binary(&state),
+        QueryMsg::Denom {} => to_json_binary(&DenomResponse { denom: state.denom }),
+        QueryMsg::UseMintBurn {} => to_json_binary(&UseMintBurnResponse {
+            enabled: state.use_mint_burn,
+        }),
+        QueryMsg::FullState {} => to_json_binary(&state),
     }
 }
 
