@@ -1,8 +1,8 @@
 [package]
 name = "bridge"
-version = "0.1.0"
+version = "0.3.0"
 authors = ["root"]
-edition = "2018"
+edition = "2024"
 
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
@@ -29,6 +29,21 @@ overflow-checks = true
 [features]
 default = []
 # for quicker tests, cargo test --lib
+
+# Requires cargo-run-script to run commands from [package.metadata.scripts].
+#
+# Install once:
+#   cargo install cargo-run-script
+#
+# Run:
+#   cargo run-script optimize
+[package.metadata.scripts]
+optimize = """docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/optimizer:0.17.0
+"""
+
 
 [dependencies]
 cosmwasm-schema = "2.2.0"

@@ -261,7 +261,7 @@ checksum = "3e31ea183f6ee62ac8b8a8cf7feddd766317adfb13ff469de57ce033efd6a790"
 
 [[package]]
 name = "bridge"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
