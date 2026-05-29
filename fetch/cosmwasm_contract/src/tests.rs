@@ -812,6 +812,19 @@ mod deposit {
     }
 
     #[test]
+    fn failure_deposit_exceeded_cap() {
+        let mut deps = mock_deps();
+        init_default(&mut deps).unwrap();
+
+        let amount = 1000u128;
+        let response = deposit(&mut deps, amount, DEFAULT_OWNER);
+        assert!(response.is_ok());
+
+        let response = deposit(&mut deps, DEFAULT_CAP, DEFAULT_OWNER);
+        expect_error!(response, ERR_CAP_EXCEEDED);
+    }
+
+    #[test]
     fn failure_deposit_not_admin() {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();

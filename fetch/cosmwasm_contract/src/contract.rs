@@ -485,8 +485,14 @@ fn try_deposit(deps: DepsMut, info: &MessageInfo, state: &State) -> StdResult<Re
     let env_message_sender = &info.sender;
 
     let amount = amount_from_funds(&info.funds, state.denom.clone())?;
+
+    let increased_supply = state.supply + amount;
+    if increased_supply > state.cap {
+        return Err(StdError::generic_err(ERR_CAP_EXCEEDED));
+    }
+
     CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
-        state.supply += amount;
+        state.supply = increased_supply;
         Ok(state)
     })?;
 
