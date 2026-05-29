@@ -1,3 +1,4 @@
+use cosmwasm_schema::cw_serde;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +7,12 @@ use cosmwasm_std::Addr;
 //use crate::cosmwasm_bignumber::{Uint256};
 
 pub type Uint128 = cosmwasm_std::Uint128;
+
+#[cw_serde]
+pub struct MigrateMsg {
+    pub forced: Option<bool>, // Some(True) skips migration checks
+    pub instantiate_msg: Option<InstantiateMsg>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -108,6 +115,14 @@ pub enum ExecuteMsg {
 
     RenounceRole {
         role: String,
+    },
+
+    Mint {
+        amount: Uint128,
+    },
+
+    Burn {
+        amount: Uint128,
     },
 }
 

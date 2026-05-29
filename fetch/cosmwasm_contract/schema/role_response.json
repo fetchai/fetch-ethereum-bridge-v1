@@ -9,5 +9,6 @@
     "has_role": {
       "type": "boolean"
     }
-  }
+  },
+  "additionalProperties": false
 }
