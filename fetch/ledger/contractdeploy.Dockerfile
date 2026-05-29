@@ -1,4 +1,4 @@
-FROM fetchai/fetchd:0.8.7
+FROM fetchai/fetchd:0.15.0-rc2
 
 USER root
 
@@ -16,7 +16,7 @@ RUN apt update && \
 RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf >rustup.rs && bash rustup.rs -y
 
 ENV PATH="$PATH:/root/.cargo/bin"
-RUN echo $PATH && ls $HOME && rustup default stable && cargo version && \
+RUN echo $PATH && ls $HOME && rustup default 1.69.0 && cargo version && \
     rustup update stable
 
 

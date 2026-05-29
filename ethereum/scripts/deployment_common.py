@@ -28,9 +28,9 @@ from .deployment_manifest_schema import (
 Address = str
 
 AdminRole: bytes = (0).to_bytes(32, byteorder='big')
-RelayerRole: bytes = web3.solidityKeccak(['string'], ["RELAYER_ROLE"])
-MonitorRole: bytes = web3.solidityKeccak(['string'], ["MONITOR_ROLE"])
-ApproverRole: bytes = web3.solidityKeccak(['string'], ["APPROVER_ROLE"])
+RelayerRole: bytes = web3.solidity_keccak(['string'], ["RELAYER_ROLE"])
+MonitorRole: bytes = web3.solidity_keccak(['string'], ["MONITOR_ROLE"])
+ApproverRole: bytes = web3.solidity_keccak(['string'], ["APPROVER_ROLE"])
 
 
 def get_owner_account(
@@ -109,7 +109,7 @@ def save_network_manifest(
 def configure_bridge_contract(contract: Bridge, owner: Account, contract_manifest: BridgeParams):
     def grantRole(role: bytes, wallet: ManifestAccount) -> Address:
         address = wallet.address if wallet else None
-        address = address if web3.isAddress(address) else None
+        address = address if web3.is_address(address) else None
 
         if address:
             contract.grantRole(role, address, {'from': owner})
@@ -132,7 +132,7 @@ def transfer_eth_funds_to_admin_and_relayer(bridge_manifest: BridgeParams, owner
         necessary_amount = 0
 
         if wallet and wallet.funding:
-            wallet_orig_eth_balance = web3.eth.getBalance(wallet.address)
+            wallet_orig_eth_balance = web3.eth.get_balance(wallet.address)
             if wallet_orig_eth_balance < wallet.funding:
                 necessary_amount = wallet.funding - wallet_orig_eth_balance
                 owner.transfer(wallet.address, necessary_amount)

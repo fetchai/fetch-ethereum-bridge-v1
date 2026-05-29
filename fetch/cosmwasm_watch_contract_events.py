@@ -72,7 +72,7 @@ class CosmwasmInstantiateTx:
         try:
             self.height = tx["height"]
             self.hash = tx["txhash"]
-            tx_events = tx["logs"][0]["events"]
+            tx_events = tx["events"]
             
             tx_message = dict()
             for event in tx_events:

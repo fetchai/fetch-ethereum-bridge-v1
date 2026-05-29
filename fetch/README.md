@@ -50,7 +50,7 @@ Assuming we are using the local cosmos blockchain, run the following to upload t
 
 ```bash
 # make sure fetchd is set to output json. wasm module doesn't seems to support the --output flag yet
-fetchd config output json 
+fetchd config set client output json 
 
 RES=$((echo "$PASSWORD"; echo "$PASSWORD") | fetchd tx wasm store bridge.wasm --from validator --gas="auto" -y)
 CODE_ID=$(fetchd query tx $(echo $RES | jq -r '.txhash') | jq -r ".logs[0].events[0].attributes[-1].value")
@@ -65,7 +65,7 @@ upon success `CODE_ID` env variable should contain an integer (`1` if first stor
 Once the contract is successfully uploaded, it can be instantiated as follow
 ```bash
 # make sure fetchd is set to output json. wasm module doesn't seems to support the --output flag yet
-fetchd config output json 
+fetchd config set client output json 
 
 RES=$((echo "$PASSWORD"; echo "$PASSWORD") | fetchd tx wasm instantiate $CODE_ID '{"cap":"10000", "deposit":"500", "upper_swap_limit":"1000", "lower_swap_limit":"2", "swap_fee":"1", "reverse_aggregated_allowance":"1", "reverse_aggregated_allowance_approver_cap":"1"}' --from validator --label my-bridge-contract --amount 10000ucosm -y)
 CONTRACT_ADDRESS=$(fetchd query tx $(echo $RES | jq -r '.txhash') | jq -r ".logs[0].events[0].attributes[-1].value")
