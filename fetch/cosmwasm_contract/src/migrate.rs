@@ -1,6 +1,6 @@
 use crate::msg::MigrateMsg;
 use crate::state::CONFIG;
-use cosmwasm_std::{entry_point, DepsMut, Env, Response, StdResult};
+use cosmwasm_std::{DepsMut, Env, Response, StdResult, entry_point};
 
 // version info for migration info
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
