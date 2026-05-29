@@ -1,4 +1,4 @@
-FROM fetchai/fetchd:0.15.0-rc2
+FROM fetchai/fetchd:0.15.0
 
 USER root
 
