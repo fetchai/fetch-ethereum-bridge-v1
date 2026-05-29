@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, QueryResponse, Response, StdError, StdResult, Storage,
+    Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    QueryResponse, Response, StdError, StdResult, Storage, attr, entry_point, to_json_binary,
 };
 
-use crate::access_control::{ac_add_role, ac_have_role, ac_revoke_role, AccessRole};
+use crate::access_control::{AccessRole, ac_add_role, ac_have_role, ac_revoke_role};
 use crate::error::{
     ERR_ACCESS_CONTROL_DOESNT_HAVE_ROLE, ERR_ACCESS_CONTROL_ONLY_ADMIN,
     ERR_ACCESS_CONTROL_ONLY_RELAYER, ERR_ALREADY_REFUNDED, ERR_CAP_EXCEEDED, ERR_CONTRACT_PAUSED,
@@ -16,7 +16,7 @@ use crate::msg::{
     RelayEonResponse, ReverseAggregatedAllowanceResponse, RoleResponse, SupplyResponse,
     SwapMaxResponse, Uint128,
 };
-use crate::state::{refunds_add, refunds_have, State, CONFIG};
+use crate::state::{CONFIG, State, refunds_add, refunds_have};
 
 pub const DEFAULT_DENOM: &str = "afet";
 

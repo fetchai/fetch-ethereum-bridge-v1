@@ -1,12 +1,12 @@
-use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage};
+use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, mock_env, mock_info};
 use cosmwasm_std::{
-    coins, Addr, BankMsg, CosmosMsg, Deps, DepsMut, Empty, MessageInfo, OwnedDeps, Response,
-    StdError, StdResult,
+    Addr, BankMsg, CosmosMsg, Deps, DepsMut, Empty, MessageInfo, OwnedDeps, Response, StdError,
+    StdResult, coins,
 };
 use std::marker::PhantomData;
 
 use crate::access_control::{
-    ac_have_role, AccessRole, ADMIN_ROLE, APPROVER_ROLE, MONITOR_ROLE, RELAYER_ROLE,
+    ADMIN_ROLE, APPROVER_ROLE, AccessRole, MONITOR_ROLE, RELAYER_ROLE, ac_have_role,
 };
 use crate::contract::{
     amount_from_funds, execute, instantiate, query, verify_not_paused_public_api,
@@ -233,12 +233,14 @@ mod access_control {
         assert_eq!(HAS_ROLE_TRUE, response.as_slice());
 
         // state
-        assert!(ac_have_role(
-            &deps.storage,
-            &addr!(account),
-            &AccessRole::from_str(role).unwrap()
-        )
-        .unwrap());
+        assert!(
+            ac_have_role(
+                &deps.storage,
+                &addr!(account),
+                &AccessRole::from_str(role).unwrap()
+            )
+            .unwrap()
+        );
     }
 
     pub fn revoke_role(
@@ -279,12 +281,14 @@ mod access_control {
         assert_eq!(HAS_ROLE_FALSE, response.as_slice());
 
         // state
-        assert!(!ac_have_role(
-            &deps.storage,
-            &addr!(account),
-            &AccessRole::from_str(role).unwrap()
-        )
-        .unwrap());
+        assert!(
+            !ac_have_role(
+                &deps.storage,
+                &addr!(account),
+                &AccessRole::from_str(role).unwrap()
+            )
+            .unwrap()
+        );
     }
 
     pub fn renounce_role(
@@ -319,12 +323,14 @@ mod access_control {
         assert_eq!(HAS_ROLE_FALSE, response.as_slice());
 
         // state
-        assert!(!ac_have_role(
-            deps.storage,
-            &addr!(account),
-            &AccessRole::from_str(role).unwrap()
-        )
-        .unwrap());
+        assert!(
+            !ac_have_role(
+                deps.storage,
+                &addr!(account),
+                &AccessRole::from_str(role).unwrap()
+            )
+            .unwrap()
+        );
     }
 
     fn test_grant_role(role: &str) {
@@ -587,16 +593,17 @@ mod pause {
                 && response.attributes[1].value == mock_env().block.height.to_string()
         );
         // state
-        assert!(verify_not_paused_public_api(
-            &mock_env(),
-            &CONFIG.load(deps.as_mut().storage).unwrap()
-        )
-        .is_err());
-        assert!(verify_not_paused_relayer_api(
-            &mock_env(),
-            &CONFIG.load(deps.as_mut().storage).unwrap()
-        )
-        .is_ok());
+        assert!(
+            verify_not_paused_public_api(&mock_env(), &CONFIG.load(deps.as_mut().storage).unwrap())
+                .is_err()
+        );
+        assert!(
+            verify_not_paused_relayer_api(
+                &mock_env(),
+                &CONFIG.load(deps.as_mut().storage).unwrap()
+            )
+            .is_ok()
+        );
 
         response = pause_relayer_api(deps, info.clone()).unwrap();
         // handle response
@@ -611,11 +618,13 @@ mod pause {
                 && response.attributes[1].value == mock_env().block.height.to_string()
         );
         // state
-        assert!(verify_not_paused_relayer_api(
-            &mock_env(),
-            &CONFIG.load(deps.as_mut().storage).unwrap()
-        )
-        .is_err());
+        assert!(
+            verify_not_paused_relayer_api(
+                &mock_env(),
+                &CONFIG.load(deps.as_mut().storage).unwrap()
+            )
+            .is_err()
+        );
     }
 
     fn assert_query_paused(
