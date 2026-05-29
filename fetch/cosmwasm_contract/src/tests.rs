@@ -816,11 +816,11 @@ mod deposit {
         let mut deps = mock_deps();
         init_default(&mut deps).unwrap();
 
-        let amount = 1000u128;
+        let amount = DEFAULT_CAP;
         let response = deposit(&mut deps, amount, DEFAULT_OWNER);
         assert!(response.is_ok());
 
-        let response = deposit(&mut deps, DEFAULT_CAP, DEFAULT_OWNER);
+        let response = deposit(&mut deps, 1u128, DEFAULT_OWNER);
         expect_error!(response, ERR_CAP_EXCEEDED);
     }
 
