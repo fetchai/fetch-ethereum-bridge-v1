@@ -13,6 +13,7 @@ ENV ETH_CONTRACT_DEPLOYMENT_MANIFEST_PATH=/config/deployment_manifest.json
 #VOLUME /config
 
 RUN pipenv install --system --deploy --ignore-pipfile
+RUN python -c "from pathlib import Path; import urllib.request; p = Path('/root/.solcx/solc-v0.7.6'); p.parent.mkdir(exist_ok=True); urllib.request.urlretrieve('https://raw.githubusercontent.com/ethereum/solc-bin/gh-pages/linux-amd64/solc-linux-amd64-v0.7.6+commit.7338295f', p); p.chmod(0o755)"
 RUN pipenv run brownie networks import networks-config.yaml True
 RUN pipenv run brownie compile
 
