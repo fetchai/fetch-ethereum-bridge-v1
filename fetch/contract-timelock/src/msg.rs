@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
+use crate::state::{BridgeMessage, StateVal};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -32,7 +33,16 @@ pub enum ExecuteMsg {
     },
 
     NewRelayEon {},
-
+    
+    Pause {
+        since_block: u64,
+    },
+    
+    // Message queue
+    Execute {
+        id: u64,
+    },
+    
     // Access Control
     GrantRole {
         role: String,
@@ -55,6 +65,9 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
 
+    #[returns(PendingMessagesResponse)]
+    PendingMessages {},    
+    
     #[returns(RoleResponse)]
     HasRole { role: String, address: Addr },
 
@@ -77,4 +90,10 @@ pub struct PausedSinceBlockResponse {
 
 #[cw_serde]
 pub struct FullStateResponse {
+    state: StateVal,
+}
+
+#[cw_serde]
+pub struct PendingMessagesResponse {
+    pub messages: Vec<(u64, BridgeMessage)>,
 }
