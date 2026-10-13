@@ -1,9 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 // use cw2::set_contract_version;
 
-use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 /*
@@ -18,7 +17,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response, StdError> {
     unimplemented!()
 }
 
@@ -28,7 +27,7 @@ pub fn execute(
     _env: Env,
     _info: MessageInfo,
     _msg: ExecuteMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response, StdError> {
     unimplemented!()
 }
 

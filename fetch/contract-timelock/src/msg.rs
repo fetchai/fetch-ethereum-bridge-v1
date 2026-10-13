@@ -1,6 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
-use crate::state::{BridgeMessage, StateVal};
+use crate::queue::BridgeMessage;
+use crate::state::{StateVal};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
