@@ -7,5 +7,3 @@ pub fn global_nonce_overflow_error() -> StdError {
 pub fn not_implemented_error() -> StdError {
     StdError::msg("Not implemented")
 }
-
-

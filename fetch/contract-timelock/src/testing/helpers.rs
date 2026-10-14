@@ -60,5 +60,9 @@ pub fn query_contract<T: DeserializeOwned>(deps: Deps, msg: QueryMsg) -> StdResu
 }
 
 pub fn event_names(response: &Response) -> Vec<&str> {
-    response.events.iter().map(|event| event.ty.as_str()).collect()
+    response
+        .events
+        .iter()
+        .map(|event| event.ty.as_str())
+        .collect()
 }

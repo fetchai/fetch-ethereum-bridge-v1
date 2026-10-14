@@ -6,7 +6,6 @@ use crate::evented_storage::evented_item;
 
 pub type NonceType = u64;
 
-
 // This is global map which keeps the next available nonce
 #[evented_item(value = "nonce")]
 const GLOBAL_NONCE: Item<NonceType> = Item::new("nonce");

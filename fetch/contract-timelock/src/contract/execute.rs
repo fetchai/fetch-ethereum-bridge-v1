@@ -1,9 +1,9 @@
 use crate::contract::msg::ExecuteMsg;
 use crate::error::not_implemented_error;
 use crate::state::{State, StateUpdate};
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_fetch_std::access_control::{
     handle_access_control_execute_msg, AccessControl, DEFAULT_ADMIN_ROLE,
 };
@@ -13,14 +13,16 @@ use cw_fetch_std::pausing::{pause_contract, resume_contract};
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        // Relayer messages
+        // Submit
         ExecuteMsg::ReverseSwap { .. }
         | ExecuteMsg::Refund { .. }
         | ExecuteMsg::RefundInFull { .. }
         | ExecuteMsg::NewRelayEon {} => Err(not_implemented_error()),
 
-        // Message queue
+        // Execute
         ExecuteMsg::Execute { .. } => Err(not_implemented_error()),
+        // Cancel
+        ExecuteMsg::Cancel { .. } => Err(not_implemented_error()),
 
         // DEFAULT_ADMIN_ROLE messages
         ExecuteMsg::UpdateState(update) => execute_update_state(deps, info, update),

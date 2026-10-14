@@ -6,8 +6,8 @@ use cw_fetch_std::access_control::{
 
 use crate::contract::migrate::{migrate, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::contract::msg::{
-    ExecuteMsg, FullStateResponse, InitRoles, InstantiateMsg, MigrateMsg,
-    PausedSinceBlockResponse, QueryMsg,
+    ExecuteMsg, FullStateResponse, InitRoles, InstantiateMsg, MigrateMsg, PausedSinceBlockResponse,
+    QueryMsg,
 };
 use crate::state::{State, StateUpdate};
 use crate::testing::helpers::{
@@ -20,15 +20,21 @@ fn has_admin_role(deps: Deps, addr: &Addr) -> bool {
         addr: addr.clone(),
         role: DEFAULT_ADMIN_ROLE.to_string(),
     });
-    query_contract::<QueryHasRoleResponse>(deps, msg).unwrap().has_role
+    query_contract::<QueryHasRoleResponse>(deps, msg)
+        .unwrap()
+        .has_role
 }
 
 fn query_state(deps: Deps) -> State {
-    query_contract::<FullStateResponse>(deps, QueryMsg::FullState {}).unwrap().state
+    query_contract::<FullStateResponse>(deps, QueryMsg::FullState {})
+        .unwrap()
+        .state
 }
 
 fn query_paused_since(deps: Deps) -> Option<u64> {
-    query_contract::<PausedSinceBlockResponse>(deps, QueryMsg::PausedSince {}).unwrap().block
+    query_contract::<PausedSinceBlockResponse>(deps, QueryMsg::PausedSince {})
+        .unwrap()
+        .block
 }
 
 #[test]
@@ -39,8 +45,17 @@ fn proper_initialization() {
 
     let msg = init_msg(&deps.api, &admin);
     let res = instantiate_contract(deps.as_mut(), &creator, &msg).unwrap();
-    assert_eq!(res.attributes, vec![attr("method", "instantiate"), attr("owner", creator.as_str())]);
-    assert_eq!(event_names(&res), vec!["state_updated", "access_control_has_role_updated"]);
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("method", "instantiate"),
+            attr("owner", creator.as_str())
+        ]
+    );
+    assert_eq!(
+        event_names(&res),
+        vec!["state_updated", "access_control_has_role_updated"]
+    );
 
     assert_eq!(query_state(deps.as_ref()), init_state(&deps.api));
     assert_eq!(query_paused_since(deps.as_ref()), None);
@@ -48,7 +63,10 @@ fn proper_initialization() {
     assert!(!has_admin_role(deps.as_ref(), &creator));
 
     let version = cw2::get_contract_version(&deps.storage).unwrap();
-    assert_eq!((version.contract.as_str(), version.version.as_str()), (CONTRACT_NAME, CONTRACT_VERSION));
+    assert_eq!(
+        (version.contract.as_str(), version.version.as_str()),
+        (CONTRACT_NAME, CONTRACT_VERSION)
+    );
 }
 
 #[test]
@@ -107,11 +125,22 @@ fn update_state_is_admin_only() {
         refund_lock_delay: Some(25),
         ..Default::default()
     };
-    assert!(execute_contract(deps.as_mut(), &user, ExecuteMsg::UpdateState(update.clone())).is_err());
+    assert!(execute_contract(
+        deps.as_mut(),
+        &user,
+        ExecuteMsg::UpdateState(update.clone())
+    )
+    .is_err());
     assert_eq!(query_state(deps.as_ref()), init_state(&deps.api));
 
     let res = execute_contract(deps.as_mut(), &admin, ExecuteMsg::UpdateState(update)).unwrap();
-    assert_eq!(res.attributes, vec![attr("action", "update_state"), attr("sender", admin.as_str())]);
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "update_state"),
+            attr("sender", admin.as_str())
+        ]
+    );
     assert_eq!(event_names(&res), vec!["state_updated"]);
     assert_eq!(
         query_state(deps.as_ref()),
@@ -128,7 +157,8 @@ fn pause_and_resume_are_admin_only() {
     let user = deps.api.addr_make("user");
 
     assert!(execute_contract(deps.as_mut(), &user, ExecuteMsg::Pause { since_block: 7 }).is_err());
-    let res = execute_contract(deps.as_mut(), &admin, ExecuteMsg::Pause { since_block: 7 }).unwrap();
+    let res =
+        execute_contract(deps.as_mut(), &admin, ExecuteMsg::Pause { since_block: 7 }).unwrap();
     assert_eq!(event_names(&res), vec!["contract_paused"]);
     assert_eq!(query_paused_since(deps.as_ref()), Some(7));
 
@@ -224,7 +254,10 @@ fn forced_migrate_requires_state() {
         instantiate_msg: Some(init_msg(&deps.api, &admin)),
     };
     let res = migrate(deps.as_mut(), mock_env(), with_state).unwrap();
-    assert_eq!(event_names(&res), vec!["state_updated", "access_control_has_role_updated"]);
+    assert_eq!(
+        event_names(&res),
+        vec!["state_updated", "access_control_has_role_updated"]
+    );
     assert_eq!(query_state(deps.as_ref()), init_state(&deps.api));
     assert!(has_admin_role(deps.as_ref(), &admin));
 }

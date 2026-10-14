@@ -1,9 +1,10 @@
+use crate::nonce::NonceType;
+use crate::queue::BridgeMessage;
+use crate::state::{State, StateUpdate};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_fetch_std::access_control::{AccessControlExecuteMsg, AccessControlQueryMsg};
 use cw_fetch_std::query_responses_hybrid_derive::QueryResponsesHybrid;
-use crate::queue::BridgeMessage;
-use crate::state::{State, StateUpdate};
 
 #[cw_serde]
 pub struct MigrateMsg {
@@ -26,8 +27,7 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-
-    // relayer
+    // Submit
     ReverseSwap {
         rid: u64,
         to: Addr,
@@ -53,6 +53,16 @@ pub enum ExecuteMsg {
 
     NewRelayEon {},
 
+    // Execute
+    Execute {
+        id: NonceType,
+    },
+
+    // Cancel
+    Cancel {
+        id: NonceType,
+    },
+
     // Admin
     /// Changes only the provided fields, omitted or `null` fields keep their current value.
     UpdateState(StateUpdate),
@@ -63,20 +73,15 @@ pub enum ExecuteMsg {
 
     Resume {},
 
-    // Message queue
-    Execute {
-        id: u64,
-    },
-
     // Access Control
     AccessControl(AccessControlExecuteMsg),
-
-
 }
 
 #[cw_serde]
 #[derive(QueryResponsesHybrid)]
 pub enum QueryMsg {
+    #[returns(MessageResponse)]
+    Message { id: NonceType },
 
     #[returns(PendingMessagesResponse)]
     PendingMessages {},
@@ -102,6 +107,11 @@ pub struct FullStateResponse {
 }
 
 #[cw_serde]
+pub struct MessageResponse {
+    pub message: Option<BridgeMessage>,
+}
+
+#[cw_serde]
 pub struct PendingMessagesResponse {
-    pub messages: Vec<(u64, BridgeMessage)>,
+    pub messages: Vec<(NonceType, BridgeMessage)>,
 }

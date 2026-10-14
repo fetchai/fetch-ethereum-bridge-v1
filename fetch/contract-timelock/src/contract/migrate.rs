@@ -1,9 +1,9 @@
 use crate::contract::instantiate::initialise_contract_state;
 use crate::contract::msg::MigrateMsg;
 use crate::state::State;
-use cosmwasm_std::{DepsMut, Env, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::{DepsMut, Env, Response, StdResult};
 use cw_fetch_std::events::ResponseHandler;
 
 // version info for migration info

@@ -58,11 +58,19 @@ pub fn to_event_value<T: Serialize + ?Sized>(value: &T) -> StdResult<String> {
 /// Any serializable key is a single attribute; tuple (composite) keys can also be
 /// split into one attribute per element by giving one name per element.
 pub trait EventKey<const N: usize> {
-    fn push_attributes(&self, names: &[&'static str; N], attributes: &mut Attributes) -> StdResult<()>;
+    fn push_attributes(
+        &self,
+        names: &[&'static str; N],
+        attributes: &mut Attributes,
+    ) -> StdResult<()>;
 }
 
 impl<T: Serialize> EventKey<1> for T {
-    fn push_attributes(&self, [name]: &[&'static str; 1], attributes: &mut Attributes) -> StdResult<()> {
+    fn push_attributes(
+        &self,
+        [name]: &[&'static str; 1],
+        attributes: &mut Attributes,
+    ) -> StdResult<()> {
         attributes.push((name.to_string(), to_event_value(self)?));
         Ok(())
     }
@@ -344,7 +352,11 @@ mod tests {
 
     impl Flaky {
         fn new(tag: u32, fail_on_call: u32) -> Self {
-            Self { tag, fail_on_call, calls: Cell::new(0) }
+            Self {
+                tag,
+                fail_on_call,
+                calls: Cell::new(0),
+            }
         }
     }
 
@@ -400,10 +412,14 @@ mod tests {
         let storage = deps.as_mut().storage;
         let mut response_handler = ResponseHandler::default();
 
-        TEST_MAP.update(storage, &mut response_handler, 1, &complex(10)).unwrap();
+        TEST_MAP
+            .update(storage, &mut response_handler, 1, &complex(10))
+            .unwrap();
         assert_eq!(TEST_MAP.load(storage, 1).unwrap(), complex(10));
 
-        TEST_MAP.update(storage, &mut response_handler, 1, &complex(20)).unwrap();
+        TEST_MAP
+            .update(storage, &mut response_handler, 1, &complex(20))
+            .unwrap();
         assert_eq!(TEST_MAP.load(storage, 1).unwrap(), complex(20));
 
         assert!(TEST_MAP.remove(storage, &mut response_handler, 1).unwrap());
@@ -426,7 +442,9 @@ mod tests {
     fn map_remove_nonexistent_is_silent() {
         let mut deps = mock_dependencies();
         let storage = deps.as_mut().storage;
-        TEST_MAP.update(storage, &mut ResponseHandler::default(), 1, &complex(10)).unwrap();
+        TEST_MAP
+            .update(storage, &mut ResponseHandler::default(), 1, &complex(10))
+            .unwrap();
 
         let mut response_handler = ResponseHandler::default();
         assert!(!TEST_MAP.remove(storage, &mut response_handler, 2).unwrap());
@@ -440,11 +458,23 @@ mod tests {
         let mut deps = mock_dependencies();
         let storage = deps.as_mut().storage;
         for id in [3, 1, 2] {
-            TEST_MAP.update(storage, &mut ResponseHandler::default(), id, &complex(id.into())).unwrap();
+            TEST_MAP
+                .update(
+                    storage,
+                    &mut ResponseHandler::default(),
+                    id,
+                    &complex(id.into()),
+                )
+                .unwrap();
         }
 
         let entries: Vec<_> = TEST_MAP
-            .range(storage, Some(Bound::inclusive(2u64)), None, Order::Ascending)
+            .range(
+                storage,
+                Some(Bound::inclusive(2u64)),
+                None,
+                Order::Ascending,
+            )
             .collect::<StdResult<_>>()
             .unwrap();
         assert_eq!(entries, vec![(2, complex(2)), (3, complex(3))]);
@@ -464,7 +494,9 @@ mod tests {
         let mut response_handler = ResponseHandler::default();
         let address = Addr::unchecked("fetch1member");
 
-        ROLES.update(storage, &mut response_handler, ("admin", &address), &()).unwrap();
+        ROLES
+            .update(storage, &mut response_handler, ("admin", &address), &())
+            .unwrap();
         assert!(ROLES.has(storage, ("admin", &address)));
         let keys: Vec<_> = ROLES
             .keys(storage, None, None, Order::Ascending)
@@ -472,14 +504,24 @@ mod tests {
             .unwrap();
         assert_eq!(keys, vec![("admin".to_string(), address.clone())]);
 
-        assert!(ROLES.remove(storage, &mut response_handler, ("admin", &address)).unwrap());
-        assert!(!ROLES.remove(storage, &mut response_handler, ("admin", &address)).unwrap());
+        assert!(ROLES
+            .remove(storage, &mut response_handler, ("admin", &address))
+            .unwrap());
+        assert!(!ROLES
+            .remove(storage, &mut response_handler, ("admin", &address))
+            .unwrap());
 
         assert_eq!(
             events(response_handler),
             vec![
-                event("roles_updated", &[("role", "admin"), ("address", "fetch1member")]),
-                event("roles_removed", &[("role", "admin"), ("address", "fetch1member")]),
+                event(
+                    "roles_updated",
+                    &[("role", "admin"), ("address", "fetch1member")]
+                ),
+                event(
+                    "roles_removed",
+                    &[("role", "admin"), ("address", "fetch1member")]
+                ),
             ]
         );
     }
@@ -491,7 +533,9 @@ mod tests {
         let mut response_handler = ResponseHandler::default();
 
         assert!(!TEST_ITEM.exists(storage));
-        TEST_ITEM.update(storage, &mut response_handler, &complex(1)).unwrap();
+        TEST_ITEM
+            .update(storage, &mut response_handler, &complex(1))
+            .unwrap();
         assert_eq!(TEST_ITEM.load(storage).unwrap(), complex(1));
 
         assert!(TEST_ITEM.remove(storage, &mut response_handler));
@@ -514,12 +558,17 @@ mod tests {
         let storage = deps.as_mut().storage;
         let mut response_handler = ResponseHandler::default();
 
-        RENAMED_ITEM.update(storage, &mut response_handler, &5).unwrap();
+        RENAMED_ITEM
+            .update(storage, &mut response_handler, &5)
+            .unwrap();
         RENAMED_ITEM.remove(storage, &mut response_handler);
 
         assert_eq!(
             events(response_handler),
-            vec![event("count_set", &[("count", "5")]), event("count_cleared", &[])]
+            vec![
+                event("count_set", &[("count", "5")]),
+                event("count_cleared", &[])
+            ]
         );
     }
 
@@ -529,7 +578,10 @@ mod tests {
         assert_eq!(to_event_value(&-3i32).unwrap(), "-3");
         assert_eq!(to_event_value(&true).unwrap(), "true");
         assert_eq!(to_event_value("say \"hi\"\n").unwrap(), "say \"hi\"\n");
-        assert_eq!(to_event_value(&Addr::unchecked("fetch1abc")).unwrap(), "fetch1abc");
+        assert_eq!(
+            to_event_value(&Addr::unchecked("fetch1abc")).unwrap(),
+            "fetch1abc"
+        );
         assert_eq!(to_event_value(&Uint128::new(123)).unwrap(), "123");
         assert_eq!(to_event_value(&Kind::Simple).unwrap(), "simple");
         assert_eq!(to_event_value(&None::<u64>).unwrap(), "null");
@@ -543,14 +595,23 @@ mod tests {
     fn map_failures_leave_storage_and_events_untouched() {
         let mut deps = mock_dependencies();
         let storage = deps.as_mut().storage;
-        FLAKY_MAP.update(storage, &mut ResponseHandler::default(), 1, &Flaky::new(1, 0)).unwrap();
+        FLAKY_MAP
+            .update(
+                storage,
+                &mut ResponseHandler::default(),
+                1,
+                &Flaky::new(1, 0),
+            )
+            .unwrap();
 
         // Failing while building the event, then while saving to storage.
         for fail_on_call in [1, 2] {
             let mut response_handler = ResponseHandler::default();
             for id in [1, 2] {
                 let value = Flaky::new(2, fail_on_call);
-                assert!(FLAKY_MAP.update(storage, &mut response_handler, id, &value).is_err());
+                assert!(FLAKY_MAP
+                    .update(storage, &mut response_handler, id, &value)
+                    .is_err());
             }
             assert!(events(response_handler).is_empty());
             assert_eq!(FLAKY_MAP.load(storage, 1).unwrap().tag, 1);
@@ -565,15 +626,21 @@ mod tests {
 
         for fail_on_call in [1, 2] {
             let mut response_handler = ResponseHandler::default();
-            assert!(FLAKY_ITEM.update(storage, &mut response_handler, &Flaky::new(2, fail_on_call)).is_err());
+            assert!(FLAKY_ITEM
+                .update(storage, &mut response_handler, &Flaky::new(2, fail_on_call))
+                .is_err());
             assert!(events(response_handler).is_empty());
             assert!(!FLAKY_ITEM.exists(storage));
         }
 
-        FLAKY_ITEM.update(storage, &mut ResponseHandler::default(), &Flaky::new(1, 0)).unwrap();
+        FLAKY_ITEM
+            .update(storage, &mut ResponseHandler::default(), &Flaky::new(1, 0))
+            .unwrap();
         for fail_on_call in [1, 2] {
             let mut response_handler = ResponseHandler::default();
-            assert!(FLAKY_ITEM.update(storage, &mut response_handler, &Flaky::new(2, fail_on_call)).is_err());
+            assert!(FLAKY_ITEM
+                .update(storage, &mut response_handler, &Flaky::new(2, fail_on_call))
+                .is_err());
             assert!(events(response_handler).is_empty());
             assert_eq!(FLAKY_ITEM.load(storage).unwrap().tag, 1);
         }

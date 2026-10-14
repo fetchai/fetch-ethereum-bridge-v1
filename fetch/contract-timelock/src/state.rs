@@ -80,8 +80,8 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evented_storage::events;
     use crate::contract::msg::ExecuteMsg;
+    use crate::evented_storage::events;
     use cosmwasm_std::testing::{mock_dependencies, MockApi};
     use cosmwasm_std::{from_json, to_json_string};
 
@@ -96,7 +96,10 @@ mod tests {
 
     fn state_updated(state: &State) -> Vec<(String, Vec<(String, String)>)> {
         let json = to_json_string(state).unwrap();
-        vec![("state_updated".to_string(), vec![("state".to_string(), json)])]
+        vec![(
+            "state_updated".to_string(),
+            vec![("state".to_string(), json)],
+        )]
     }
 
     #[test]
@@ -106,7 +109,9 @@ mod tests {
         let initial = state(&deps.api);
 
         assert!(!State::is_state_valid(&deps.storage));
-        initial.save(&mut deps.storage, &deps.api, &mut response_handler).unwrap();
+        initial
+            .save(&mut deps.storage, &deps.api, &mut response_handler)
+            .unwrap();
 
         assert!(State::is_state_valid(&deps.storage));
         assert_eq!(State::load(&deps.storage).unwrap(), initial);
@@ -122,7 +127,9 @@ mod tests {
             ..state(&deps.api)
         };
 
-        assert!(invalid.save(&mut deps.storage, &deps.api, &mut response_handler).is_err());
+        assert!(invalid
+            .save(&mut deps.storage, &deps.api, &mut response_handler)
+            .is_err());
         assert!(!State::is_state_valid(&deps.storage));
         assert!(events(response_handler).is_empty());
     }
@@ -131,7 +138,13 @@ mod tests {
     fn update_changes_only_provided_fields() {
         let mut deps = mock_dependencies();
         let initial = state(&deps.api);
-        initial.save(&mut deps.storage, &deps.api, &mut ResponseHandler::default()).unwrap();
+        initial
+            .save(
+                &mut deps.storage,
+                &deps.api,
+                &mut ResponseHandler::default(),
+            )
+            .unwrap();
 
         let mut response_handler = ResponseHandler::default();
         let new_bridge = deps.api.addr_make("new_bridge");
@@ -157,7 +170,13 @@ mod tests {
     fn failed_update_keeps_state() {
         let mut deps = mock_dependencies();
         let initial = state(&deps.api);
-        initial.save(&mut deps.storage, &deps.api, &mut ResponseHandler::default()).unwrap();
+        initial
+            .save(
+                &mut deps.storage,
+                &deps.api,
+                &mut ResponseHandler::default(),
+            )
+            .unwrap();
 
         let mut response_handler = ResponseHandler::default();
         let update = StateUpdate {
@@ -166,7 +185,9 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(State::update(&mut deps.storage, &deps.api, &mut response_handler, update).is_err());
+        assert!(
+            State::update(&mut deps.storage, &deps.api, &mut response_handler, update).is_err()
+        );
         assert_eq!(State::load(&deps.storage).unwrap(), initial);
         assert!(events(response_handler).is_empty());
     }
@@ -175,7 +196,13 @@ mod tests {
     fn update_requires_initialised_state() {
         let mut deps = mock_dependencies();
         let update = StateUpdate::default();
-        assert!(State::update(&mut deps.storage, &deps.api, &mut ResponseHandler::default(), update).is_err());
+        assert!(State::update(
+            &mut deps.storage,
+            &deps.api,
+            &mut ResponseHandler::default(),
+            update
+        )
+        .is_err());
     }
 
     #[test]

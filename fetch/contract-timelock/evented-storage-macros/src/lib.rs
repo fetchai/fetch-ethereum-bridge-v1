@@ -124,7 +124,11 @@ fn parse_args(args: TokenStream, kind: Kind) -> syn::Result<Args> {
     let mut parsed = Args::default();
     let parser = syn::meta::parser(|meta| {
         if meta.path.is_ident("key") && kind == Kind::Map {
-            set_once(&meta, &mut parsed.key, parse_key_names(meta.value()?.parse()?)?)
+            set_once(
+                &meta,
+                &mut parsed.key,
+                parse_key_names(meta.value()?.parse()?)?,
+            )
         } else if meta.path.is_ident("value") {
             set_once(&meta, &mut parsed.value, meta.value()?.parse()?)
         } else if meta.path.is_ident("updated") {
@@ -133,7 +137,9 @@ fn parse_args(args: TokenStream, kind: Kind) -> syn::Result<Args> {
             set_once(&meta, &mut parsed.removed, meta.value()?.parse()?)
         } else {
             Err(meta.error(match kind {
-                Kind::Map => "unsupported argument, expected `key`, `value`, `updated` or `removed`",
+                Kind::Map => {
+                    "unsupported argument, expected `key`, `value`, `updated` or `removed`"
+                }
                 Kind::Item => "unsupported argument, expected `value`, `updated` or `removed`",
             }))
         }
@@ -142,10 +148,16 @@ fn parse_args(args: TokenStream, kind: Kind) -> syn::Result<Args> {
 
     let call_site = proc_macro2::Span::call_site();
     if kind == Kind::Map && parsed.key.as_deref().unwrap_or_default().is_empty() {
-        return Err(syn::Error::new(call_site, "missing `key = \"...\"` argument"));
+        return Err(syn::Error::new(
+            call_site,
+            "missing `key = \"...\"` argument",
+        ));
     }
     if kind == Kind::Item && parsed.value.is_none() {
-        return Err(syn::Error::new(call_site, "missing `value = \"...\"` argument"));
+        return Err(syn::Error::new(
+            call_site,
+            "missing `value = \"...\"` argument",
+        ));
     }
 
     // Attribute names must be unique and non-empty within an event.
@@ -154,7 +166,10 @@ fn parse_args(args: TokenStream, kind: Kind) -> syn::Result<Args> {
     for name in names {
         let value = name.value();
         if value.is_empty() {
-            return Err(syn::Error::new(name.span(), "attribute name must not be empty"));
+            return Err(syn::Error::new(
+                name.span(),
+                "attribute name must not be empty",
+            ));
         }
         if seen.contains(&value) {
             return Err(syn::Error::new(name.span(), "duplicate attribute name"));

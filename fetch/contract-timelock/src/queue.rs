@@ -1,19 +1,32 @@
+use crate::error::global_nonce_overflow_error;
+use crate::evented_storage::evented_map;
+use crate::nonce::{GlobalNonce, NonceType};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Order, StdResult, Storage, Uint128};
 use cw_fetch_std::events::ResponseHandler;
 use cw_storage_plus::Map;
-use crate::error::global_nonce_overflow_error;
-use crate::evented_storage::evented_map;
-use crate::nonce::{GlobalNonce, NonceType};
 
-#[evented_map(key = "id", value = "message", updated = "message_queued", removed = "message_removed")]
-const MESSAGE_QUEUE: Map<u64, BridgeMessage> =
-    Map::new("message_queue");
+#[evented_map(
+    key = "id",
+    value = "message",
+    updated = "message_queued",
+    removed = "message_removed"
+)]
+const MESSAGE_QUEUE: Map<u64, BridgeMessage> = Map::new("message_queue");
 
 #[cw_serde]
 pub struct BridgeMessage {
     pub payload: BridgeMessagePayload,
     pub execution_time: u64,
+    pub state: ExecutionState,
+}
+
+#[cw_serde]
+pub enum ExecutionState {
+    Pending,
+    Executed,
+    Cancelled,
+    Failed,
 }
 
 #[cw_serde]
@@ -40,7 +53,6 @@ pub enum BridgeMessagePayload {
     },
     NewRelayEon {},
 }
-
 
 pub struct MessageQueue;
 
@@ -106,17 +118,24 @@ mod tests {
         BridgeMessage {
             payload: BridgeMessagePayload::NewRelayEon {},
             execution_time,
+            state: ExecutionState::Pending,
         }
     }
 
     fn attrs(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]
     fn empty_queue() {
         let deps = mock_dependencies();
-        assert_eq!(MessageQueue::get_first(deps.as_ref().storage).unwrap(), None);
+        assert_eq!(
+            MessageQueue::get_first(deps.as_ref().storage).unwrap(),
+            None
+        );
         assert!(MessageQueue::get_all(deps.as_ref().storage)
             .unwrap()
             .is_empty());
@@ -131,25 +150,61 @@ mod tests {
         let second = message(20);
         let third = message(30);
 
-        assert_eq!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &first).unwrap(), 0);
-        assert_eq!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &second).unwrap(), 1);
-        assert_eq!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &third).unwrap(), 2);
+        assert_eq!(
+            MessageQueue::push(deps.as_mut().storage, &mut response_handler, &first).unwrap(),
+            0
+        );
+        assert_eq!(
+            MessageQueue::push(deps.as_mut().storage, &mut response_handler, &second).unwrap(),
+            1
+        );
+        assert_eq!(
+            MessageQueue::push(deps.as_mut().storage, &mut response_handler, &third).unwrap(),
+            2
+        );
         assert_eq!(GlobalNonce::get_nonce(deps.as_ref().storage).unwrap(), 3);
 
-        assert_eq!(MessageQueue::get_first(deps.as_ref().storage).unwrap(), Some((0, first.clone())));
+        assert_eq!(
+            MessageQueue::get_first(deps.as_ref().storage).unwrap(),
+            Some((0, first.clone()))
+        );
         assert!(MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 0).unwrap());
-        assert_eq!(MessageQueue::get_first(deps.as_ref().storage).unwrap(), Some((1, second.clone())));
+        assert_eq!(
+            MessageQueue::get_first(deps.as_ref().storage).unwrap(),
+            Some((1, second.clone()))
+        );
 
         // Removing an unknown ID is a no-op.
         assert!(!MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 100).unwrap());
         assert_eq!(MessageQueue::get(deps.as_ref().storage, 100).unwrap(), None);
 
-        assert_eq!(MessageQueue::get_all(deps.as_ref().storage).unwrap(), vec![(1, second), (2, third)]);
+        assert_eq!(
+            MessageQueue::get_all(deps.as_ref().storage).unwrap(),
+            vec![(1, second), (2, third)]
+        );
 
         let events = events(response_handler);
-        assert_eq!(events.iter().filter(|(name, _)| name == "message_queued").count(), 3);
-        assert_eq!(events.iter().filter(|(name, _)| name == "message_removed").count(), 1);
-        assert_eq!(events.iter().filter(|(name, _)| name == "global_nonce_updated").count(), 3);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(name, _)| name == "message_queued")
+                .count(),
+            3
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(name, _)| name == "message_removed")
+                .count(),
+            1
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(name, _)| name == "global_nonce_updated")
+                .count(),
+            3
+        );
     }
 
     #[test]
@@ -164,6 +219,7 @@ mod tests {
                 relay_eon: 3,
             },
             execution_time: 99,
+            state: ExecutionState::Pending,
         };
         let json = to_json_string(&value).unwrap();
 
@@ -174,7 +230,10 @@ mod tests {
         assert_eq!(
             events(response_handler),
             vec![
-                ("message_queued".to_string(), attrs(&[("id", "0"), ("message", &json)])),
+                (
+                    "message_queued".to_string(),
+                    attrs(&[("id", "0"), ("message", &json)])
+                ),
                 ("global_nonce_updated".to_string(), attrs(&[("nonce", "1")])),
                 ("message_removed".to_string(), attrs(&[("id", "0")])),
             ]
@@ -187,9 +246,17 @@ mod tests {
         let plain: Map<u64, BridgeMessage> = Map::new("message_queue");
 
         plain.save(deps.as_mut().storage, 5, &message(1)).unwrap();
-        assert_eq!(MessageQueue::get(deps.as_ref().storage, 5).unwrap(), Some(message(1)));
+        assert_eq!(
+            MessageQueue::get(deps.as_ref().storage, 5).unwrap(),
+            Some(message(1))
+        );
 
-        MessageQueue::push(deps.as_mut().storage, &mut ResponseHandler::default(), &message(2)).unwrap();
+        MessageQueue::push(
+            deps.as_mut().storage,
+            &mut ResponseHandler::default(),
+            &message(2),
+        )
+        .unwrap();
         assert_eq!(plain.load(deps.as_ref().storage, 0).unwrap(), message(2));
     }
 
@@ -201,18 +268,33 @@ mod tests {
 
         let id = MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap();
         MessageQueue::remove(deps.as_mut().storage, &mut response_handler, id).unwrap();
-        assert_eq!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap(), id + 1);
+        assert_eq!(
+            MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap(),
+            id + 1
+        );
     }
 
     #[test]
     fn nonce_overflow_does_not_insert() {
         let mut deps = mock_dependencies();
-        GlobalNonce::update_nonce(deps.as_mut().storage, &mut ResponseHandler::default(), u64::MAX).unwrap();
+        GlobalNonce::update_nonce(
+            deps.as_mut().storage,
+            &mut ResponseHandler::default(),
+            u64::MAX,
+        )
+        .unwrap();
 
         let mut response_handler = ResponseHandler::default();
-        assert!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &message(0)).is_err());
-        assert!(MessageQueue::get_all(deps.as_ref().storage).unwrap().is_empty());
-        assert_eq!(GlobalNonce::get_nonce(deps.as_ref().storage).unwrap(), u64::MAX);
+        assert!(
+            MessageQueue::push(deps.as_mut().storage, &mut response_handler, &message(0)).is_err()
+        );
+        assert!(MessageQueue::get_all(deps.as_ref().storage)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            GlobalNonce::get_nonce(deps.as_ref().storage).unwrap(),
+            u64::MAX
+        );
         assert!(events(response_handler).is_empty());
     }
 }
