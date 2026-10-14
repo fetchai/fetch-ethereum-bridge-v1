@@ -198,15 +198,6 @@ fn admin_can_grant_and_revoke_roles() {
 }
 
 #[test]
-fn unimplemented_messages_return_errors() {
-    let (mut deps, admin) = setup();
-
-    assert!(execute_contract(deps.as_mut(), &admin, ExecuteMsg::NewRelayEon {}).is_err());
-    assert!(execute_contract(deps.as_mut(), &admin, ExecuteMsg::Execute { id: 0 }).is_err());
-    assert!(query_contract::<()>(deps.as_ref(), QueryMsg::PendingMessages {}).is_err());
-}
-
-#[test]
 fn migrate_from_older_version() {
     let (mut deps, _) = setup();
     cw2::set_contract_version(&mut deps.storage, CONTRACT_NAME, "0.0.1").unwrap();

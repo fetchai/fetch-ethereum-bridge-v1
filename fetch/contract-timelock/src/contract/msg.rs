@@ -1,5 +1,5 @@
-use crate::nonce::NonceType;
 use crate::queue::BridgeMessage;
+use crate::queue::NonceType;
 use crate::state::{State, StateUpdate};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
@@ -55,12 +55,12 @@ pub enum ExecuteMsg {
 
     // Execute
     Execute {
-        id: NonceType,
+        nonce: NonceType,
     },
 
     // Cancel
     Cancel {
-        id: NonceType,
+        nonce: NonceType,
     },
 
     // Admin
@@ -81,10 +81,14 @@ pub enum ExecuteMsg {
 #[derive(QueryResponsesHybrid)]
 pub enum QueryMsg {
     #[returns(MessageResponse)]
-    Message { id: NonceType },
+    Message { nonce: NonceType },
 
+    /// Pending messages in execution order, starting from the next one to execute.
     #[returns(PendingMessagesResponse)]
-    PendingMessages {},
+    PendingMessages {
+        start_after: Option<NonceType>,
+        limit: Option<u32>,
+    },
 
     #[returns(PausedSinceBlockResponse)]
     PausedSince {},

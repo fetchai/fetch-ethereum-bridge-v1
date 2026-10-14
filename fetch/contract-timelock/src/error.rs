@@ -1,9 +1,30 @@
+use crate::queue::NonceType;
 use cosmwasm_std::StdError;
 
-pub fn global_nonce_overflow_error() -> StdError {
-    StdError::msg("Global nonce overflow")
+pub fn nonce_overflow_error() -> StdError {
+    StdError::msg("Nonce overflow")
 }
 
-pub fn not_implemented_error() -> StdError {
-    StdError::msg("Not implemented")
+pub fn execution_time_overflow_error() -> StdError {
+    StdError::msg("Execution time overflow")
+}
+
+pub fn message_not_found_error(nonce: NonceType) -> StdError {
+    StdError::msg(format!("Message with nonce {nonce} not found"))
+}
+
+pub fn message_not_pending_error(nonce: NonceType) -> StdError {
+    StdError::msg(format!("Message with nonce {nonce} is not pending"))
+}
+
+pub fn message_not_next_error(nonce: NonceType, next_execute_nonce: NonceType) -> StdError {
+    StdError::msg(format!(
+        "Message with nonce {nonce} is not next to execute, next is {next_execute_nonce}"
+    ))
+}
+
+pub fn message_not_mature_error(nonce: NonceType, execution_time: u64) -> StdError {
+    StdError::msg(format!(
+        "Message with nonce {nonce} can not be executed before {execution_time}"
+    ))
 }
