@@ -1,10 +1,12 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_json_string, Addr, Order, StdResult, Storage, Uint128};
-use cw_fetch_std::events::{IntoEvent, ResponseHandler};
+use cosmwasm_std::{Addr, Order, StdResult, Storage, Uint128};
+use cw_fetch_std::events::ResponseHandler;
 use cw_storage_plus::Map;
 use crate::error::global_nonce_overflow_error;
+use crate::evented_storage::evented_map;
 use crate::nonce::{GlobalNonce, NonceType};
 
+#[evented_map(key = "id", value = "message", updated = "message_queued", removed = "message_removed")]
 const MESSAGE_QUEUE: Map<u64, BridgeMessage> =
     Map::new("message_queue");
 
@@ -40,42 +42,6 @@ pub enum BridgeMessagePayload {
 }
 
 
-
-pub struct MessageQueuedEvent<'a> {
-    pub id: NonceType,
-    pub message: &'a BridgeMessage,
-}
-
-impl IntoEvent for MessageQueuedEvent<'_> {
-    fn event_name(&self) -> &str {
-        "message_queued"
-    }
-
-    fn event_attributes(&self) -> Vec<(String, String)> {
-        vec![
-            ("id".to_string(), self.id.to_string()),
-            (
-                "message".to_string(),
-                to_json_string(self.message).expect("BridgeMessage must serialize to JSON"),
-            ),
-        ]
-    }
-}
-
-pub struct MessageRemovedEvent {
-    pub id: NonceType,
-}
-
-impl IntoEvent for MessageRemovedEvent {
-    fn event_name(&self) -> &str {
-        "message_removed"
-    }
-
-    fn event_attributes(&self) -> Vec<(String, String)> {
-        vec![("id".to_string(), self.id.to_string())]
-    }
-}
-
 pub struct MessageQueue;
 
 impl MessageQueue {
@@ -91,24 +57,20 @@ impl MessageQueue {
             .checked_add(1)
             .ok_or_else(|| global_nonce_overflow_error())?;
 
-        MESSAGE_QUEUE.save(storage, id, message)?;
-
-        response_handler.add_event(MessageQueuedEvent { id, message });
+        MESSAGE_QUEUE.update(storage, response_handler, id, message)?;
         GlobalNonce::update_nonce(storage, response_handler, next_nonce)?;
 
         Ok(id)
     }
 
     /// Remove a queued message by ID. Does nothing if that ID is absent.
+    /// Returns whether a message was removed.
     pub fn remove(
         storage: &mut dyn Storage,
         response_handler: &mut ResponseHandler,
         id: NonceType,
-    ) {
-        if MESSAGE_QUEUE.has(storage, id) {
-            MESSAGE_QUEUE.remove(storage, id);
-            response_handler.add_event(MessageRemovedEvent { id });
-        }
+    ) -> StdResult<bool> {
+        MESSAGE_QUEUE.remove(storage, response_handler, id)
     }
 
     /// Return the message at the given ID, if it exists.
@@ -136,13 +98,19 @@ impl MessageQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::evented_storage::events;
     use cosmwasm_std::testing::mock_dependencies;
+    use cosmwasm_std::to_json_string;
 
     fn message(execution_time: u64) -> BridgeMessage {
         BridgeMessage {
             payload: BridgeMessagePayload::NewRelayEon {},
             execution_time,
         }
+    }
+
+    fn attrs(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
     }
 
     #[test]
@@ -169,19 +137,60 @@ mod tests {
         assert_eq!(GlobalNonce::get_nonce(deps.as_ref().storage).unwrap(), 3);
 
         assert_eq!(MessageQueue::get_first(deps.as_ref().storage).unwrap(), Some((0, first.clone())));
-        MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 0);
+        assert!(MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 0).unwrap());
         assert_eq!(MessageQueue::get_first(deps.as_ref().storage).unwrap(), Some((1, second.clone())));
 
         // Removing an unknown ID is a no-op.
-        MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 100);
+        assert!(!MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 100).unwrap());
         assert_eq!(MessageQueue::get(deps.as_ref().storage, 100).unwrap(), None);
 
         assert_eq!(MessageQueue::get_all(deps.as_ref().storage).unwrap(), vec![(1, second), (2, third)]);
 
-        let response = response_handler.into_response();
-        assert_eq!(response.events.iter().filter(|event| event.ty == "message_queued").count(), 3);
-        assert_eq!(response.events.iter().filter(|event| event.ty == "message_removed").count(), 1);
-        assert_eq!(response.events.iter().filter(|event| event.ty == "global_nonce_updated").count(), 3);
+        let events = events(response_handler);
+        assert_eq!(events.iter().filter(|(name, _)| name == "message_queued").count(), 3);
+        assert_eq!(events.iter().filter(|(name, _)| name == "message_removed").count(), 1);
+        assert_eq!(events.iter().filter(|(name, _)| name == "global_nonce_updated").count(), 3);
+    }
+
+    #[test]
+    fn push_and_remove_events_are_compatible() {
+        let mut deps = mock_dependencies();
+        let mut response_handler = ResponseHandler::default();
+        let value = BridgeMessage {
+            payload: BridgeMessagePayload::Refund {
+                id: 7,
+                to: Addr::unchecked("fetch1recipient"),
+                amount: Uint128::new(1000),
+                relay_eon: 3,
+            },
+            execution_time: 99,
+        };
+        let json = to_json_string(&value).unwrap();
+
+        MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap();
+        MessageQueue::remove(deps.as_mut().storage, &mut response_handler, 0).unwrap();
+
+        // Same names, attributes and order as the hand-written events this replaced.
+        assert_eq!(
+            events(response_handler),
+            vec![
+                ("message_queued".to_string(), attrs(&[("id", "0"), ("message", &json)])),
+                ("global_nonce_updated".to_string(), attrs(&[("nonce", "1")])),
+                ("message_removed".to_string(), attrs(&[("id", "0")])),
+            ]
+        );
+    }
+
+    #[test]
+    fn storage_layout_is_unchanged() {
+        let mut deps = mock_dependencies();
+        let plain: Map<u64, BridgeMessage> = Map::new("message_queue");
+
+        plain.save(deps.as_mut().storage, 5, &message(1)).unwrap();
+        assert_eq!(MessageQueue::get(deps.as_ref().storage, 5).unwrap(), Some(message(1)));
+
+        MessageQueue::push(deps.as_mut().storage, &mut ResponseHandler::default(), &message(2)).unwrap();
+        assert_eq!(plain.load(deps.as_ref().storage, 0).unwrap(), message(2));
     }
 
     #[test]
@@ -191,16 +200,19 @@ mod tests {
         let value = message(0);
 
         let id = MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap();
-        MessageQueue::remove(deps.as_mut().storage, &mut response_handler, id);
+        MessageQueue::remove(deps.as_mut().storage, &mut response_handler, id).unwrap();
         assert_eq!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &value).unwrap(), id + 1);
     }
 
     #[test]
     fn nonce_overflow_does_not_insert() {
         let mut deps = mock_dependencies();
+        GlobalNonce::update_nonce(deps.as_mut().storage, &mut ResponseHandler::default(), u64::MAX).unwrap();
+
         let mut response_handler = ResponseHandler::default();
-        GlobalNonce::update_nonce(deps.as_mut().storage, &mut response_handler, u64::MAX).unwrap();
         assert!(MessageQueue::push(deps.as_mut().storage, &mut response_handler, &message(0)).is_err());
         assert!(MessageQueue::get_all(deps.as_ref().storage).unwrap().is_empty());
+        assert_eq!(GlobalNonce::get_nonce(deps.as_ref().storage).unwrap(), u64::MAX);
+        assert!(events(response_handler).is_empty());
     }
 }

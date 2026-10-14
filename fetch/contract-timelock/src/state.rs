@@ -8,8 +8,8 @@ const STATE: Item<StateVal> = Item::new("state");
 pub struct StateVal {
     pub paused_since_block: u64,
     pub bridge_addr: Addr,
-    pub reverse_swap_lock_duration: u64,
-    pub refund_lock_duration: u64,
-    pub new_relay_eon_lock_duration: u64,
+    pub reverse_swap_lock_delay: u64,
+    pub refund_lock_delay: u64,
+    pub new_relay_eon_lock_delay: u64,
 }
 

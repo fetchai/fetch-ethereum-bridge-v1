@@ -1,5 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
+use cw_fetch_std::access_control::{AccessControlExecuteMsg, AccessControlQueryMsg};
+use cw_fetch_std::query_responses_hybrid_derive::QueryResponsesHybrid;
 use crate::queue::BridgeMessage;
 use crate::state::{StateVal};
 
@@ -34,41 +36,29 @@ pub enum ExecuteMsg {
     },
 
     NewRelayEon {},
-    
+
     Pause {
         since_block: u64,
     },
-    
+
     // Message queue
     Execute {
         id: u64,
     },
-    
+
     // Access Control
-    GrantRole {
-        role: String,
-        address: Addr,
-    },
-
-    RevokeRole {
-        role: String,
-        address: Addr,
-    },
-
-    RenounceRole {
-        role: String,
-    },
+    AccessControl(AccessControlExecuteMsg),
 
 
 }
 
 #[cw_serde]
-#[derive(QueryResponses)]
+#[derive(QueryResponsesHybrid)]
 pub enum QueryMsg {
 
     #[returns(PendingMessagesResponse)]
-    PendingMessages {},    
-    
+    PendingMessages {},
+
     #[returns(RoleResponse)]
     HasRole { role: String, address: Addr },
 
@@ -77,6 +67,9 @@ pub enum QueryMsg {
 
     #[returns(FullStateResponse)]
     FullState {},
+
+    #[nested]
+    AccessControl(AccessControlQueryMsg),
 }
 
 #[cw_serde]
