@@ -3,7 +3,7 @@ use cosmwasm_std::{Addr, Api, StdResult, Storage};
 use cw_fetch_std::events::ResponseHandler;
 use cw_storage_plus::Item;
 
-use crate::evented_storage::evented_item;
+use cw_fetch_std::storage::evented_item;
 
 #[evented_item(value = "state")]
 const STATE: Item<State> = Item::new("state");
@@ -81,9 +81,9 @@ impl State {
 mod tests {
     use super::*;
     use crate::contract::msg::ExecuteMsg;
-    use crate::evented_storage::events;
     use cosmwasm_std::testing::{mock_dependencies, MockApi};
     use cosmwasm_std::{from_json, to_json_string};
+    use cw_fetch_std::testing::helpers::response_events;
 
     fn state(api: &MockApi) -> State {
         State {
@@ -115,7 +115,7 @@ mod tests {
 
         assert!(State::is_state_valid(&deps.storage));
         assert_eq!(State::load(&deps.storage).unwrap(), initial);
-        assert_eq!(events(response_handler), state_updated(&initial));
+        assert_eq!(response_events(response_handler), state_updated(&initial));
     }
 
     #[test]
@@ -131,7 +131,7 @@ mod tests {
             .save(&mut deps.storage, &deps.api, &mut response_handler)
             .is_err());
         assert!(!State::is_state_valid(&deps.storage));
-        assert!(events(response_handler).is_empty());
+        assert!(response_events(response_handler).is_empty());
     }
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         };
         assert_eq!(updated, expected);
         assert_eq!(State::load(&deps.storage).unwrap(), expected);
-        assert_eq!(events(response_handler), state_updated(&expected));
+        assert_eq!(response_events(response_handler), state_updated(&expected));
     }
 
     #[test]
@@ -189,7 +189,7 @@ mod tests {
             State::update(&mut deps.storage, &deps.api, &mut response_handler, update).is_err()
         );
         assert_eq!(State::load(&deps.storage).unwrap(), initial);
-        assert!(events(response_handler).is_empty());
+        assert!(response_events(response_handler).is_empty());
     }
 
     #[test]

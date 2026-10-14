@@ -46,7 +46,6 @@ schemars = "0.8.16"
 serde = { version = "1.0.197", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.58" }
 cw-fetch-std = { path = "cw-fetch-std" }
-evented-storage-macros = { path = "evented-storage-macros" }
 
 [dev-dependencies]
 cw-multi-test = "3.0.1"

@@ -2,11 +2,11 @@ use crate::error::{
     message_not_found_error, message_not_mature_error, message_not_next_error,
     message_not_pending_error, nonce_overflow_error,
 };
-use crate::evented_storage::{evented_item, evented_map};
 use crate::state::State;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Order, StdResult, Storage, Uint128};
 use cw_fetch_std::events::ResponseHandler;
+use cw_fetch_std::storage::{evented_item, evented_map};
 use cw_storage_plus::{Bound, Item, Map};
 
 pub type NonceType = u64;
@@ -244,8 +244,8 @@ impl MessageQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evented_storage::events;
     use cosmwasm_std::testing::{mock_dependencies, MockStorage};
+    use cw_fetch_std::testing::helpers::response_events;
 
     fn push(storage: &mut dyn Storage, execution_time: u64) -> NonceType {
         let payload = BridgeMessagePayload::NewRelayEon {};
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(MessageQueue::next_submit_nonce(&deps.storage).unwrap(), 3);
         assert_eq!(MessageQueue::next_execute_nonce(&deps.storage).unwrap(), 0);
 
-        let names: Vec<_> = events(response_handler)
+        let names: Vec<_> = response_events(response_handler)
             .into_iter()
             .map(|(name, _)| name)
             .collect();
@@ -329,7 +329,7 @@ mod tests {
         let payload = BridgeMessagePayload::NewRelayEon {};
         assert!(MessageQueue::push(&mut deps.storage, &mut response_handler, payload, 0).is_err());
         assert_eq!(MessageQueue::get(&deps.storage, u64::MAX).unwrap(), None);
-        assert!(events(response_handler).is_empty());
+        assert!(response_events(response_handler).is_empty());
     }
 
     #[test]
@@ -341,7 +341,7 @@ mod tests {
             MessageQueue::start_execution(&mut storage, &mut response_handler, 1, 100).is_err()
         );
         assert!(MessageQueue::start_execution(&mut storage, &mut response_handler, 0, 99).is_err());
-        assert!(events(response_handler).is_empty());
+        assert!(response_events(response_handler).is_empty());
         assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 0);
 
         let mut response_handler = ResponseHandler::default();
@@ -388,7 +388,7 @@ mod tests {
         for nonce in [0, 1, 2, 3] {
             let mut response_handler = ResponseHandler::default();
             assert!(MessageQueue::cancel(&mut storage, &mut response_handler, nonce).is_err());
-            assert!(events(response_handler).is_empty());
+            assert!(response_events(response_handler).is_empty());
         }
     }
 
