@@ -1,12 +1,28 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_fetch_std::access_control::{AccessControlExecuteMsg, AccessControlQueryMsg};
 use cw_fetch_std::query_responses_hybrid_derive::QueryResponsesHybrid;
 use crate::queue::BridgeMessage;
-use crate::state::{StateVal};
+use crate::state::{State, StateUpdate};
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct MigrateMsg {
+    pub forced: Option<bool>, // Some(True) skips migration checks
+    pub instantiate_msg: Option<InstantiateMsg>,
+}
+
+#[cw_serde]
+pub struct InitRoles {
+    pub roles: Vec<String>,
+    pub addresses: Vec<String>,
+}
+
+#[cw_serde]
+pub struct InstantiateMsg {
+    pub state: State,
+    pub paused_since_block: Option<u64>,
+    pub roles: Option<InitRoles>,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -37,9 +53,15 @@ pub enum ExecuteMsg {
 
     NewRelayEon {},
 
+    // Admin
+    /// Changes only the provided fields, omitted or `null` fields keep their current value.
+    UpdateState(StateUpdate),
+
     Pause {
         since_block: u64,
     },
+
+    Resume {},
 
     // Message queue
     Execute {
@@ -59,9 +81,6 @@ pub enum QueryMsg {
     #[returns(PendingMessagesResponse)]
     PendingMessages {},
 
-    #[returns(RoleResponse)]
-    HasRole { role: String, address: Addr },
-
     #[returns(PausedSinceBlockResponse)]
     PausedSince {},
 
@@ -73,18 +92,13 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct RoleResponse {
-    pub has_role: bool,
-}
-
-#[cw_serde]
 pub struct PausedSinceBlockResponse {
-    pub block: u64,
+    pub block: Option<u64>,
 }
 
 #[cw_serde]
 pub struct FullStateResponse {
-    state: StateVal,
+    pub state: State,
 }
 
 #[cw_serde]
