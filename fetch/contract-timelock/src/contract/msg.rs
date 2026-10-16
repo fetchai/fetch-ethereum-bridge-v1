@@ -90,6 +90,30 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
 
+    /// Reverse swaps with the given `rid` in submission order.
+    #[returns(MessagesResponse)]
+    ReverseSwapMessages {
+        rid: u64,
+        start_after: Option<NonceType>,
+        limit: Option<u32>,
+    },
+
+    /// Refunds and refunds in full with the given `id` in submission order.
+    #[returns(MessagesResponse)]
+    RefundMessages {
+        id: u64,
+        start_after: Option<NonceType>,
+        limit: Option<u32>,
+    },
+
+    /// The last submitted reverse swap with the given `rid`.
+    #[returns(LastMessageResponse)]
+    LastReverseSwapMessage { rid: u64 },
+
+    /// The last submitted refund or refund in full with the given `id`.
+    #[returns(LastMessageResponse)]
+    LastRefundMessage { id: u64 },
+
     /// Number of pending messages, submitting is rejected once it reaches the state's
     /// `n_max_pending_messages`.
     #[returns(NPendingMessagesResponse)]
@@ -123,6 +147,16 @@ pub struct MessageResponse {
 #[cw_serde]
 pub struct PendingMessagesResponse {
     pub messages: Vec<(NonceType, BridgeMessage)>,
+}
+
+#[cw_serde]
+pub struct MessagesResponse {
+    pub messages: Vec<(NonceType, BridgeMessage)>,
+}
+
+#[cw_serde]
+pub struct LastMessageResponse {
+    pub message: Option<(NonceType, BridgeMessage)>,
 }
 
 #[cw_serde]

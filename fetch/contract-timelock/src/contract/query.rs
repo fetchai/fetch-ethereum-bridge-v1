@@ -1,8 +1,8 @@
 use crate::contract::msg::{
-    FullStateResponse, MessageResponse, NPendingMessagesResponse, PausedSinceBlockResponse,
-    PendingMessagesResponse, QueryMsg,
+    FullStateResponse, LastMessageResponse, MessageResponse, MessagesResponse,
+    NPendingMessagesResponse, PausedSinceBlockResponse, PendingMessagesResponse, QueryMsg,
 };
-use crate::queue::MessageQueue;
+use crate::queue::{MessageIndex, MessageQueue, NonceType};
 use crate::state::State;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -20,11 +20,24 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             message: MessageQueue::get(deps.storage, nonce)?,
         }),
         QueryMsg::PendingMessages { start_after, limit } => {
-            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
             to_json_binary(&PendingMessagesResponse {
-                messages: MessageQueue::pending(deps.storage, start_after, limit)?,
+                messages: MessageQueue::pending(deps.storage, start_after, page_size(limit))?,
             })
         }
+        QueryMsg::ReverseSwapMessages {
+            rid,
+            start_after,
+            limit,
+        } => query_by_index(deps, MessageIndex::ReverseSwap(rid), start_after, limit),
+        QueryMsg::RefundMessages {
+            id,
+            start_after,
+            limit,
+        } => query_by_index(deps, MessageIndex::Refund(id), start_after, limit),
+        QueryMsg::LastReverseSwapMessage { rid } => {
+            query_last_by_index(deps, MessageIndex::ReverseSwap(rid))
+        }
+        QueryMsg::LastRefundMessage { id } => query_last_by_index(deps, MessageIndex::Refund(id)),
         QueryMsg::NPendingMessages {} => to_json_binary(&NPendingMessagesResponse {
             n_pending_messages: MessageQueue::n_pending(deps.storage)?,
         }),
@@ -37,4 +50,25 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }),
         QueryMsg::AccessControl(msg) => handle_access_control_query_msg(deps, env, msg),
     }
+}
+
+fn page_size(limit: Option<u32>) -> usize {
+    limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize
+}
+
+fn query_by_index(
+    deps: Deps,
+    index: MessageIndex,
+    start_after: Option<NonceType>,
+    limit: Option<u32>,
+) -> StdResult<Binary> {
+    to_json_binary(&MessagesResponse {
+        messages: MessageQueue::by_index(deps.storage, index, start_after, page_size(limit))?,
+    })
+}
+
+fn query_last_by_index(deps: Deps, index: MessageIndex) -> StdResult<Binary> {
+    to_json_binary(&LastMessageResponse {
+        message: MessageQueue::last_by_index(deps.storage, index)?,
+    })
 }

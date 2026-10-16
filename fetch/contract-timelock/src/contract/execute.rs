@@ -71,9 +71,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
                 relay_eon,
             },
         ),
-        ExecuteMsg::NewRelayEon {} => {
-            execute_submit(deps, env, info, BridgeMessagePayload::NewRelayEon {})
-        }
+        ExecuteMsg::NewRelayEon {} => execute_new_relay_eon(deps, env, info),
 
         // EXECUTE_ROLE messages
         ExecuteMsg::Execute { nonce } => execute_message(deps, env, info, nonce),
@@ -128,6 +126,26 @@ pub fn execute_submit(
         .add_attribute("nonce", nonce.to_string()))
 }
 
+/// Cancels all pending messages and executes the new relay eon on top of them right away.
+pub fn execute_new_relay_eon(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+    AccessControl::ensure_has_role(deps.storage, SUBMIT_ROLE, &info.sender)?;
+    ensure_not_paused(deps.storage, &env)?;
+    let mut response_handler = ResponseHandler::default();
+    let now = env.block.time.seconds();
+
+    // Not limited by `n_max_pending_messages`, no other message stays pending
+    MessageQueue::cancel_all(deps.storage, &mut response_handler)?;
+    let payload = BridgeMessagePayload::NewRelayEon {};
+    let nonce = MessageQueue::push(deps.storage, &mut response_handler, payload, now)?;
+    dispatch(deps, &mut response_handler, nonce, now)?;
+
+    Ok(response_handler
+        .into_response()
+        .add_attribute("action", "new_relay_eon")
+        .add_attribute("sender", info.sender)
+        .add_attribute("nonce", nonce.to_string()))
+}
+
 pub fn execute_message(
     deps: DepsMut,
     env: Env,
@@ -138,12 +156,23 @@ pub fn execute_message(
     ensure_not_paused(deps.storage, &env)?;
     let mut response_handler = ResponseHandler::default();
 
-    let message = MessageQueue::start_execution(
-        deps.storage,
-        &mut response_handler,
-        nonce,
-        env.block.time.seconds(),
-    )?;
+    dispatch(deps, &mut response_handler, nonce, env.block.time.seconds())?;
+
+    Ok(response_handler
+        .into_response()
+        .add_attribute("action", "execute")
+        .add_attribute("sender", info.sender)
+        .add_attribute("nonce", nonce.to_string()))
+}
+
+/// Takes the message for execution and sends it to the bridge.
+fn dispatch(
+    deps: DepsMut,
+    response_handler: &mut ResponseHandler,
+    nonce: NonceType,
+    now: u64,
+) -> StdResult<()> {
+    let message = MessageQueue::start_execution(deps.storage, response_handler, nonce, now)?;
     let bridge_msg = WasmMsg::Execute {
         contract_addr: State::load(deps.storage)?.bridge_addr.into_string(),
         msg: to_json_binary(&message.payload)?,
@@ -151,12 +180,7 @@ pub fn execute_message(
     };
     // The reply records the result, a failing bridge message does not revert the execution
     response_handler.add_submessage(SubMsg::reply_always(bridge_msg, nonce));
-
-    Ok(response_handler
-        .into_response()
-        .add_attribute("action", "execute")
-        .add_attribute("sender", info.sender)
-        .add_attribute("nonce", nonce.to_string()))
+    Ok(())
 }
 
 pub fn execute_cancel(deps: DepsMut, info: MessageInfo, nonce: NonceType) -> StdResult<Response> {

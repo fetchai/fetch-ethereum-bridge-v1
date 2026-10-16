@@ -21,7 +21,6 @@ pub fn init_state(api: &MockApi) -> State {
         bridge_addr: api.addr_make("bridge"),
         reverse_swap_lock_delay: 10,
         refund_lock_delay: 20,
-        new_relay_eon_lock_delay: 30,
         n_max_pending_messages: 10,
     }
 }

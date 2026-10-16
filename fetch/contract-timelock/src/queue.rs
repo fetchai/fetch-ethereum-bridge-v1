@@ -1,6 +1,6 @@
 use crate::error::{
-    message_not_found_error, message_not_mature_error, message_not_next_error,
-    message_not_pending_error, nonce_overflow_error,
+    message_already_submitted_error, message_not_found_error, message_not_mature_error,
+    message_not_next_error, message_not_pending_error, nonce_overflow_error,
 };
 use crate::state::State;
 use cosmwasm_schema::cw_serde;
@@ -28,6 +28,14 @@ const NEXT_EXECUTE_NONCE: Item<NonceType> = Item::new("next_execute_nonce");
 // Number of messages in the pending state
 #[evented_item(value = "n")]
 const N_PENDING_MESSAGES: Item<u64> = Item::new("n_pending");
+
+// Ordered sets of the nonces of refunds (ID) and reverse swaps (RID) by their bridge id,
+// see [`MessageIndex`]
+#[evented_map(key = ("id", "nonce"))]
+const ID: Map<(u64, NonceType), ()> = Map::new("id");
+
+#[evented_map(key = ("rid", "nonce"))]
+const RID: Map<(u64, NonceType), ()> = Map::new("rid");
 
 #[cw_serde]
 pub struct BridgeMessage {
@@ -75,7 +83,17 @@ impl BridgeMessagePayload {
         match self {
             Self::ReverseSwap { .. } => state.reverse_swap_lock_delay,
             Self::Refund { .. } | Self::RefundInFull { .. } => state.refund_lock_delay,
-            Self::NewRelayEon {} => state.new_relay_eon_lock_delay,
+            Self::NewRelayEon {} => 0,
+        }
+    }
+
+    pub fn index(&self) -> Option<MessageIndex> {
+        match self {
+            Self::ReverseSwap { rid, .. } => Some(MessageIndex::ReverseSwap(*rid)),
+            Self::Refund { id, .. } | Self::RefundInFull { id, .. } => {
+                Some(MessageIndex::Refund(*id))
+            }
+            Self::NewRelayEon {} => None,
         }
     }
 
@@ -89,12 +107,47 @@ impl BridgeMessagePayload {
     }
 }
 
+/// Reverse swaps are indexed by `rid`, refunds and refunds in full share the `id` space.
+/// Of the messages with the same index, at most one is pending or executed: the last one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MessageIndex {
+    ReverseSwap(u64),
+    Refund(u64),
+}
+
+impl MessageIndex {
+    fn nonces<'a>(
+        self,
+        storage: &'a dyn Storage,
+        min: Option<Bound<'a, NonceType>>,
+        order: Order,
+    ) -> Box<dyn Iterator<Item = StdResult<NonceType>> + 'a> {
+        match self {
+            Self::ReverseSwap(rid) => RID.keys_prefix(storage, rid, min, None, order),
+            Self::Refund(id) => ID.keys_prefix(storage, id, min, None, order),
+        }
+    }
+
+    fn insert(
+        self,
+        storage: &mut dyn Storage,
+        response_handler: &mut ResponseHandler,
+        nonce: NonceType,
+    ) -> StdResult<()> {
+        match self {
+            Self::ReverseSwap(rid) => RID.update(storage, response_handler, (rid, nonce), &()),
+            Self::Refund(id) => ID.update(storage, response_handler, (id, nonce), &()),
+        }
+    }
+}
+
 /// Messages are executed strictly in nonce order. Cancelled messages are skipped, and a
 /// message leaves the queue as executed or failed depending on the bridge's result.
 pub struct MessageQueue;
 
 impl MessageQueue {
-    /// Queues a pending message under the next submit nonce.
+    /// Queues a pending message under the next submit nonce. A message with an index is
+    /// rejected while the last one with the same index is pending or executed.
     /// Returns the newly allocated nonce. Nonces are never reused.
     pub fn push(
         storage: &mut dyn Storage,
@@ -102,6 +155,17 @@ impl MessageQueue {
         payload: BridgeMessagePayload,
         execution_time: u64,
     ) -> StdResult<NonceType> {
+        let index = payload.index();
+        if let Some(index) = index {
+            if let Some((last_nonce, last)) = Self::last_by_index(storage, index)? {
+                if matches!(
+                    last.state,
+                    ExecutionState::Pending | ExecutionState::Executed
+                ) {
+                    return Err(message_already_submitted_error(last_nonce));
+                }
+            }
+        }
         let nonce = Self::next_submit_nonce(storage)?;
         let next_submit_nonce = nonce.checked_add(1).ok_or_else(nonce_overflow_error)?;
 
@@ -111,6 +175,9 @@ impl MessageQueue {
             state: ExecutionState::Pending,
         };
         MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
+        if let Some(index) = index {
+            index.insert(storage, response_handler, nonce)?;
+        }
         NEXT_SUBMIT_NONCE.update(storage, response_handler, &next_submit_nonce)?;
         // Pending messages have distinct nonces below `nonce`, so `n_pending + 1` does not overflow
         let n_pending = Self::n_pending(storage)? + 1;
@@ -151,6 +218,32 @@ impl MessageQueue {
             _ => Bound::inclusive(next_execute_nonce),
         };
         Self::pending_from(storage, min).take(limit).collect()
+    }
+
+    /// Messages with the given index in submission order.
+    pub fn by_index(
+        storage: &dyn Storage,
+        index: MessageIndex,
+        start_after: Option<NonceType>,
+        limit: usize,
+    ) -> StdResult<Vec<(NonceType, BridgeMessage)>> {
+        index
+            .nonces(storage, start_after.map(Bound::exclusive), Order::Ascending)
+            .take(limit)
+            .map(|nonce| Self::load_entry(storage, nonce?))
+            .collect()
+    }
+
+    /// The last submitted message with the given index.
+    pub fn last_by_index(
+        storage: &dyn Storage,
+        index: MessageIndex,
+    ) -> StdResult<Option<(NonceType, BridgeMessage)>> {
+        index
+            .nonces(storage, None, Order::Descending)
+            .next()
+            .map(|nonce| Self::load_entry(storage, nonce?))
+            .transpose()
     }
 
     /// Checks that `nonce` is next in order and mature, and moves the pointer past it.
@@ -201,6 +294,29 @@ impl MessageQueue {
             Self::advance(storage, response_handler, nonce + 1)?;
         }
         Ok(())
+    }
+
+    /// Cancels all pending messages, the execute pointer moves to the submit pointer.
+    pub fn cancel_all(
+        storage: &mut dyn Storage,
+        response_handler: &mut ResponseHandler,
+    ) -> StdResult<()> {
+        let from = Bound::inclusive(Self::next_execute_nonce(storage)?);
+        let pending: Vec<_> = Self::pending_from(storage, from).collect::<StdResult<_>>()?;
+        for (nonce, mut message) in pending {
+            message.state = ExecutionState::Cancelled;
+            MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
+        }
+        N_PENDING_MESSAGES.update(storage, response_handler, &0)?;
+        let next_submit_nonce = Self::next_submit_nonce(storage)?;
+        NEXT_EXECUTE_NONCE.update(storage, response_handler, &next_submit_nonce)
+    }
+
+    fn load_entry(
+        storage: &dyn Storage,
+        nonce: NonceType,
+    ) -> StdResult<(NonceType, BridgeMessage)> {
+        Ok((nonce, MESSAGE_QUEUE.load(storage, nonce)?))
     }
 
     fn load_pending(storage: &dyn Storage, nonce: NonceType) -> StdResult<BridgeMessage> {
@@ -446,6 +562,62 @@ mod tests {
             assert!(MessageQueue::cancel(&mut storage, &mut response_handler, nonce).is_err());
             assert!(response_events(response_handler).is_empty());
         }
+    }
+
+    fn push_refund(storage: &mut dyn Storage, id: u64) -> StdResult<NonceType> {
+        let payload = BridgeMessagePayload::Refund {
+            id,
+            to: Addr::unchecked("to"),
+            amount: Uint128::new(1),
+            relay_eon: 0,
+        };
+        MessageQueue::push(storage, &mut ResponseHandler::default(), payload, 100)
+    }
+
+    #[test]
+    fn rejected_duplicate_does_not_insert() {
+        let mut storage = MockStorage::new();
+        push_refund(&mut storage, 1).unwrap();
+
+        let mut response_handler = ResponseHandler::default();
+        let payload = BridgeMessagePayload::RefundInFull {
+            id: 1,
+            to: Addr::unchecked("to"),
+            amount: Uint128::new(1),
+            relay_eon: 0,
+        };
+        assert!(MessageQueue::push(&mut storage, &mut response_handler, payload, 100).is_err());
+        assert!(response_events(response_handler).is_empty());
+        assert_eq!(MessageQueue::next_submit_nonce(&storage).unwrap(), 1);
+        assert_eq!(n_pending(&storage), 1);
+        let refunds = MessageQueue::by_index(&storage, MessageIndex::Refund(1), None, 10);
+        assert_eq!(refunds.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn cancel_all_cancels_only_pending() {
+        let mut storage = storage_with_messages(2);
+        push_refund(&mut storage, 1).unwrap();
+        push(&mut storage, 100);
+        execute(&mut storage, 0, true);
+        cancel(&mut storage, 2).unwrap();
+
+        MessageQueue::cancel_all(&mut storage, &mut ResponseHandler::default()).unwrap();
+        let states: Vec<_> = (0..4).map(|nonce| state(&storage, nonce)).collect();
+        use ExecutionState::*;
+        assert_eq!(states, vec![Executed, Cancelled, Cancelled, Cancelled]);
+        assert_eq!(n_pending(&storage), 0);
+        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 4);
+
+        // Cancelled ids can be submitted again, the queue continues after the pointer
+        assert_eq!(push_refund(&mut storage, 1).unwrap(), 4);
+        assert_eq!(pending_nonces(&storage, None, 10), vec![4]);
+
+        // Nothing pending
+        let mut storage = MockStorage::new();
+        MessageQueue::cancel_all(&mut storage, &mut ResponseHandler::default()).unwrap();
+        assert_eq!(n_pending(&storage), 0);
+        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 0);
     }
 
     #[test]

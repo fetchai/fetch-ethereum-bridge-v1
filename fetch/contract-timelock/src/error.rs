@@ -34,3 +34,9 @@ pub fn too_many_pending_messages_error(max_pending: u64) -> StdError {
         "Can not submit message, limit of {max_pending} pending messages reached"
     ))
 }
+
+pub fn message_already_submitted_error(nonce: NonceType) -> StdError {
+    StdError::msg(format!(
+        "Message with the same id is already pending or executed under nonce {nonce}"
+    ))
+}
