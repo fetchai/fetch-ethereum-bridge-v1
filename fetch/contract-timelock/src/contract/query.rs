@@ -1,5 +1,6 @@
 use crate::contract::msg::{
-    FullStateResponse, MessageResponse, PausedSinceBlockResponse, PendingMessagesResponse, QueryMsg,
+    FullStateResponse, MessageResponse, NPendingMessagesResponse, PausedSinceBlockResponse,
+    PendingMessagesResponse, QueryMsg,
 };
 use crate::queue::MessageQueue;
 use crate::state::State;
@@ -24,6 +25,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 messages: MessageQueue::pending(deps.storage, start_after, limit)?,
             })
         }
+        QueryMsg::NPendingMessages {} => to_json_binary(&NPendingMessagesResponse {
+            n_pending_messages: MessageQueue::n_pending(deps.storage)?,
+        }),
 
         QueryMsg::PausedSince {} => to_json_binary(&PausedSinceBlockResponse {
             block: paused_since_block(deps.storage)?,

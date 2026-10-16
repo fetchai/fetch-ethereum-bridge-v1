@@ -1,9 +1,14 @@
 use cosmwasm_std::testing::mock_env;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Deps, ReplyOn, SubMsgResult, Uint128, WasmMsg};
+use cosmwasm_std::{
+    Addr, Binary, CosmosMsg, Deps, DepsMut, ReplyOn, SubMsgResult, Uint128, WasmMsg,
+};
 
-use crate::contract::msg::{ExecuteMsg, MessageResponse, PendingMessagesResponse, QueryMsg};
+use crate::contract::msg::{
+    ExecuteMsg, MessageResponse, NPendingMessagesResponse, PendingMessagesResponse, QueryMsg,
+};
 use crate::queue::NonceType;
 use crate::queue::{BridgeMessage, ExecutionState};
+use crate::state::StateUpdate;
 use crate::testing::helpers::{
     event_names, execute_contract, execute_contract_at, init_state, ok_result, query_contract,
     reply_contract, setup_with_roles,
@@ -27,6 +32,20 @@ fn query_pending(deps: Deps, start_after: Option<NonceType>, limit: Option<u32>)
         .into_iter()
         .map(|(nonce, _)| nonce)
         .collect()
+}
+
+fn query_n_pending(deps: Deps) -> u64 {
+    query_contract::<NPendingMessagesResponse>(deps, QueryMsg::NPendingMessages {})
+        .unwrap()
+        .n_pending_messages
+}
+
+fn set_max_pending(deps: DepsMut, admin: &Addr, n_max_pending_messages: u64) {
+    let update = StateUpdate {
+        n_max_pending_messages: Some(n_max_pending_messages),
+        ..Default::default()
+    };
+    execute_contract(deps, admin, ExecuteMsg::UpdateState(update)).unwrap();
 }
 
 fn refund(to: &Addr) -> ExecuteMsg {
@@ -88,7 +107,11 @@ fn submit_queues_pending_message_with_delay() {
             .any(|attr| attr.key == "nonce" && attr.value == nonce));
         assert_eq!(
             event_names(&res),
-            vec!["message_updated", "next_submit_nonce_updated"]
+            vec![
+                "message_updated",
+                "next_submit_nonce_updated",
+                "n_pending_messages_updated"
+            ]
         );
 
         let message = query_message(deps.as_ref(), expected_nonce as NonceType).unwrap();
@@ -154,7 +177,10 @@ fn reply_records_execution_result() {
     )
     .unwrap();
     let res = reply_contract(deps.as_mut(), 0, ok_result()).unwrap();
-    assert_eq!(event_names(&res), vec!["message_updated"]);
+    assert_eq!(
+        event_names(&res),
+        vec!["message_updated", "n_pending_messages_updated"]
+    );
     assert_eq!(
         query_message(deps.as_ref(), 0).unwrap().state,
         ExecutionState::Executed
@@ -288,6 +314,7 @@ fn pause_blocks_submit_and_execute_but_not_cancel() {
 #[test]
 fn pending_messages_query_is_paginated() {
     let (mut deps, actors) = setup_with_roles();
+    set_max_pending(deps.as_mut(), &actors.admin, 40);
     for _ in 0..40 {
         execute_contract(deps.as_mut(), &actors.submitter, ExecuteMsg::NewRelayEon {}).unwrap();
     }
@@ -311,4 +338,58 @@ fn pending_messages_query_is_paginated() {
     assert_eq!(query_pending(deps.as_ref(), None, Some(100)).len(), 30);
 
     assert_eq!(query_message(deps.as_ref(), 40), None);
+}
+
+#[test]
+fn submit_is_limited_by_max_pending_messages() {
+    let (mut deps, actors) = setup_with_roles();
+    let max_pending = init_state(&deps.api).n_max_pending_messages;
+    let submit =
+        |deps: DepsMut| execute_contract(deps, &actors.submitter, ExecuteMsg::NewRelayEon {});
+
+    for n_pending in 1..=max_pending {
+        submit(deps.as_mut()).unwrap();
+        assert_eq!(query_n_pending(deps.as_ref()), n_pending);
+    }
+    assert!(submit(deps.as_mut()).is_err());
+    assert_eq!(query_message(deps.as_ref(), max_pending), None);
+
+    // Cancelled, executed and failed messages free up space
+    let mature = now() + init_state(&deps.api).new_relay_eon_lock_delay;
+    execute_contract(
+        deps.as_mut(),
+        &actors.canceller,
+        ExecuteMsg::Cancel { nonce: 0 },
+    )
+    .unwrap();
+    for (nonce, result) in [(1, ok_result()), (2, SubMsgResult::Err("err".to_string()))] {
+        let execute = ExecuteMsg::Execute { nonce };
+        execute_contract_at(deps.as_mut(), &actors.executor, execute, mature).unwrap();
+        // Pending until the result is recorded
+        assert_eq!(query_n_pending(deps.as_ref()), max_pending - nonce);
+        reply_contract(deps.as_mut(), nonce, result).unwrap();
+    }
+    assert_eq!(query_n_pending(deps.as_ref()), max_pending - 3);
+    for _ in 0..3 {
+        submit(deps.as_mut()).unwrap();
+    }
+    assert!(submit(deps.as_mut()).is_err());
+
+    // Lowering the limit below the count only blocks new submissions
+    set_max_pending(deps.as_mut(), &actors.admin, 1);
+    assert!(submit(deps.as_mut()).is_err());
+    execute_contract(
+        deps.as_mut(),
+        &actors.canceller,
+        ExecuteMsg::Cancel { nonce: 3 },
+    )
+    .unwrap();
+
+    set_max_pending(deps.as_mut(), &actors.admin, max_pending + 1);
+    submit(deps.as_mut()).unwrap();
+    assert_eq!(query_n_pending(deps.as_ref()), max_pending);
+
+    // Zero blocks all submissions
+    set_max_pending(deps.as_mut(), &actors.admin, 0);
+    assert!(submit(deps.as_mut()).is_err());
 }

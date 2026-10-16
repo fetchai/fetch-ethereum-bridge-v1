@@ -14,6 +14,7 @@ pub struct State {
     pub reverse_swap_lock_delay: u64,
     pub refund_lock_delay: u64,
     pub new_relay_eon_lock_delay: u64,
+    pub n_max_pending_messages: u64,
 }
 
 /// Partial update of [`State`]: a missing or `null` field keeps its current value.
@@ -24,6 +25,7 @@ pub struct StateUpdate {
     pub reverse_swap_lock_delay: Option<u64>,
     pub refund_lock_delay: Option<u64>,
     pub new_relay_eon_lock_delay: Option<u64>,
+    pub n_max_pending_messages: Option<u64>,
 }
 
 impl State {
@@ -56,6 +58,7 @@ impl State {
             reverse_swap_lock_delay,
             refund_lock_delay,
             new_relay_eon_lock_delay,
+            n_max_pending_messages,
         } = update;
         let current = Self::load(storage)?;
         let state = State {
@@ -65,6 +68,8 @@ impl State {
             refund_lock_delay: refund_lock_delay.unwrap_or(current.refund_lock_delay),
             new_relay_eon_lock_delay: new_relay_eon_lock_delay
                 .unwrap_or(current.new_relay_eon_lock_delay),
+            n_max_pending_messages: n_max_pending_messages
+                .unwrap_or(current.n_max_pending_messages),
         };
 
         state.save(storage, api, response_handler)?;
@@ -91,6 +96,7 @@ mod tests {
             reverse_swap_lock_delay: 10,
             refund_lock_delay: 20,
             new_relay_eon_lock_delay: 30,
+            n_max_pending_messages: 10,
         }
     }
 

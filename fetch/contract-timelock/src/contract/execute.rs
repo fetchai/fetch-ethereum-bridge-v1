@@ -1,5 +1,5 @@
 use crate::contract::msg::ExecuteMsg;
-use crate::error::execution_time_overflow_error;
+use crate::error::{execution_time_overflow_error, too_many_pending_messages_error};
 use crate::queue::NonceType;
 use crate::queue::{BridgeMessagePayload, MessageQueue};
 use crate::roles::{CANCEL_ROLE, EXECUTE_ROLE, SUBMIT_ROLE};
@@ -108,6 +108,11 @@ pub fn execute_submit(
     }
 
     let state = State::load(deps.storage)?;
+    if MessageQueue::n_pending(deps.storage)? >= state.n_max_pending_messages {
+        return Err(too_many_pending_messages_error(
+            state.n_max_pending_messages,
+        ));
+    }
     let execution_time = env
         .block
         .time

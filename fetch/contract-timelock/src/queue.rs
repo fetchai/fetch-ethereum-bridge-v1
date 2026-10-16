@@ -25,6 +25,10 @@ const NEXT_SUBMIT_NONCE: Item<NonceType> = Item::new("next_submit_nonce");
 #[evented_item(value = "nonce")]
 const NEXT_EXECUTE_NONCE: Item<NonceType> = Item::new("next_execute_nonce");
 
+// Number of messages in the pending state
+#[evented_item(value = "n")]
+const N_PENDING_MESSAGES: Item<u64> = Item::new("n_pending");
+
 #[cw_serde]
 pub struct BridgeMessage {
     pub payload: BridgeMessagePayload,
@@ -108,6 +112,9 @@ impl MessageQueue {
         };
         MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
         NEXT_SUBMIT_NONCE.update(storage, response_handler, &next_submit_nonce)?;
+        // Pending messages have distinct nonces below `nonce`, so `n_pending + 1` does not overflow
+        let n_pending = Self::n_pending(storage)? + 1;
+        N_PENDING_MESSAGES.update(storage, response_handler, &n_pending)?;
 
         Ok(nonce)
     }
@@ -125,6 +132,11 @@ impl MessageQueue {
     /// Nonce of the next message to execute.
     pub fn next_execute_nonce(storage: &dyn Storage) -> StdResult<NonceType> {
         Ok(NEXT_EXECUTE_NONCE.may_load(storage)?.unwrap_or_default())
+    }
+
+    /// Number of pending messages.
+    pub fn n_pending(storage: &dyn Storage) -> StdResult<u64> {
+        Ok(N_PENDING_MESSAGES.may_load(storage)?.unwrap_or_default())
     }
 
     /// Pending messages in execution order, starting from the next one to execute.
@@ -207,7 +219,11 @@ impl MessageQueue {
     ) -> StdResult<()> {
         let mut message = Self::load_pending(storage, nonce)?;
         message.state = state;
-        MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)
+        MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
+
+        // Every pending message is counted, so `n_pending - 1` does not underflow
+        let n_pending = Self::n_pending(storage)? - 1;
+        N_PENDING_MESSAGES.update(storage, response_handler, &n_pending)
     }
 
     /// Moves the execute pointer to the first pending message from `from`, or to the submit
@@ -258,6 +274,10 @@ mod tests {
         .unwrap()
     }
 
+    fn n_pending(storage: &dyn Storage) -> u64 {
+        MessageQueue::n_pending(storage).unwrap()
+    }
+
     fn state(storage: &dyn Storage, nonce: NonceType) -> ExecutionState {
         MessageQueue::get(storage, nonce).unwrap().unwrap().state
     }
@@ -303,6 +323,7 @@ mod tests {
         }
         assert_eq!(MessageQueue::next_submit_nonce(&deps.storage).unwrap(), 3);
         assert_eq!(MessageQueue::next_execute_nonce(&deps.storage).unwrap(), 0);
+        assert_eq!(n_pending(&deps.storage), 3);
 
         let names: Vec<_> = response_events(response_handler)
             .into_iter()
@@ -310,7 +331,42 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["message_updated", "next_submit_nonce_updated"].repeat(3)
+            [
+                "message_updated",
+                "next_submit_nonce_updated",
+                "n_pending_messages_updated"
+            ]
+            .repeat(3)
+        );
+    }
+
+    #[test]
+    fn n_pending_counts_pending_messages() {
+        let mut storage = storage_with_messages(4);
+        assert_eq!(n_pending(&storage), 4);
+
+        // Taken for execution, but pending until the result is recorded
+        let mut response_handler = ResponseHandler::default();
+        MessageQueue::start_execution(&mut storage, &mut response_handler, 0, u64::MAX).unwrap();
+        assert_eq!(n_pending(&storage), 4);
+        MessageQueue::finish_execution(&mut storage, &mut response_handler, 0, true).unwrap();
+        assert_eq!(n_pending(&storage), 3);
+
+        execute(&mut storage, 1, false);
+        assert_eq!(n_pending(&storage), 2);
+        cancel(&mut storage, 3).unwrap();
+        assert_eq!(n_pending(&storage), 1);
+
+        // Rejected transitions do not change the count
+        assert!(cancel(&mut storage, 3).is_err());
+        assert!(cancel(&mut storage, 4).is_err());
+        assert_eq!(n_pending(&storage), 1);
+
+        cancel(&mut storage, 2).unwrap();
+        assert_eq!(n_pending(&storage), 0);
+        assert_eq!(
+            n_pending(&storage),
+            pending_nonces(&storage, None, 10).len() as u64
         );
     }
 

@@ -28,3 +28,9 @@ pub fn message_not_mature_error(nonce: NonceType, execution_time: u64) -> StdErr
         "Message with nonce {nonce} can not be executed before {execution_time}"
     ))
 }
+
+pub fn too_many_pending_messages_error(max_pending: u64) -> StdError {
+    StdError::msg(format!(
+        "Can not submit message, limit of {max_pending} pending messages reached"
+    ))
+}

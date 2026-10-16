@@ -90,6 +90,11 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
 
+    /// Number of pending messages, submitting is rejected once it reaches the state's
+    /// `n_max_pending_messages`.
+    #[returns(NPendingMessagesResponse)]
+    NPendingMessages {},
+
     #[returns(PausedSinceBlockResponse)]
     PausedSince {},
 
@@ -118,4 +123,9 @@ pub struct MessageResponse {
 #[cw_serde]
 pub struct PendingMessagesResponse {
     pub messages: Vec<(NonceType, BridgeMessage)>,
+}
+
+#[cw_serde]
+pub struct NPendingMessagesResponse {
+    pub n_pending_messages: u64,
 }
