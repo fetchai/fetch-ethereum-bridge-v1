@@ -17,10 +17,8 @@ pub fn message_not_pending_error(nonce: NonceType) -> StdError {
     StdError::msg(format!("Message with nonce {nonce} is not pending"))
 }
 
-pub fn message_not_next_error(nonce: NonceType, next_execute_nonce: NonceType) -> StdError {
-    StdError::msg(format!(
-        "Message with nonce {nonce} is not next to execute, next is {next_execute_nonce}"
-    ))
+pub fn message_not_next_error(nonce: NonceType) -> StdError {
+    StdError::msg(format!("Message with nonce {nonce} is not next to execute"))
 }
 
 pub fn message_not_mature_error(nonce: NonceType, execution_time: u64) -> StdError {

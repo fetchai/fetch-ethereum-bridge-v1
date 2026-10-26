@@ -156,6 +156,7 @@ fn submit_queues_pending_message_with_delay() {
             event_names(&res),
             vec![
                 "message_updated",
+                "pending_messages_updated",
                 index_event,
                 "next_submit_nonce_updated",
                 "n_pending_messages_updated"
@@ -531,14 +532,16 @@ fn new_relay_eon_cancels_pending_and_executes_immediately() {
         vec![
             // Cancelling the pending messages
             "message_updated",
+            "pending_messages_removed",
             "message_updated",
+            "pending_messages_removed",
             "n_pending_messages_updated",
-            "next_execute_nonce_updated",
             // Submitting and taking the new relay eon for execution
             "message_updated",
+            "pending_messages_updated",
             "next_submit_nonce_updated",
             "n_pending_messages_updated",
-            "next_execute_nonce_updated",
+            "pending_messages_removed",
         ]
     );
     assert_eq!(res.messages.len(), 1);

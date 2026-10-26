@@ -14,16 +14,14 @@ pub type NonceType = u64;
 #[evented_map(key = "nonce", value = "message", updated = "message_updated")]
 const MESSAGE_QUEUE: Map<NonceType, BridgeMessage> = Map::new("message_queue");
 
-// Two pointers into MESSAGE_QUEUE: messages before NEXT_EXECUTE_NONCE are no longer pending,
-// pending messages are in [NEXT_EXECUTE_NONCE, NEXT_SUBMIT_NONCE).
-
 // Nonce of the next submitted message
 #[evented_item(value = "nonce")]
 const NEXT_SUBMIT_NONCE: Item<NonceType> = Item::new("next_submit_nonce");
 
-// Nonce of the next message to execute: the first pending message, or NEXT_SUBMIT_NONCE if none
-#[evented_item(value = "nonce")]
-const NEXT_EXECUTE_NONCE: Item<NonceType> = Item::new("next_execute_nonce");
+// Ordered set of the nonces of messages waiting for execution, the first one is next to execute.
+// A message leaves it when taken for execution and stays pending until the result is recorded.
+#[evented_map(key = "nonce")]
+const PENDING_MESSAGES: Map<NonceType, ()> = Map::new("pending");
 
 // Number of messages in the pending state
 #[evented_item(value = "n")]
@@ -175,6 +173,7 @@ impl MessageQueue {
             state: ExecutionState::Pending,
         };
         MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
+        PENDING_MESSAGES.update(storage, response_handler, nonce, &())?;
         if let Some(index) = index {
             index.insert(storage, response_handler, nonce)?;
         }
@@ -196,11 +195,6 @@ impl MessageQueue {
         Ok(NEXT_SUBMIT_NONCE.may_load(storage)?.unwrap_or_default())
     }
 
-    /// Nonce of the next message to execute.
-    pub fn next_execute_nonce(storage: &dyn Storage) -> StdResult<NonceType> {
-        Ok(NEXT_EXECUTE_NONCE.may_load(storage)?.unwrap_or_default())
-    }
-
     /// Number of pending messages.
     pub fn n_pending(storage: &dyn Storage) -> StdResult<u64> {
         Ok(N_PENDING_MESSAGES.may_load(storage)?.unwrap_or_default())
@@ -212,12 +206,16 @@ impl MessageQueue {
         start_after: Option<NonceType>,
         limit: usize,
     ) -> StdResult<Vec<(NonceType, BridgeMessage)>> {
-        let next_execute_nonce = Self::next_execute_nonce(storage)?;
-        let min = match start_after {
-            Some(nonce) if nonce >= next_execute_nonce => Bound::exclusive(nonce),
-            _ => Bound::inclusive(next_execute_nonce),
-        };
-        Self::pending_from(storage, min).take(limit).collect()
+        PENDING_MESSAGES
+            .keys(
+                storage,
+                start_after.map(Bound::exclusive),
+                None,
+                Order::Ascending,
+            )
+            .take(limit)
+            .map(|nonce| Self::load_entry(storage, nonce?))
+            .collect()
     }
 
     /// Messages with the given index in submission order.
@@ -246,7 +244,7 @@ impl MessageQueue {
             .transpose()
     }
 
-    /// Checks that `nonce` is next in order and mature, and moves the pointer past it.
+    /// Checks that `nonce` is next in order and mature, and takes it out of the pending set.
     /// The message stays pending until [`Self::finish_execution`] records the result.
     pub fn start_execution(
         storage: &mut dyn Storage,
@@ -254,17 +252,15 @@ impl MessageQueue {
         nonce: NonceType,
         now: u64,
     ) -> StdResult<BridgeMessage> {
-        let next_execute_nonce = Self::next_execute_nonce(storage)?;
-        if nonce != next_execute_nonce {
-            return Err(message_not_next_error(nonce, next_execute_nonce));
+        if Self::first_pending(storage)? != Some(nonce) {
+            return Err(message_not_next_error(nonce));
         }
         let message = Self::load_pending(storage, nonce)?;
         if now < message.execution_time {
             return Err(message_not_mature_error(nonce, message.execution_time));
         }
 
-        // Existing nonces are below the next submit nonce, so `nonce + 1` does not overflow
-        Self::advance(storage, response_handler, nonce + 1)?;
+        PENDING_MESSAGES.remove(storage, response_handler, nonce)?;
         Ok(message)
     }
 
@@ -290,26 +286,33 @@ impl MessageQueue {
         nonce: NonceType,
     ) -> StdResult<()> {
         Self::set_state(storage, response_handler, nonce, ExecutionState::Cancelled)?;
-        if nonce == Self::next_execute_nonce(storage)? {
-            Self::advance(storage, response_handler, nonce + 1)?;
-        }
+        PENDING_MESSAGES.remove(storage, response_handler, nonce)?;
         Ok(())
     }
 
-    /// Cancels all pending messages, the execute pointer moves to the submit pointer.
+    /// Cancels all pending messages.
     pub fn cancel_all(
         storage: &mut dyn Storage,
         response_handler: &mut ResponseHandler,
     ) -> StdResult<()> {
-        let from = Bound::inclusive(Self::next_execute_nonce(storage)?);
-        let pending: Vec<_> = Self::pending_from(storage, from).collect::<StdResult<_>>()?;
-        for (nonce, mut message) in pending {
+        let pending: Vec<_> = PENDING_MESSAGES
+            .keys(storage, None, None, Order::Ascending)
+            .collect::<StdResult<_>>()?;
+        for nonce in pending {
+            let mut message = MESSAGE_QUEUE.load(storage, nonce)?;
             message.state = ExecutionState::Cancelled;
             MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
+            PENDING_MESSAGES.remove(storage, response_handler, nonce)?;
         }
-        N_PENDING_MESSAGES.update(storage, response_handler, &0)?;
-        let next_submit_nonce = Self::next_submit_nonce(storage)?;
-        NEXT_EXECUTE_NONCE.update(storage, response_handler, &next_submit_nonce)
+        N_PENDING_MESSAGES.update(storage, response_handler, &0)
+    }
+
+    /// Nonce of the next message to execute, if any.
+    fn first_pending(storage: &dyn Storage) -> StdResult<Option<NonceType>> {
+        PENDING_MESSAGES
+            .keys(storage, None, None, Order::Ascending)
+            .next()
+            .transpose()
     }
 
     fn load_entry(
@@ -340,36 +343,6 @@ impl MessageQueue {
         // Every pending message is counted, so `n_pending - 1` does not underflow
         let n_pending = Self::n_pending(storage)? - 1;
         N_PENDING_MESSAGES.update(storage, response_handler, &n_pending)
-    }
-
-    /// Moves the execute pointer to the first pending message from `from`, or to the submit
-    /// pointer if there is none.
-    fn advance(
-        storage: &mut dyn Storage,
-        response_handler: &mut ResponseHandler,
-        from: NonceType,
-    ) -> StdResult<()> {
-        let next_execute_nonce = match Self::pending_from(storage, Bound::inclusive(from))
-            .next()
-            .transpose()?
-        {
-            Some((nonce, _)) => nonce,
-            None => Self::next_submit_nonce(storage)?,
-        };
-        NEXT_EXECUTE_NONCE.update(storage, response_handler, &next_execute_nonce)
-    }
-
-    fn pending_from<'a>(
-        storage: &'a dyn Storage,
-        min: Bound<'a, NonceType>,
-    ) -> impl Iterator<Item = StdResult<(NonceType, BridgeMessage)>> + 'a {
-        MESSAGE_QUEUE
-            .range(storage, Some(min), None, Order::Ascending)
-            .filter(|entry| {
-                entry.as_ref().map_or(true, |(_, message)| {
-                    message.state == ExecutionState::Pending
-                })
-            })
     }
 }
 
@@ -438,7 +411,7 @@ mod tests {
             assert_eq!(state(&deps.storage, nonce), ExecutionState::Pending);
         }
         assert_eq!(MessageQueue::next_submit_nonce(&deps.storage).unwrap(), 3);
-        assert_eq!(MessageQueue::next_execute_nonce(&deps.storage).unwrap(), 0);
+        assert_eq!(MessageQueue::first_pending(&deps.storage).unwrap(), Some(0));
         assert_eq!(n_pending(&deps.storage), 3);
 
         let names: Vec<_> = response_events(response_handler)
@@ -449,6 +422,7 @@ mod tests {
             names,
             [
                 "message_updated",
+                "pending_messages_updated",
                 "next_submit_nonce_updated",
                 "n_pending_messages_updated"
             ]
@@ -514,11 +488,11 @@ mod tests {
         );
         assert!(MessageQueue::start_execution(&mut storage, &mut response_handler, 0, 99).is_err());
         assert!(response_events(response_handler).is_empty());
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 0);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), Some(0));
 
         let mut response_handler = ResponseHandler::default();
         MessageQueue::start_execution(&mut storage, &mut response_handler, 0, 100).unwrap();
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 1);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), Some(1));
         // Pending until the result is recorded
         assert_eq!(state(&storage, 0), ExecutionState::Pending);
 
@@ -533,18 +507,18 @@ mod tests {
     fn cancelled_messages_are_skipped() {
         let mut storage = storage_with_messages(4);
 
-        // Cancelling ahead of the pointer leaves it in place
+        // Cancelling after the first pending message leaves it next
         cancel(&mut storage, 1).unwrap();
         cancel(&mut storage, 2).unwrap();
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 0);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), Some(0));
 
         execute(&mut storage, 0, true);
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 3);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), Some(3));
         assert_eq!(state(&storage, 0), ExecutionState::Executed);
 
-        // Cancelling the last pending message moves the pointer past the end
+        // Cancelling the last pending message leaves none
         cancel(&mut storage, 3).unwrap();
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 4);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), None);
         assert_eq!(push(&mut storage, 100), 4);
         assert_eq!(pending_nonces(&storage, None, 10), vec![4]);
     }
@@ -607,7 +581,7 @@ mod tests {
         use ExecutionState::*;
         assert_eq!(states, vec![Executed, Cancelled, Cancelled, Cancelled]);
         assert_eq!(n_pending(&storage), 0);
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 4);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), None);
 
         // Cancelled ids can be submitted again, the queue continues after the pointer
         assert_eq!(push_refund(&mut storage, 1).unwrap(), 4);
@@ -617,7 +591,7 @@ mod tests {
         let mut storage = MockStorage::new();
         MessageQueue::cancel_all(&mut storage, &mut ResponseHandler::default()).unwrap();
         assert_eq!(n_pending(&storage), 0);
-        assert_eq!(MessageQueue::next_execute_nonce(&storage).unwrap(), 0);
+        assert_eq!(MessageQueue::first_pending(&storage).unwrap(), None);
     }
 
     #[test]
@@ -629,7 +603,6 @@ mod tests {
         assert_eq!(pending_nonces(&storage, None, 10), vec![1, 3, 4, 5]);
         assert_eq!(pending_nonces(&storage, None, 2), vec![1, 3]);
         assert_eq!(pending_nonces(&storage, Some(3), 10), vec![4, 5]);
-        // Never returns messages before the pointer
         assert_eq!(pending_nonces(&storage, Some(0), 10), vec![1, 3, 4, 5]);
         assert_eq!(
             pending_nonces(&storage, Some(u64::MAX), 10),
