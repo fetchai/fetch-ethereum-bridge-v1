@@ -5,8 +5,8 @@ pub fn nonce_overflow_error() -> StdError {
     StdError::msg("Nonce overflow")
 }
 
-pub fn execution_time_overflow_error() -> StdError {
-    StdError::msg("Execution time overflow")
+pub fn execution_height_overflow_error() -> StdError {
+    StdError::msg("Execution height overflow")
 }
 
 pub fn message_not_found_error(nonce: NonceType) -> StdError {
@@ -21,9 +21,9 @@ pub fn message_not_next_error(nonce: NonceType) -> StdError {
     StdError::msg(format!("Message with nonce {nonce} is not next to execute"))
 }
 
-pub fn message_not_mature_error(nonce: NonceType, execution_time: u64) -> StdError {
+pub fn message_not_mature_error(nonce: NonceType, execution_height: u64) -> StdError {
     StdError::msg(format!(
-        "Message with nonce {nonce} can not be executed before {execution_time}"
+        "Message with nonce {nonce} can not be executed before block {execution_height}"
     ))
 }
 

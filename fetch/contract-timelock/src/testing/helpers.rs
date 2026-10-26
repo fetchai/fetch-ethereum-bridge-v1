@@ -3,7 +3,7 @@ use cosmwasm_std::testing::{
 };
 use cosmwasm_std::{
     from_json, Addr, Binary, Deps, DepsMut, Env, OwnedDeps, Reply, Response, StdResult,
-    SubMsgResponse, SubMsgResult, Timestamp,
+    SubMsgResponse, SubMsgResult,
 };
 use cw_fetch_std::access_control::DEFAULT_ADMIN_ROLE;
 use serde::de::DeserializeOwned;
@@ -80,9 +80,9 @@ pub fn setup_with_roles() -> (OwnedDeps<MockStorage, MockApi, MockQuerier>, Acto
     (deps, actors)
 }
 
-pub fn env_at(seconds: u64) -> Env {
+pub fn env_at(height: u64) -> Env {
     let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(seconds);
+    env.block.height = height;
     env
 }
 
@@ -104,10 +104,10 @@ pub fn execute_contract_at(
     deps: DepsMut,
     sender: &Addr,
     msg: ExecuteMsg,
-    seconds: u64,
+    height: u64,
 ) -> StdResult<Response> {
     let info = message_info(sender, &[]);
-    execute(deps, env_at(seconds), info, msg)
+    execute(deps, env_at(height), info, msg)
 }
 
 pub fn reply_contract(deps: DepsMut, nonce: u64, result: SubMsgResult) -> StdResult<Response> {

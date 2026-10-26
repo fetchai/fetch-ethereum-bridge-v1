@@ -1,5 +1,5 @@
 use crate::contract::msg::ExecuteMsg;
-use crate::error::{execution_time_overflow_error, too_many_pending_messages_error};
+use crate::error::{execution_height_overflow_error, too_many_pending_messages_error};
 use crate::queue::NonceType;
 use crate::queue::{BridgeMessagePayload, MessageQueue};
 use crate::roles::{CANCEL_ROLE, EXECUTE_ROLE, SUBMIT_ROLE};
@@ -111,13 +111,17 @@ pub fn execute_submit(
             state.n_max_pending_messages,
         ));
     }
-    let execution_time = env
+    let execution_height = env
         .block
-        .time
-        .seconds()
+        .height
         .checked_add(payload.lock_delay(&state))
-        .ok_or_else(execution_time_overflow_error)?;
-    let nonce = MessageQueue::push(deps.storage, &mut response_handler, payload, execution_time)?;
+        .ok_or_else(execution_height_overflow_error)?;
+    let nonce = MessageQueue::push(
+        deps.storage,
+        &mut response_handler,
+        payload,
+        execution_height,
+    )?;
 
     Ok(response_handler
         .into_response()
@@ -131,13 +135,13 @@ pub fn execute_new_relay_eon(deps: DepsMut, env: Env, info: MessageInfo) -> StdR
     AccessControl::ensure_has_role(deps.storage, SUBMIT_ROLE, &info.sender)?;
     ensure_not_paused(deps.storage, &env)?;
     let mut response_handler = ResponseHandler::default();
-    let now = env.block.time.seconds();
+    let height = env.block.height;
 
     // Not limited by `n_max_pending_messages`, no other message stays pending
     MessageQueue::cancel_all(deps.storage, &mut response_handler)?;
     let payload = BridgeMessagePayload::NewRelayEon {};
-    let nonce = MessageQueue::push(deps.storage, &mut response_handler, payload, now)?;
-    dispatch(deps, &mut response_handler, nonce, now)?;
+    let nonce = MessageQueue::push(deps.storage, &mut response_handler, payload, height)?;
+    dispatch(deps, &mut response_handler, nonce, height)?;
 
     Ok(response_handler
         .into_response()
@@ -156,7 +160,7 @@ pub fn execute_message(
     ensure_not_paused(deps.storage, &env)?;
     let mut response_handler = ResponseHandler::default();
 
-    dispatch(deps, &mut response_handler, nonce, env.block.time.seconds())?;
+    dispatch(deps, &mut response_handler, nonce, env.block.height)?;
 
     Ok(response_handler
         .into_response()
@@ -170,9 +174,9 @@ fn dispatch(
     deps: DepsMut,
     response_handler: &mut ResponseHandler,
     nonce: NonceType,
-    now: u64,
+    height: u64,
 ) -> StdResult<()> {
-    let message = MessageQueue::start_execution(deps.storage, response_handler, nonce, now)?;
+    let message = MessageQueue::start_execution(deps.storage, response_handler, nonce, height)?;
     let bridge_msg = WasmMsg::Execute {
         contract_addr: State::load(deps.storage)?.bridge_addr.into_string(),
         msg: to_json_binary(&message.payload)?,

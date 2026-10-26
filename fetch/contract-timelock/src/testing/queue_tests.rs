@@ -15,8 +15,8 @@ use crate::testing::helpers::{
     reply_contract, setup_with_roles,
 };
 
-fn now() -> u64 {
-    mock_env().block.time.seconds()
+fn height() -> u64 {
+    mock_env().block.height
 }
 
 fn query_message(deps: Deps, nonce: NonceType) -> Option<BridgeMessage> {
@@ -105,7 +105,7 @@ fn execute_with_result(
     result: SubMsgResult,
 ) {
     let execute = ExecuteMsg::Execute { nonce };
-    let mature = now() + 1_000_000;
+    let mature = height() + 1_000_000;
     execute_contract_at(deps.as_mut(), executor, execute, mature).unwrap();
     reply_contract(deps.as_mut(), nonce, result).unwrap();
 }
@@ -164,7 +164,7 @@ fn submit_queues_pending_message_with_delay() {
         );
 
         let message = query_message(deps.as_ref(), expected_nonce as NonceType).unwrap();
-        assert_eq!(message.execution_time, now() + delay);
+        assert_eq!(message.execution_height, height() + delay);
         assert_eq!(message.state, ExecutionState::Pending);
     }
     assert_eq!(query_pending(deps.as_ref(), None, None), vec![0, 1, 2]);
@@ -184,7 +184,7 @@ fn execute_dispatches_message_to_bridge() {
     let (mut deps, actors) = setup_with_roles();
     let to = deps.api.addr_make("recipient");
     execute_contract(deps.as_mut(), &actors.submitter, refund(&to)).unwrap();
-    let mature = now() + init_state(&deps.api).refund_lock_delay;
+    let mature = height() + init_state(&deps.api).refund_lock_delay;
 
     // Only the executor, only once mature
     let execute = ExecuteMsg::Execute { nonce: 0 };
@@ -216,7 +216,7 @@ fn reply_records_execution_result() {
     for id in 0..2 {
         execute_contract(deps.as_mut(), &actors.submitter, refund_id(id)).unwrap();
     }
-    let mature = now() + init_state(&deps.api).refund_lock_delay;
+    let mature = height() + init_state(&deps.api).refund_lock_delay;
 
     execute_contract_at(
         deps.as_mut(),
@@ -274,7 +274,7 @@ fn execution_is_in_order_and_skips_cancelled() {
     for id in 0..3 {
         execute_contract(deps.as_mut(), &actors.submitter, refund_id(id)).unwrap();
     }
-    let mature = now() + init_state(&deps.api).refund_lock_delay;
+    let mature = height() + init_state(&deps.api).refund_lock_delay;
     let execute = |nonce| ExecuteMsg::Execute { nonce };
 
     // Only the canceller can cancel
@@ -331,7 +331,7 @@ fn pause_blocks_submit_and_execute_but_not_cancel() {
         since_block: mock_env().block.height,
     };
     execute_contract(deps.as_mut(), &actors.admin, pause).unwrap();
-    let mature = now() + init_state(&deps.api).refund_lock_delay;
+    let mature = height() + init_state(&deps.api).refund_lock_delay;
 
     for msg in [refund_id(2), ExecuteMsg::NewRelayEon {}] {
         assert!(execute_contract(deps.as_mut(), &actors.submitter, msg).is_err());
@@ -403,7 +403,7 @@ fn submit_is_limited_by_max_pending_messages() {
     assert_eq!(query_message(deps.as_ref(), max_pending), None);
 
     // Cancelled, executed and failed messages free up space
-    let mature = now() + init_state(&deps.api).refund_lock_delay;
+    let mature = height() + init_state(&deps.api).refund_lock_delay;
     execute_contract(
         deps.as_mut(),
         &actors.canceller,

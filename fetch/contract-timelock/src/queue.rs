@@ -38,7 +38,7 @@ const RID: Map<(u64, NonceType), ()> = Map::new("rid");
 #[cw_serde]
 pub struct BridgeMessage {
     pub payload: BridgeMessagePayload,
-    pub execution_time: u64,
+    pub execution_height: u64,
     pub state: ExecutionState,
 }
 
@@ -151,7 +151,7 @@ impl MessageQueue {
         storage: &mut dyn Storage,
         response_handler: &mut ResponseHandler,
         payload: BridgeMessagePayload,
-        execution_time: u64,
+        execution_height: u64,
     ) -> StdResult<NonceType> {
         let index = payload.index();
         if let Some(index) = index {
@@ -169,7 +169,7 @@ impl MessageQueue {
 
         let message = BridgeMessage {
             payload,
-            execution_time,
+            execution_height,
             state: ExecutionState::Pending,
         };
         MESSAGE_QUEUE.update(storage, response_handler, nonce, &message)?;
@@ -250,14 +250,14 @@ impl MessageQueue {
         storage: &mut dyn Storage,
         response_handler: &mut ResponseHandler,
         nonce: NonceType,
-        now: u64,
+        height: u64,
     ) -> StdResult<BridgeMessage> {
         if Self::first_pending(storage)? != Some(nonce) {
             return Err(message_not_next_error(nonce));
         }
         let message = Self::load_pending(storage, nonce)?;
-        if now < message.execution_time {
-            return Err(message_not_mature_error(nonce, message.execution_time));
+        if height < message.execution_height {
+            return Err(message_not_mature_error(nonce, message.execution_height));
         }
 
         PENDING_MESSAGES.remove(storage, response_handler, nonce)?;
@@ -352,13 +352,13 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, MockStorage};
     use cw_fetch_std::testing::helpers::response_events;
 
-    fn push(storage: &mut dyn Storage, execution_time: u64) -> NonceType {
+    fn push(storage: &mut dyn Storage, execution_height: u64) -> NonceType {
         let payload = BridgeMessagePayload::NewRelayEon {};
         MessageQueue::push(
             storage,
             &mut ResponseHandler::default(),
             payload,
-            execution_time,
+            execution_height,
         )
         .unwrap()
     }
