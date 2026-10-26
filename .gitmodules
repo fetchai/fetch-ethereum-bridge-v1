@@ -1,3 +1,6 @@
 [submodule "ethereum/openzeppelin"]
 	path = ethereum/openzeppelin
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "fetch/contract-timelock/cw-fetch-std"]
+	path = fetch/contract-timelock/cw-fetch-std
+	url = git@github.com:fetchai/cw-fetch-std.git
